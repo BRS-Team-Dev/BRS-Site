@@ -1,0 +1,822 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Built Right Studio Client Onboarding Portal - Submit your project details, upload assets, and track your website build progress.">
+  <meta name="robots" content="noindex, nofollow">
+  <meta name="author" content="Built Right Studio">
+  
+  <!-- Favicon -->
+  <link rel="icon" type="image/x-icon" href="assets/favicon.ico">
+  
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  
+  <!-- Stylesheet -->
+  <link rel="stylesheet" href="css/styles.css">
+  
+  <title>Client Portal | Built Right Studio</title>
+  
+  <style>
+    /* Additional styles for onboarding portal */
+    .portal-sidebar {
+      position: sticky;
+      top: 120px;
+    }
+    
+    .progress-step {
+      display: flex;
+      align-items: flex-start;
+      gap: var(--space-4);
+      padding: var(--space-4) 0;
+      border-left: 2px solid var(--border-subtle);
+      padding-left: var(--space-6);
+      margin-left: var(--space-3);
+      position: relative;
+    }
+    
+    .progress-step::before {
+      content: '';
+      position: absolute;
+      left: -7px;
+      top: var(--space-4);
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: var(--color-deep-slate);
+      border: 2px solid var(--border-subtle);
+    }
+    
+    .progress-step.completed::before {
+      background: var(--color-soft-gold);
+      border-color: var(--color-soft-gold);
+    }
+    
+    .progress-step.active {
+      border-left-color: var(--color-soft-gold);
+    }
+    
+    .progress-step.active::before {
+      background: var(--color-charcoal-black);
+      border-color: var(--color-soft-gold);
+      box-shadow: 0 0 0 4px rgba(212, 175, 55, 0.2);
+    }
+    
+    .upload-zone {
+      border: 2px dashed var(--border-default);
+      border-radius: var(--radius-lg);
+      padding: var(--space-10);
+      text-align: center;
+      transition: all var(--transition-base);
+      cursor: pointer;
+    }
+    
+    .upload-zone:hover,
+    .upload-zone.dragover {
+      border-color: var(--color-soft-gold);
+      background: rgba(212, 175, 55, 0.05);
+    }
+    
+    .file-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: var(--space-4);
+      background: var(--color-charcoal-black);
+      border-radius: var(--radius-md);
+      margin-top: var(--space-3);
+    }
+    
+    .tab-nav {
+      display: flex;
+      gap: var(--space-2);
+      border-bottom: 1px solid var(--border-subtle);
+      margin-bottom: var(--space-8);
+    }
+    
+    .tab-btn {
+      padding: var(--space-4) var(--space-6);
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      font-family: var(--font-body);
+      font-size: var(--text-sm);
+      cursor: pointer;
+      position: relative;
+      transition: color var(--transition-base);
+    }
+    
+    .tab-btn:hover {
+      color: var(--text-secondary);
+    }
+    
+    .tab-btn.active {
+      color: var(--color-soft-gold);
+    }
+    
+    .tab-btn.active::after {
+      content: '';
+      position: absolute;
+      bottom: -1px;
+      left: 0;
+      right: 0;
+      height: 2px;
+      background: var(--color-soft-gold);
+    }
+    
+    .tab-content {
+      display: none;
+    }
+    
+    .tab-content.active {
+      display: block;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ============================================
+       HEADER / NAVIGATION (Simplified for Portal)
+       ============================================ -->
+  <header class="header" style="position: relative;">
+    <div class="header-inner">
+      <!-- Logo -->
+      <a href="index.html" class="logo">
+        <img src="assets/images/logo.svg" alt="Built Right Studio">
+      </a>
+      
+      <!-- Portal Badge -->
+      <div style="display: flex; align-items: center; gap: var(--space-4);">
+        <span class="badge badge-gold">Client Portal</span>
+        <a href="contact.html" class="btn btn-ghost btn-sm">Need Help?</a>
+      </div>
+    </div>
+  </header>
+
+  <!-- ============================================
+       MAIN CONTENT
+       ============================================ -->
+  <main style="padding-top: var(--space-8);">
+
+    <!-- ============================================
+         PORTAL HERO
+         ============================================ -->
+    <section class="section section-dark" style="padding-top: var(--space-12); padding-bottom: var(--space-12);">
+      <div class="container">
+        <div class="grid grid-cols-3 gap-12">
+          <!-- Welcome Message -->
+          <div style="grid-column: span 2;">
+            <div class="reveal">
+              <span class="overline">Welcome Back</span>
+              <h1>Client <span class="text-gold">Onboarding</span></h1>
+              <p class="lead">Complete the steps below to help us build your perfect website. The more detail you provide, the faster we can deliver.</p>
+            </div>
+          </div>
+          
+          <!-- Quick Stats -->
+          <div class="reveal" style="animation-delay: 200ms;">
+            <div class="card card-gold" style="padding: var(--space-6);">
+              <h5 style="margin-bottom: var(--space-4);">Project Status</h5>
+              <div style="display: flex; align-items: center; gap: var(--space-3); margin-bottom: var(--space-4);">
+                <div style="width: 12px; height: 12px; background: var(--color-soft-gold); border-radius: 50%; animation: pulse 2s infinite;"></div>
+                <span class="text-gold">In Progress</span>
+              </div>
+              <div class="text-muted text-sm">Est. Delivery: 48-72 hours</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================
+         MAIN PORTAL CONTENT
+         ============================================ -->
+    <section class="section section-slate">
+      <div class="container">
+        <div class="grid" style="grid-template-columns: 280px 1fr; gap: var(--space-12);">
+          
+          <!-- ============================================
+               SIDEBAR - Progress Tracker
+               ============================================ -->
+          <aside class="portal-sidebar reveal">
+            <div class="card" style="padding: var(--space-6);">
+              <h5 style="margin-bottom: var(--space-6);">Onboarding Progress</h5>
+              
+              <!-- Progress Steps -->
+              <div class="progress-steps">
+                <div class="progress-step completed">
+                  <div>
+                    <div class="text-white text-sm font-medium">Deposit Paid</div>
+                    <div class="text-muted text-xs">Completed</div>
+                  </div>
+                </div>
+                
+                <div class="progress-step active">
+                  <div>
+                    <div class="text-gold text-sm font-medium">Project Details</div>
+                    <div class="text-muted text-xs">In progress</div>
+                  </div>
+                </div>
+                
+                <div class="progress-step">
+                  <div>
+                    <div class="text-secondary text-sm">Brand Assets</div>
+                    <div class="text-muted text-xs">Pending</div>
+                  </div>
+                </div>
+                
+                <div class="progress-step">
+                  <div>
+                    <div class="text-secondary text-sm">Content Upload</div>
+                    <div class="text-muted text-xs">Pending</div>
+                  </div>
+                </div>
+                
+                <div class="progress-step">
+                  <div>
+                    <div class="text-secondary text-sm">Review & Approve</div>
+                    <div class="text-muted text-xs">Pending</div>
+                  </div>
+                </div>
+                
+                <div class="progress-step" style="border-left-color: transparent;">
+                  <div>
+                    <div class="text-secondary text-sm">Launch!</div>
+                    <div class="text-muted text-xs">Pending</div>
+                  </div>
+                </div>
+              </div>
+              
+              <!-- Progress Bar -->
+              <div style="margin-top: var(--space-6); padding-top: var(--space-6); border-top: 1px solid var(--border-subtle);">
+                <div style="display: flex; justify-content: space-between; margin-bottom: var(--space-2);">
+                  <span class="text-muted text-sm">Overall Progress</span>
+                  <span class="text-gold text-sm">25%</span>
+                </div>
+                <div style="height: 6px; background: var(--color-charcoal-black); border-radius: var(--radius-full); overflow: hidden;">
+                  <div style="width: 25%; height: 100%; background: var(--color-soft-gold); border-radius: var(--radius-full);"></div>
+                </div>
+              </div>
+            </div>
+            
+            <!-- Support Card -->
+            <div class="card" style="padding: var(--space-6); margin-top: var(--space-6);">
+              <h6 style="margin-bottom: var(--space-3);">Need Help?</h6>
+              <p class="text-muted text-sm" style="margin-bottom: var(--space-4);">Questions about the onboarding process? We're here to help.</p>
+              <a href="mailto:hello@builtrightstudio.com" class="btn btn-outline btn-sm btn-block">Contact Support</a>
+            </div>
+          </aside>
+
+          <!-- ============================================
+               MAIN CONTENT AREA
+               ============================================ -->
+          <div class="reveal" style="animation-delay: 100ms;">
+            
+            <!-- Tab Navigation -->
+            <div class="tab-nav">
+              <button class="tab-btn active" data-tab="details">Project Details</button>
+              <button class="tab-btn" data-tab="brand">Brand Assets</button>
+              <button class="tab-btn" data-tab="content">Content</button>
+              <button class="tab-btn" data-tab="preferences">Preferences</button>
+            </div>
+
+            <!-- ============================================
+                 TAB 1: Project Details
+                 ============================================ -->
+            <div class="tab-content active" id="tab-details">
+              <div class="card" style="padding: var(--space-8);">
+                <h4 style="margin-bottom: var(--space-2);">Project Details</h4>
+                <p class="text-muted" style="margin-bottom: var(--space-8);">Tell us about your business and what you want to achieve with your new website.</p>
+                
+                <form class="onboarding-form" data-validate>
+                  <!-- Business Info -->
+                  <div style="margin-bottom: var(--space-8);">
+                    <h5 style="margin-bottom: var(--space-4); padding-bottom: var(--space-4); border-bottom: 1px solid var(--border-subtle);">Business Information</h5>
+                    
+                    <div class="grid grid-cols-2 gap-6">
+                      <div class="form-group">
+                        <label for="business-name" class="form-label">Business Name <span class="text-gold">*</span></label>
+                        <input type="text" id="business-name" name="business-name" class="form-input" placeholder="Your Business Ltd" required>
+                      </div>
+                      
+                      <div class="form-group">
+                        <label for="industry" class="form-label">Industry <span class="text-gold">*</span></label>
+                        <select id="industry" name="industry" class="form-select" required>
+                          <option value="" disabled selected>Select your industry...</option>
+                          <option value="legal">Legal / Law</option>
+                          <option value="fitness">Fitness / Health</option>
+                          <option value="realestate">Real Estate</option>
+                          <option value="restaurant">Restaurant / Food</option>
+                          <option value="coaching">Coaching / Consulting</option>
+                          <option value="agency">Agency / Creative</option>
+                          <option value="ecommerce">E-commerce / Retail</option>
+                          <option value="tech">Tech / Startup</option>
+                          <option value="other">Other</option>
+                        </select>
+                      </div>
+                    </div>
+                    
+                    <div class="form-group">
+                      <label for="business-description" class="form-label">Business Description <span class="text-gold">*</span></label>
+                      <textarea id="business-description" name="business-description" class="form-input" rows="4" placeholder="Tell us what your business does, who your customers are, and what makes you unique..." required></textarea>
+                    </div>
+                    
+                    <div class="grid grid-cols-2 gap-6">
+                      <div class="form-group">
+                        <label for="target-audience" class="form-label">Target Audience</label>
+                        <input type="text" id="target-audience" name="target-audience" class="form-input" placeholder="e.g., Small business owners, 30-50 years old">
+                      </div>
+                      
+                      <div class="form-group">
+                        <label for="competitors" class="form-label">Competitors (URLs)</label>
+                        <input type="text" id="competitors" name="competitors" class="form-input" placeholder="e.g., competitor1.com, competitor2.com">
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <!-- Website Goals -->
+                  <div style="margin-bottom: var(--space-8);">
+                    <h5 style="margin-bottom: var(--space-4); padding-bottom: var(--space-4); border-bottom: 1px solid var(--border-subtle);">Website Goals</h5>
+                    
+                    <div class="form-group">
+                      <label class="form-label">Primary Goal <span class="text-gold">*</span></label>
+                      <div style="display: flex; flex-wrap: wrap; gap: var(--space-3); margin-top: var(--space-2);">
+                        <label style="display: flex; align-items: center; gap: var(--space-2); cursor: pointer; padding: var(--space-3) var(--space-4); background: var(--color-charcoal-black); border-radius: var(--radius-md); border: 1px solid var(--border-subtle);">
+                          <input type="radio" name="primary-goal" value="leads" style="accent-color: var(--color-soft-gold);">
+                          <span class="text-sm">Generate Leads</span>
+                        </label>
+                        <label style="display: flex; align-items: center; gap: var(--space-2); cursor: pointer; padding: var(--space-3) var(--space-4); background: var(--color-charcoal-black); border-radius: var(--radius-md); border: 1px solid var(--border-subtle);">
+                          <input type="radio" name="primary-goal" value="bookings" style="accent-color: var(--color-soft-gold);">
+                          <span class="text-sm">Get Bookings</span>
+                        </label>
+                        <label style="display: flex; align-items: center; gap: var(--space-2); cursor: pointer; padding: var(--space-3) var(--space-4); background: var(--color-charcoal-black); border-radius: var(--radius-md); border: 1px solid var(--border-subtle);">
+                          <input type="radio" name="primary-goal" value="sales" style="accent-color: var(--color-soft-gold);">
+                          <span class="text-sm">Sell Products</span>
+                        </label>
+                        <label style="display: flex; align-items: center; gap: var(--space-2); cursor: pointer; padding: var(--space-3) var(--space-4); background: var(--color-charcoal-black); border-radius: var(--radius-md); border: 1px solid var(--border-subtle);">
+                          <input type="radio" name="primary-goal" value="credibility" style="accent-color: var(--color-soft-gold);">
+                          <span class="text-sm">Build Credibility</span>
+                        </label>
+                        <label style="display: flex; align-items: center; gap: var(--space-2); cursor: pointer; padding: var(--space-3) var(--space-4); background: var(--color-charcoal-black); border-radius: var(--radius-md); border: 1px solid var(--border-subtle);">
+                          <input type="radio" name="primary-goal" value="information" style="accent-color: var(--color-soft-gold);">
+                          <span class="text-sm">Share Information</span>
+                        </label>
+                      </div>
+                    </div>
+                    
+                    <div class="form-group">
+                      <label for="pages-needed" class="form-label">Pages Needed</label>
+                      <textarea id="pages-needed" name="pages-needed" class="form-input" rows="3" placeholder="e.g., Home, About, Services, Portfolio, Contact, Blog..."></textarea>
+                      <div class="form-hint">List all the pages you want on your website</div>
+                    </div>
+                    
+                    <div class="form-group">
+                      <label for="special-features" class="form-label">Special Features or Integrations</label>
+                      <textarea id="special-features" name="special-features" class="form-input" rows="3" placeholder="e.g., Booking calendar, contact form, newsletter signup, social media feeds, payment processing..."></textarea>
+                    </div>
+                  </div>
+                  
+                  <!-- Save Button -->
+                  <div style="display: flex; justify-content: space-between; align-items: center; padding-top: var(--space-6); border-top: 1px solid var(--border-subtle);">
+                    <span class="text-muted text-sm">All fields are saved automatically</span>
+                    <button type="submit" class="btn btn-primary">Save & Continue</button>
+                  </div>
+                </form>
+              </div>
+            </div>
+
+            <!-- ============================================
+                 TAB 2: Brand Assets
+                 ============================================ -->
+            <div class="tab-content" id="tab-brand">
+              <div class="card" style="padding: var(--space-8);">
+                <h4 style="margin-bottom: var(--space-2);">Brand Assets</h4>
+                <p class="text-muted" style="margin-bottom: var(--space-8);">Upload your logo, brand guidelines, and any visual assets you'd like us to use.</p>
+                
+                <!-- Logo Upload -->
+                <div style="margin-bottom: var(--space-8);">
+                  <h5 style="margin-bottom: var(--space-4); padding-bottom: var(--space-4); border-bottom: 1px solid var(--border-subtle);">Logo</h5>
+                  
+                  <div class="upload-zone" id="logo-upload">
+                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--color-soft-gold)" stroke-width="1" style="margin-bottom: var(--space-4);">
+                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                      <polyline points="17 8 12 3 7 8"></polyline>
+                      <line x1="12" y1="3" x2="12" y2="15"></line>
+                    </svg>
+                    <p class="text-secondary" style="margin-bottom: var(--space-2);">Drag & drop your logo here, or click to browse</p>
+                    <p class="text-muted text-sm">PNG, SVG, or AI format preferred. Max 10MB.</p>
+                    <input type="file" id="logo-file" accept=".png,.svg,.ai,.eps,.pdf" style="display: none;">
+                  </div>
+                  
+                  <div id="logo-files" style="margin-top: var(--space-4);">
+                    <!-- Uploaded files will appear here -->
+                  </div>
+                  
+                  <div class="form-group" style="margin-top: var(--space-4);">
+                    <label style="display: flex; align-items: center; gap: var(--space-2); cursor: pointer;">
+                      <input type="checkbox" name="need-logo" style="accent-color: var(--color-soft-gold);">
+                      <span class="text-secondary text-sm">I don't have a logo — please create one for me</span>
+                    </label>
+                  </div>
+                </div>
+                
+                <!-- Brand Colors -->
+                <div style="margin-bottom: var(--space-8);">
+                  <h5 style="margin-bottom: var(--space-4); padding-bottom: var(--space-4); border-bottom: 1px solid var(--border-subtle);">Brand Colours</h5>
+                  
+                  <div class="grid grid-cols-3 gap-6">
+                    <div class="form-group">
+                      <label for="primary-color" class="form-label">Primary Colour</label>
+                      <div style="display: flex; gap: var(--space-2);">
+                        <input type="color" id="primary-color" name="primary-color" value="#D4AF37" style="width: 50px; height: 42px; border: none; border-radius: var(--radius-md); cursor: pointer;">
+                        <input type="text" class="form-input" placeholder="#D4AF37" style="flex: 1;">
+                      </div>
+                    </div>
+                    
+                    <div class="form-group">
+                      <label for="secondary-color" class="form-label">Secondary Colour</label>
+                      <div style="display: flex; gap: var(--space-2);">
+                        <input type="color" id="secondary-color" name="secondary-color" value="#1F1F1F" style="width: 50px; height: 42px; border: none; border-radius: var(--radius-md); cursor: pointer;">
+                        <input type="text" class="form-input" placeholder="#1F1F1F" style="flex: 1;">
+                      </div>
+                    </div>
+                    
+                    <div class="form-group">
+                      <label for="accent-color" class="form-label">Accent Colour</label>
+                      <div style="display: flex; gap: var(--space-2);">
+                        <input type="color" id="accent-color" name="accent-color" value="#F2F2F2" style="width: 50px; height: 42px; border: none; border-radius: var(--radius-md); cursor: pointer;">
+                        <input type="text" class="form-input" placeholder="#F2F2F2" style="flex: 1;">
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div class="form-group" style="margin-top: var(--space-4);">
+                    <label style="display: flex; align-items: center; gap: var(--space-2); cursor: pointer;">
+                      <input type="checkbox" name="no-colors" style="accent-color: var(--color-soft-gold);">
+                      <span class="text-secondary text-sm">I don't have brand colours — please suggest a palette</span>
+                    </label>
+                  </div>
+                </div>
+                
+                <!-- Brand Guidelines -->
+                <div style="margin-bottom: var(--space-8);">
+                  <h5 style="margin-bottom: var(--space-4); padding-bottom: var(--space-4); border-bottom: 1px solid var(--border-subtle);">Brand Guidelines (Optional)</h5>
+                  
+                  <div class="upload-zone" id="guidelines-upload">
+                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--color-soft-gold)" stroke-width="1" style="margin-bottom: var(--space-4);">
+                      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                      <polyline points="14 2 14 8 20 8"></polyline>
+                    </svg>
+                    <p class="text-secondary" style="margin-bottom: var(--space-2);">Upload brand guidelines or style guide</p>
+                    <p class="text-muted text-sm">PDF format preferred. Max 25MB.</p>
+                    <input type="file" id="guidelines-file" accept=".pdf,.doc,.docx" style="display: none;">
+                  </div>
+                </div>
+                
+                <!-- Save Button -->
+                <div style="display: flex; justify-content: space-between; align-items: center; padding-top: var(--space-6); border-top: 1px solid var(--border-subtle);">
+                  <span class="text-muted text-sm">All files are saved automatically</span>
+                  <button type="button" class="btn btn-primary">Save & Continue</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- ============================================
+                 TAB 3: Content
+                 ============================================ -->
+            <div class="tab-content" id="tab-content">
+              <div class="card" style="padding: var(--space-8);">
+                <h4 style="margin-bottom: var(--space-2);">Content Upload</h4>
+                <p class="text-muted" style="margin-bottom: var(--space-8);">Provide the text content and images for your website pages.</p>
+                
+                <!-- Text Content -->
+                <div style="margin-bottom: var(--space-8);">
+                  <h5 style="margin-bottom: var(--space-4); padding-bottom: var(--space-4); border-bottom: 1px solid var(--border-subtle);">Text Content</h5>
+                  
+                  <div class="form-group">
+                    <label for="homepage-content" class="form-label">Homepage Content</label>
+                    <textarea id="homepage-content" name="homepage-content" class="form-input" rows="5" placeholder="Main headline, subheadline, key messages for your homepage..."></textarea>
+                    <div class="form-hint">Include your main headline, value proposition, and key messages</div>
+                  </div>
+                  
+                  <div class="form-group">
+                    <label for="about-content" class="form-label">About Page Content</label>
+                    <textarea id="about-content" name="about-content" class="form-input" rows="5" placeholder="Your story, mission, team information..."></textarea>
+                  </div>
+                  
+                  <div class="form-group">
+                    <label for="services-content" class="form-label">Services / Products Content</label>
+                    <textarea id="services-content" name="services-content" class="form-input" rows="5" placeholder="List and describe your services or products..."></textarea>
+                  </div>
+                  
+                  <div class="upload-zone" id="content-upload" style="margin-top: var(--space-4);">
+                    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--color-soft-gold)" stroke-width="1" style="margin-bottom: var(--space-3);">
+                      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                      <polyline points="14 2 14 8 20 8"></polyline>
+                    </svg>
+                    <p class="text-secondary text-sm" style="margin-bottom: var(--space-1);">Or upload a document with all your content</p>
+                    <p class="text-muted text-xs">Word, PDF, or Google Doc link</p>
+                    <input type="file" id="content-file" accept=".doc,.docx,.pdf,.txt" style="display: none;">
+                  </div>
+                </div>
+                
+                <!-- Images -->
+                <div style="margin-bottom: var(--space-8);">
+                  <h5 style="margin-bottom: var(--space-4); padding-bottom: var(--space-4); border-bottom: 1px solid var(--border-subtle);">Images & Photos</h5>
+                  
+                  <div class="upload-zone" id="images-upload">
+                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--color-soft-gold)" stroke-width="1" style="margin-bottom: var(--space-4);">
+                      <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                      <circle cx="8.5" cy="8.5" r="1.5"></circle>
+                      <polyline points="21 15 16 10 5 21"></polyline>
+                    </svg>
+                    <p class="text-secondary" style="margin-bottom: var(--space-2);">Drag & drop images here, or click to browse</p>
+                    <p class="text-muted text-sm">JPG, PNG, or WebP. Max 10MB per file.</p>
+                    <input type="file" id="images-file" accept=".jpg,.jpeg,.png,.webp" multiple style="display: none;">
+                  </div>
+                  
+                  <div id="uploaded-images" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--space-3); margin-top: var(--space-4);">
+                    <!-- Uploaded images will appear here -->
+                  </div>
+                  
+                  <div class="form-group" style="margin-top: var(--space-4);">
+                    <label style="display: flex; align-items: center; gap: var(--space-2); cursor: pointer;">
+                      <input type="checkbox" name="use-stock" style="accent-color: var(--color-soft-gold);">
+                      <span class="text-secondary text-sm">I don't have images — please use quality stock photos</span>
+                    </label>
+                  </div>
+                </div>
+                
+                <!-- Save Button -->
+                <div style="display: flex; justify-content: space-between; align-items: center; padding-top: var(--space-6); border-top: 1px solid var(--border-subtle);">
+                  <span class="text-muted text-sm">All files are saved automatically</span>
+                  <button type="button" class="btn btn-primary">Save & Continue</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- ============================================
+                 TAB 4: Preferences
+                 ============================================ -->
+            <div class="tab-content" id="tab-preferences">
+              <div class="card" style="padding: var(--space-8);">
+                <h4 style="margin-bottom: var(--space-2);">Design Preferences</h4>
+                <p class="text-muted" style="margin-bottom: var(--space-8);">Help us understand your style preferences and any websites you admire.</p>
+                
+                <!-- Style Preferences -->
+                <div style="margin-bottom: var(--space-8);">
+                  <h5 style="margin-bottom: var(--space-4); padding-bottom: var(--space-4); border-bottom: 1px solid var(--border-subtle);">Design Style</h5>
+                  
+                  <div class="form-group">
+                    <label class="form-label">Which style best describes what you're looking for?</label>
+                    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-4); margin-top: var(--space-3);">
+                      <label style="cursor: pointer;">
+                        <input type="radio" name="style" value="minimal" style="display: none;">
+                        <div class="card" style="padding: var(--space-4); text-align: center; border: 2px solid var(--border-subtle); transition: border-color 0.2s;">
+                          <div style="height: 60px; background: linear-gradient(135deg, #fff 0%, #f5f5f5 100%); border-radius: var(--radius-sm); margin-bottom: var(--space-3);"></div>
+                          <span class="text-sm">Minimal & Clean</span>
+                        </div>
+                      </label>
+                      <label style="cursor: pointer;">
+                        <input type="radio" name="style" value="bold" style="display: none;">
+                        <div class="card" style="padding: var(--space-4); text-align: center; border: 2px solid var(--border-subtle); transition: border-color 0.2s;">
+                          <div style="height: 60px; background: linear-gradient(135deg, #1a1a1a 0%, #333 100%); border-radius: var(--radius-sm); margin-bottom: var(--space-3);"></div>
+                          <span class="text-sm">Bold & Dark</span>
+                        </div>
+                      </label>
+                      <label style="cursor: pointer;">
+                        <input type="radio" name="style" value="elegant" style="display: none;">
+                        <div class="card" style="padding: var(--space-4); text-align: center; border: 2px solid var(--border-subtle); transition: border-color 0.2s;">
+                          <div style="height: 60px; background: linear-gradient(135deg, #D4AF37 0%, #B8860B 100%); border-radius: var(--radius-sm); margin-bottom: var(--space-3);"></div>
+                          <span class="text-sm">Elegant & Luxurious</span>
+                        </div>
+                      </label>
+                      <label style="cursor: pointer;">
+                        <input type="radio" name="style" value="playful" style="display: none;">
+                        <div class="card" style="padding: var(--space-4); text-align: center; border: 2px solid var(--border-subtle); transition: border-color 0.2s;">
+                          <div style="height: 60px; background: linear-gradient(135deg, #ff6b6b 0%, #feca57 100%); border-radius: var(--radius-sm); margin-bottom: var(--space-3);"></div>
+                          <span class="text-sm">Playful & Colourful</span>
+                        </div>
+                      </label>
+                      <label style="cursor: pointer;">
+                        <input type="radio" name="style" value="corporate" style="display: none;">
+                        <div class="card" style="padding: var(--space-4); text-align: center; border: 2px solid var(--border-subtle); transition: border-color 0.2s;">
+                          <div style="height: 60px; background: linear-gradient(135deg, #1e3a5f 0%, #2c5282 100%); border-radius: var(--radius-sm); margin-bottom: var(--space-3);"></div>
+                          <span class="text-sm">Corporate & Professional</span>
+                        </div>
+                      </label>
+                      <label style="cursor: pointer;">
+                        <input type="radio" name="style" value="creative" style="display: none;">
+                        <div class="card" style="padding: var(--space-4); text-align: center; border: 2px solid var(--border-subtle); transition: border-color 0.2s;">
+                          <div style="height: 60px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: var(--radius-sm); margin-bottom: var(--space-3);"></div>
+                          <span class="text-sm">Creative & Artistic</span>
+                        </div>
+                      </label>
+                    </div>
+                  </div>
+                </div>
+                
+                <!-- Inspiration -->
+                <div style="margin-bottom: var(--space-8);">
+                  <h5 style="margin-bottom: var(--space-4); padding-bottom: var(--space-4); border-bottom: 1px solid var(--border-subtle);">Inspiration</h5>
+                  
+                  <div class="form-group">
+                    <label for="inspiration-sites" class="form-label">Websites You Like</label>
+                    <textarea id="inspiration-sites" name="inspiration-sites" class="form-input" rows="3" placeholder="Share URLs of websites you admire (even if they're not in your industry)..."></textarea>
+                    <div class="form-hint">What do you like about each one?</div>
+                  </div>
+                  
+                  <div class="form-group">
+                    <label for="dislike" class="form-label">What to Avoid</label>
+                    <textarea id="dislike" name="dislike" class="form-input" rows="3" placeholder="Anything specific you don't want? Certain colours, styles, or elements to avoid?"></textarea>
+                  </div>
+                </div>
+                
+                <!-- Additional Notes -->
+                <div style="margin-bottom: var(--space-8);">
+                  <h5 style="margin-bottom: var(--space-4); padding-bottom: var(--space-4); border-bottom: 1px solid var(--border-subtle);">Additional Notes</h5>
+                  
+                  <div class="form-group">
+                    <label for="additional-notes" class="form-label">Anything Else We Should Know?</label>
+                    <textarea id="additional-notes" name="additional-notes" class="form-input" rows="4" placeholder="Any other details, requirements, or special requests..."></textarea>
+                  </div>
+                </div>
+                
+                <!-- Submit Button -->
+                <div style="display: flex; justify-content: space-between; align-items: center; padding-top: var(--space-6); border-top: 1px solid var(--border-subtle);">
+                  <span class="text-muted text-sm">All information is saved automatically</span>
+                  <button type="button" class="btn btn-primary btn-lg">Submit Onboarding</button>
+                </div>
+              </div>
+            </div>
+            
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================
+         HELPFUL TIPS SECTION
+         ============================================ -->
+    <section class="section section-dark">
+      <div class="container">
+        <div class="section-header reveal">
+          <span class="overline">Tips</span>
+          <h2>Helpful <span class="text-gold">Guidelines</span></h2>
+        </div>
+        
+        <div class="grid grid-cols-3 gap-8" data-stagger>
+          <div class="card reveal" style="padding: var(--space-6);">
+            <div style="width: 48px; height: 48px; background: rgba(212, 175, 55, 0.1); border-radius: var(--radius-lg); margin-bottom: var(--space-4); display: flex; align-items: center; justify-content: center;">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--color-soft-gold)" stroke-width="1.5">
+                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                <circle cx="8.5" cy="8.5" r="1.5"></circle>
+                <polyline points="21 15 16 10 5 21"></polyline>
+              </svg>
+            </div>
+            <h5 style="margin-bottom: var(--space-2);">Image Quality</h5>
+            <p class="text-muted text-sm">Use high-resolution images (at least 1920px wide). Avoid blurry or pixelated photos. We can source professional stock images if needed.</p>
+          </div>
+          
+          <div class="card reveal" style="padding: var(--space-6);">
+            <div style="width: 48px; height: 48px; background: rgba(212, 175, 55, 0.1); border-radius: var(--radius-lg); margin-bottom: var(--space-4); display: flex; align-items: center; justify-content: center;">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--color-soft-gold)" stroke-width="1.5">
+                <line x1="17" y1="10" x2="3" y2="10"></line>
+                <line x1="21" y1="6" x2="3" y2="6"></line>
+                <line x1="21" y1="14" x2="3" y2="14"></line>
+                <line x1="17" y1="18" x2="3" y2="18"></line>
+              </svg>
+            </div>
+            <h5 style="margin-bottom: var(--space-2);">Content Tips</h5>
+            <p class="text-muted text-sm">Keep text concise and focused. Write for your ideal customer. Include clear calls-to-action. Proofread everything before submitting.</p>
+          </div>
+          
+          <div class="card reveal" style="padding: var(--space-6);">
+            <div style="width: 48px; height: 48px; background: rgba(212, 175, 55, 0.1); border-radius: var(--radius-lg); margin-bottom: var(--space-4); display: flex; align-items: center; justify-content: center;">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--color-soft-gold)" stroke-width="1.5">
+                <circle cx="12" cy="12" r="10"></circle>
+                <polyline points="12 6 12 12 16 14"></polyline>
+              </svg>
+            </div>
+            <h5 style="margin-bottom: var(--space-2);">Timeline</h5>
+            <p class="text-muted text-sm">The faster you complete onboarding, the sooner we can start building. Complete submissions typically get priority in our queue.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ============================================
+       FOOTER (Simplified)
+       ============================================ -->
+  <footer class="footer" style="padding: var(--space-8) 0;">
+    <div class="container">
+      <div style="display: flex; justify-content: space-between; align-items: center;">
+        <p class="text-muted text-sm">© 2025 Built Right Studio. All rights reserved.</p>
+        <div style="display: flex; gap: var(--space-6);">
+          <a href="contact.html" class="text-muted text-sm" style="text-decoration: none;">Need Help?</a>
+          <a href="mailto:hello@builtrightstudio.com" class="text-muted text-sm" style="text-decoration: none;">hello@builtrightstudio.com</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+  <!-- JavaScript -->
+  <script src="js/main.js"></script>
+  
+  <!-- Portal-specific JavaScript -->
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      // Tab functionality
+      const tabBtns = document.querySelectorAll('.tab-btn');
+      const tabContents = document.querySelectorAll('.tab-content');
+      
+      tabBtns.forEach(btn => {
+        btn.addEventListener('click', function() {
+          const tabId = this.getAttribute('data-tab');
+          
+          // Update active states
+          tabBtns.forEach(b => b.classList.remove('active'));
+          tabContents.forEach(c => c.classList.remove('active'));
+          
+          this.classList.add('active');
+          document.getElementById('tab-' + tabId).classList.add('active');
+        });
+      });
+      
+      // File upload zones
+      const uploadZones = document.querySelectorAll('.upload-zone');
+      
+      uploadZones.forEach(zone => {
+        const input = zone.querySelector('input[type="file"]');
+        
+        zone.addEventListener('click', () => input.click());
+        
+        zone.addEventListener('dragover', (e) => {
+          e.preventDefault();
+          zone.classList.add('dragover');
+        });
+        
+        zone.addEventListener('dragleave', () => {
+          zone.classList.remove('dragover');
+        });
+        
+        zone.addEventListener('drop', (e) => {
+          e.preventDefault();
+          zone.classList.remove('dragover');
+          const files = e.dataTransfer.files;
+          handleFiles(files, zone);
+        });
+        
+        input.addEventListener('change', (e) => {
+          handleFiles(e.target.files, zone);
+        });
+      });
+      
+      function handleFiles(files, zone) {
+        // Simple file display
+        const container = zone.nextElementSibling;
+        if (container && container.id) {
+          Array.from(files).forEach(file => {
+            const fileItem = document.createElement('div');
+            fileItem.className = 'file-item';
+            fileItem.innerHTML = `
+              <div style="display: flex; align-items: center; gap: var(--space-3);">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--color-soft-gold)" stroke-width="1.5">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                  <polyline points="14 2 14 8 20 8"></polyline>
+                </svg>
+                <span class="text-sm text-secondary">${file.name}</span>
+              </div>
+              <button class="btn btn-ghost btn-sm" onclick="this.parentElement.remove()">Remove</button>
+            `;
+            container.appendChild(fileItem);
+          });
+        }
+        
+        // Show success message
+        zone.style.borderColor = 'var(--color-soft-gold)';
+        setTimeout(() => {
+          zone.style.borderColor = '';
+        }, 2000);
+      }
+      
+      // Style selection cards
+      const styleCards = document.querySelectorAll('input[name="style"]');
+      styleCards.forEach(radio => {
+        radio.addEventListener('change', function() {
+          document.querySelectorAll('input[name="style"]').forEach(r => {
+            r.closest('label').querySelector('.card').style.borderColor = 'var(--border-subtle)';
+          });
+          this.closest('label').querySelector('.card').style.borderColor = 'var(--color-soft-gold)';
+        });
+      });
+    });
+  </script>
+
+</body>
+</html>
