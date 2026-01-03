@@ -34,7 +34,7 @@
        ANNOUNCEMENT BAR
        ============================================ -->
   <div class="announcement-bar">
-    <span>🚀 <strong>24–72 Hour Website Delivery</strong> — Fast, Modern, Affordable. <a href="pricing.html">View Pricing</a></span>
+    <span><strong>24–72 Hour Website Delivery</strong> — Fast, Modern, Affordable. <a href="pricing.html">View Pricing</a></span>
     <button class="announcement-close" aria-label="Close announcement">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <line x1="18" y1="6" x2="6" y2="18"></line>
@@ -129,241 +129,173 @@
     </section>
 
     <!-- ============================================
-         PORTFOLIO FILTER & GRID
+         TEMPLATE LIBRARY
          ============================================ -->
-    <section id="portfolio" class="section section-white">
+    <section id="templates" class="section section-white">
       <div class="container">
-        <!-- Filter Buttons -->
-        <div class="reveal" style="margin-bottom: var(--space-10);">
-          <div style="display: flex; flex-wrap: wrap; justify-content: center; gap: var(--space-3);">
-            <button class="btn btn-ghost active" style="color: var(--color-soft-gold);" data-filter="all">All Projects</button>
-            <button class="btn btn-ghost" style="color: var(--color-soft-gold);" data-filter="law">Law Firms</button>
-            <button class="btn btn-ghost" style="color: var(--color-soft-gold);" data-filter="fitness">Fitness</button>
-            <button class="btn btn-ghost" style="color: var(--color-soft-gold);" data-filter="realestate">Real Estate</button>
-            <button class="btn btn-ghost" style="color: var(--color-soft-gold);" data-filter="agency">Agencies</button>
-            <button class="btn btn-ghost" style="color: var(--color-soft-gold);" data-filter="startup">Startups</button>
-            <button class="btn btn-ghost" style="color: var(--color-soft-gold);" data-filter="restaurant">Restaurants</button>
-            <button class="btn btn-ghost" style="color: var(--color-soft-gold);" data-filter="coach">Coaches</button>
-          </div>
+        <!-- Section Header -->
+        <div class="section-header section-header2 reveal">
+          <span class="overline">Ready-Made</span>
+          <h2 class="text-dark">Template <span class="text-gold">Library</span></h2>
+          <p>Pre-designed templates optimised for your industry. Customise and launch in days, not weeks.</p>
         </div>
         
-        <!-- Portfolio Grid -->
-        <div class="grid grid-cols-3 gap-8" data-stagger id="portfolio-grid">
+        <!-- Templates Grid -->
+        <div class="grid grid-cols-4 gap-6" data-stagger>
           
-          <!-- Project 1 - Law Firm -->
-          <div class="card card-image reveal" data-category="law">
-            <div style="position: relative; overflow: hidden; border-radius: var(--radius-lg) var(--radius-lg) 0 0;">
-              <div style="height: 220px; background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f0f23 100%); display: flex; align-items: center; justify-content: center; position: relative;">
-                <div style="text-align: center;">
-                  <div style="font-family: var(--font-heading); font-size: var(--text-2xl); color: var(--color-soft-gold); margin-bottom: var(--space-2);">M&A</div>
-                  <div style="font-size: var(--text-xs); color: var(--text-muted); letter-spacing: 0.2em; text-transform: uppercase;">Legal Partners</div>
-                </div>
-                <!-- Overlay on hover -->
-                <div style="position: absolute; inset: 0; background: rgba(212, 175, 55, 0.9); display: flex; align-items: center; justify-content: center; opacity: 0; transition: opacity 0.3s ease;" class="portfolio-overlay">
-                  <a href="#" class="btn btn-dark btn-sm">View Project</a>
-                </div>
-              </div>
-            </div>
-            <div class="card-content">
-              <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: var(--space-3);">
-                <span class="badge badge-gold">Law Firm</span>
-                <span class="text-muted text-sm">36h delivery</span>
-              </div>
-              <h4 class="card-title">Mitchell & Associates</h4>
-              <p class="text-sm text-secondary">Complete rebrand and website for a London-based law firm. Professional, trustworthy design.</p>
-            </div>
-          </div>
-          
-          <!-- Project 2 - Fitness -->
-          <div class="card card-image reveal" data-category="fitness">
-            <div style="position: relative; overflow: hidden; border-radius: var(--radius-lg) var(--radius-lg) 0 0;">
-              <div style="height: 220px; background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 50%, #0a0a0a 100%); display: flex; align-items: center; justify-content: center; position: relative;">
-                <div style="text-align: center;">
-                  <div style="font-family: var(--font-body); font-size: var(--text-2xl); font-weight: var(--font-bold); color: var(--color-off-white); margin-bottom: var(--space-2);">PEAK</div>
-                  <div style="font-size: var(--text-xs); color: var(--color-soft-gold); letter-spacing: 0.15em; text-transform: uppercase;">Performance Gym</div>
-                </div>
-                <div style="position: absolute; inset: 0; background: rgba(212, 175, 55, 0.9); display: flex; align-items: center; justify-content: center; opacity: 0; transition: opacity 0.3s ease;" class="portfolio-overlay">
-                  <a href="#" class="btn btn-dark btn-sm">View Project</a>
-                </div>
-              </div>
-            </div>
-            <div class="card-content">
-              <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: var(--space-3);">
-                <span class="badge badge-gold">Fitness</span>
-                <span class="text-muted text-sm">48h delivery</span>
-              </div>
-              <h4 class="card-title">Peak Performance Gym</h4>
-              <p class="text-sm text-secondary">Bold, energetic website with class booking integration. Memberships increased 40%.</p>
-            </div>
-          </div>
-          
-          <!-- Project 3 - Real Estate -->
-          <div class="card card-image reveal" data-category="realestate">
-            <div style="position: relative; overflow: hidden; border-radius: var(--radius-lg) var(--radius-lg) 0 0;">
-              <div style="height: 220px; background: linear-gradient(135deg, #1f2937 0%, #111827 50%, #0d1117 100%); display: flex; align-items: center; justify-content: center; position: relative;">
-                <div style="text-align: center;">
-                  <div style="font-family: var(--font-heading); font-size: var(--text-xl); color: var(--color-off-white); margin-bottom: var(--space-2);">Urban Living</div>
-                  <div style="font-size: var(--text-xs); color: var(--color-soft-gold); letter-spacing: 0.1em; text-transform: uppercase;">Properties</div>
-                </div>
-                <div style="position: absolute; inset: 0; background: rgba(212, 175, 55, 0.9); display: flex; align-items: center; justify-content: center; opacity: 0; transition: opacity 0.3s ease;" class="portfolio-overlay">
-                  <a href="#" class="btn btn-dark btn-sm">View Project</a>
-                </div>
-              </div>
-            </div>
-            <div class="card-content">
-              <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: var(--space-3);">
-                <span class="badge badge-gold">Real Estate</span>
-                <span class="text-muted text-sm">72h delivery</span>
-              </div>
-              <h4 class="card-title">Urban Living Properties</h4>
-              <p class="text-sm text-secondary">Luxury property listings with virtual tour integration. Elegant, high-end design.</p>
-            </div>
-          </div>
-          
-          <!-- Project 4 - Startup -->
-          <div class="card card-image reveal" data-category="startup">
-            <div style="position: relative; overflow: hidden; border-radius: var(--radius-lg) var(--radius-lg) 0 0;">
-              <div style="height: 220px; background: linear-gradient(135deg, #0c0a09 0%, #1c1917 50%, #0a0908 100%); display: flex; align-items: center; justify-content: center; position: relative;">
-                <div style="text-align: center;">
-                  <div style="font-family: var(--font-body); font-size: var(--text-2xl); font-weight: var(--font-semibold); color: var(--color-soft-gold); margin-bottom: var(--space-2);">TechFlow</div>
-                  <div style="font-size: var(--text-xs); color: var(--text-muted); letter-spacing: 0.1em; text-transform: uppercase;">Solutions</div>
-                </div>
-                <div style="position: absolute; inset: 0; background: rgba(212, 175, 55, 0.9); display: flex; align-items: center; justify-content: center; opacity: 0; transition: opacity 0.3s ease;" class="portfolio-overlay">
-                  <a href="#" class="btn btn-dark btn-sm">View Project</a>
-                </div>
-              </div>
-            </div>
-            <div class="card-content">
-              <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: var(--space-3);">
-                <span class="badge badge-gold">Startup</span>
-                <span class="text-muted text-sm">24h delivery</span>
-              </div>
-              <h4 class="card-title">TechFlow Solutions</h4>
-              <p class="text-sm text-secondary">SaaS landing page with animated features. Investor-ready, conversion-focused design.</p>
-            </div>
-          </div>
-          
-          <!-- Project 5 - Agency -->
-          <div class="card card-image reveal" data-category="agency">
-            <div style="position: relative; overflow: hidden; border-radius: var(--radius-lg) var(--radius-lg) 0 0;">
-              <div style="height: 220px; background: linear-gradient(135deg, #0f0f0f 0%, #1a1a1a 50%, #050505 100%); display: flex; align-items: center; justify-content: center; position: relative;">
-                <div style="text-align: center;">
-                  <div style="font-family: var(--font-heading); font-size: var(--text-2xl); font-style: italic; color: var(--color-off-white); margin-bottom: var(--space-2);">Créative</div>
-                  <div style="font-size: var(--text-xs); color: var(--color-soft-gold); letter-spacing: 0.2em; text-transform: uppercase;">Studio</div>
-                </div>
-                <div style="position: absolute; inset: 0; background: rgba(212, 175, 55, 0.9); display: flex; align-items: center; justify-content: center; opacity: 0; transition: opacity 0.3s ease;" class="portfolio-overlay">
-                  <a href="#" class="btn btn-dark btn-sm">View Project</a>
-                </div>
-              </div>
-            </div>
-            <div class="card-content">
-              <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: var(--space-3);">
+          <!-- Template 1 -->
+          <div class="card reveal" style="padding: 0; overflow: hidden;">
+            <div style="height: 180px; background: url('assets/Screenshots/1.png') bottom / contain no-repeat; position: relative;">
+              <div style="position: absolute; top: var(--space-3); right: var(--space-3);">
                 <span class="badge badge-gold">Agency</span>
-                <span class="text-muted text-sm">48h delivery</span>
               </div>
-              <h4 class="card-title">Créative Studio</h4>
-              <p class="text-sm text-secondary">Portfolio-focused design agency website. Minimal, artistic, and highly visual.</p>
+              <div style="position: absolute; bottom: var(--space-4); left: var(--space-4);">
+                <!-- <div style="font-family: var(--font-heading); font-style: italic; color: var(--color-off-white); font-size: var(--text-lg);">Studio</div> -->
+              </div>
+            </div>
+            <div style="padding: var(--space-5);">
+              <div style="display: flex; justify-content: space-between; align-items: center;">
+                <span class="text-gold font-semibold">£350</span>
+                <a href="contact.html" class="btn btn-outline btn-sm">Use Template</a>
+              </div>
             </div>
           </div>
           
-          <!-- Project 6 - Restaurant -->
-          <div class="card card-image reveal" data-category="restaurant">
-            <div style="position: relative; overflow: hidden; border-radius: var(--radius-lg) var(--radius-lg) 0 0;">
-              <div style="height: 220px; background: linear-gradient(135deg, #292524 0%, #1c1917 50%, #0c0a09 100%); display: flex; align-items: center; justify-content: center; position: relative;">
-                <div style="text-align: center;">
-                  <div style="font-family: var(--font-heading); font-size: var(--text-2xl); color: var(--color-soft-gold); margin-bottom: var(--space-2);">Sapore</div>
-                  <div style="font-size: var(--text-xs); color: var(--text-muted); letter-spacing: 0.15em; text-transform: uppercase;">Italian Kitchen</div>
-                </div>
-                <div style="position: absolute; inset: 0; background: rgba(212, 175, 55, 0.9); display: flex; align-items: center; justify-content: center; opacity: 0; transition: opacity 0.3s ease;" class="portfolio-overlay">
-                  <a href="#" class="btn btn-dark btn-sm">View Project</a>
-                </div>
-              </div>
-            </div>
-            <div class="card-content">
-              <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: var(--space-3);">
-                <span class="badge badge-gold">Restaurant</span>
-                <span class="text-muted text-sm">36h delivery</span>
-              </div>
-              <h4 class="card-title">Sapore Italian Kitchen</h4>
-              <p class="text-sm text-secondary">Appetising restaurant website with online menu and reservation system.</p>
-            </div>
-          </div>
-          
-          <!-- Project 7 - Coach -->
-          <div class="card card-image reveal" data-category="coach">
-            <div style="position: relative; overflow: hidden; border-radius: var(--radius-lg) var(--radius-lg) 0 0;">
-              <div style="height: 220px; background: linear-gradient(135deg, #1e293b 0%, #0f172a 50%, #020617 100%); display: flex; align-items: center; justify-content: center; position: relative;">
-                <div style="text-align: center;">
-                  <div style="font-family: var(--font-heading); font-size: var(--text-xl); color: var(--color-off-white); margin-bottom: var(--space-2);">Sarah Chen</div>
-                  <div style="font-size: var(--text-xs); color: var(--color-soft-gold); letter-spacing: 0.1em; text-transform: uppercase;">Life Coach</div>
-                </div>
-                <div style="position: absolute; inset: 0; background: rgba(212, 175, 55, 0.9); display: flex; align-items: center; justify-content: center; opacity: 0; transition: opacity 0.3s ease;" class="portfolio-overlay">
-                  <a href="#" class="btn btn-dark btn-sm">View Project</a>
-                </div>
-              </div>
-            </div>
-            <div class="card-content">
-              <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: var(--space-3);">
-                <span class="badge badge-gold">Coach</span>
-                <span class="text-muted text-sm">24h delivery</span>
-              </div>
-              <h4 class="card-title">Sarah Chen Coaching</h4>
-              <p class="text-sm text-secondary">Personal brand website with booking integration. Inspiring, conversion-focused.</p>
-            </div>
-          </div>
-          
-          <!-- Project 8 - Law Firm 2 -->
-          <div class="card card-image reveal" data-category="law">
-            <div style="position: relative; overflow: hidden; border-radius: var(--radius-lg) var(--radius-lg) 0 0;">
-              <div style="height: 220px; background: linear-gradient(135deg, #14213d 0%, #1d3557 50%, #0a1628 100%); display: flex; align-items: center; justify-content: center; position: relative;">
-                <div style="text-align: center;">
-                  <div style="font-family: var(--font-heading); font-size: var(--text-xl); color: var(--color-off-white); margin-bottom: var(--space-2);">Parker & Reid</div>
-                  <div style="font-size: var(--text-xs); color: var(--color-soft-gold); letter-spacing: 0.1em; text-transform: uppercase;">Solicitors</div>
-                </div>
-                <div style="position: absolute; inset: 0; background: rgba(212, 175, 55, 0.9); display: flex; align-items: center; justify-content: center; opacity: 0; transition: opacity 0.3s ease;" class="portfolio-overlay">
-                  <a href="#" class="btn btn-dark btn-sm">View Project</a>
-                </div>
-              </div>
-            </div>
-            <div class="card-content">
-              <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: var(--space-3);">
-                <span class="badge badge-gold">Law Firm</span>
-                <span class="text-muted text-sm">48h delivery</span>
-              </div>
-              <h4 class="card-title">Parker & Reid Solicitors</h4>
-              <p class="text-sm text-secondary">Corporate law firm website with practice area pages and contact forms.</p>
-            </div>
-          </div>
-          
-          <!-- Project 9 - Fitness 2 -->
-          <div class="card card-image reveal" data-category="fitness">
-            <div style="position: relative; overflow: hidden; border-radius: var(--radius-lg) var(--radius-lg) 0 0;">
-              <div style="height: 220px; background: linear-gradient(135deg, #18181b 0%, #27272a 50%, #09090b 100%); display: flex; align-items: center; justify-content: center; position: relative;">
-                <div style="text-align: center;">
-                  <div style="font-family: var(--font-body); font-size: var(--text-xl); font-weight: var(--font-bold); color: var(--color-soft-gold); margin-bottom: var(--space-2);">IRON</div>
-                  <div style="font-size: var(--text-xs); color: var(--text-muted); letter-spacing: 0.2em; text-transform: uppercase;">Athletics</div>
-                </div>
-                <div style="position: absolute; inset: 0; background: rgba(212, 175, 55, 0.9); display: flex; align-items: center; justify-content: center; opacity: 0; transition: opacity 0.3s ease;" class="portfolio-overlay">
-                  <a href="#" class="btn btn-dark btn-sm">View Project</a>
-                </div>
-              </div>
-            </div>
-            <div class="card-content">
-              <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: var(--space-3);">
+          <!-- Template 2 -->
+          <div class="card reveal" style="padding: 0; overflow: hidden;">
+            <div style="height: 180px; background: url('assets/Screenshots/5.png') bottom / contain no-repeat; position: relative;">
+              <div style="position: absolute; top: var(--space-3); right: var(--space-3);">
                 <span class="badge badge-gold">Fitness</span>
-                <span class="text-muted text-sm">36h delivery</span>
               </div>
-              <h4 class="card-title">Iron Athletics</h4>
-              <p class="text-sm text-secondary">Personal training website with program packages and testimonials section.</p>
+              <div style="position: absolute; bottom: var(--space-4); left: var(--space-4);">
+                <!-- <div style="font-family: var(--font-body); font-weight: var(--font-bold); color: var(--color-off-white); font-size: var(--text-lg);">POWER</div> -->
+              </div>
+            </div>
+            <div style="padding: var(--space-5);">
+              <div style="display: flex; justify-content: space-between; align-items: center;">
+                <span class="text-gold font-semibold">£350</span>
+                <a href="contact.html" class="btn btn-outline btn-sm">Use Template</a>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Template 3 -->
+          <div class="card reveal" style="padding: 0; overflow: hidden;">
+            <div style="height: 180px; background: url('assets/Screenshots/4.png') bottom / contain no-repeat; position: relative;">
+              <div style="position: absolute; top: var(--space-3); right: var(--space-3);">
+                <span class="badge badge-gold">Property</span>
+              </div>
+              <div style="position: absolute; bottom: var(--space-4); left: var(--space-4);">
+                <!-- <div style="font-family: var(--font-heading); color: var(--color-off-white); font-size: var(--text-lg);">Estate</div> -->
+              </div>
+            </div>
+            <div style="padding: var(--space-5);">
+              <div style="display: flex; justify-content: space-between; align-items: center;">
+                <span class="text-gold font-semibold">£400</span>
+                <a href="contact.html" class="btn btn-outline btn-sm">Use Template</a>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Template 4 -->
+          <div class="card reveal" style="padding: 0; overflow: hidden;">
+            <div style="height: 180px; background: url('assets/Screenshots/8.png') bottom / contain no-repeat; position: relative;">
+              <div style="position: absolute; top: var(--space-3); right: var(--space-3);">
+                <span class="badge badge-gold">Law</span>
+              </div>
+              <div style="position: absolute; bottom: var(--space-4); left: var(--space-4);">
+                <!-- <div style="font-family: var(--font-heading); color: var(--color-off-white); font-size: var(--text-lg);">Advocate</div> -->
+              </div>
+            </div>
+            <div style="padding: var(--space-5);">
+              <div style="display: flex; justify-content: space-between; align-items: center;">
+                <span class="text-gold font-semibold">£350</span>
+                <a href="contact.html" class="btn btn-outline btn-sm">Use Template</a>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Template 5 -->
+          <div class="card reveal" style="padding: 0; overflow: hidden;">
+            <div style="height: 180px; background: url('assets/Screenshots/2.png') bottom / contain no-repeat; position: relative;">
+              <div style="position: absolute; top: var(--space-3); right: var(--space-3);">
+                <span class="badge badge-gold">Coach</span>
+              </div>
+              <div style="position: absolute; bottom: var(--space-4); left: var(--space-4);">
+                <!-- <div style="font-family: var(--font-heading); color: var(--color-off-white); font-size: var(--text-lg);">Mentor</div> -->
+              </div>
+            </div>
+            <div style="padding: var(--space-5);">
+              <div style="display: flex; justify-content: space-between; align-items: center;">
+                <span class="text-gold font-semibold">£300</span>
+                <a href="contact.html" class="btn btn-outline btn-sm">Use Template</a>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Template 6 -->
+          <div class="card reveal" style="padding: 0; overflow: hidden;">
+            <div style="height: 180px; background: url('assets/Screenshots/0.png') bottom / contain no-repeat; position: relative;">
+              <div style="position: absolute; top: var(--space-3); right: var(--space-3);">
+                <span class="badge badge-gold">Restaurant</span>
+              </div>
+              <div style="position: absolute; bottom: var(--space-4); left: var(--space-4);">
+                <div style="font-family: var(--font-heading); color: var(--color-off-white); font-size: var(--text-lg);">Bistro</div>
+              </div>
+            </div>
+            <div style="padding: var(--space-5);">
+              <div style="display: flex; justify-content: space-between; align-items: center;">
+                <span class="text-gold font-semibold">£350</span>
+                <a href="contact.html" class="btn btn-outline btn-sm">Use Template</a>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Template 7 -->
+          <div class="card reveal" style="padding: 0; overflow: hidden;">
+            <div style="height: 180px; background: url('assets/Screenshots/3.png') bottom / contain no-repeat; position: relative;">
+              <div style="position: absolute; top: var(--space-3); right: var(--space-3);">
+                <span class="badge badge-gold">E-commerce</span>
+              </div>
+              <div style="position: absolute; bottom: var(--space-4); left: var(--space-4);">
+                <!-- <div style="font-family: var(--font-body); font-weight: var(--font-semibold); color: var(--color-off-white); font-size: var(--text-lg);">Shopfront</div> -->
+              </div>
+            </div>
+            <div style="padding: var(--space-5);">
+              <div style="display: flex; justify-content: space-between; align-items: center;">
+                <span class="text-gold font-semibold">£500</span>
+                <a href="contact.html" class="btn btn-outline btn-sm">Use Template</a>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Template 8 -->
+          <div class="card reveal" style="padding: 0; overflow: hidden;">
+            <div style="height: 180px; background: url('assets/Screenshots/7.png') bottom / contain no-repeat; position: relative;">
+              <div style="position: absolute; top: var(--space-3); right: var(--space-3);">
+                <span class="badge badge-gold">Startup</span>
+              </div>
+              <div style="position: absolute; bottom: var(--space-4); left: var(--space-4);">
+                <!-- <div style="font-family: var(--font-body); font-weight: var(--font-semibold); color: var(--color-soft-gold); font-size: var(--text-lg);">Launch</div> -->
+              </div>
+            </div>
+            <div style="padding: var(--space-5);">
+              <div style="display: flex; justify-content: space-between; align-items: center;">
+                <span class="text-gold font-semibold">£350</span>
+                <a href="contact.html" class="btn btn-outline btn-sm">Use Template</a>
+              </div>
             </div>
           </div>
           
         </div>
         
-        <!-- Load More (Optional) -->
-        <div class="text-center reveal" style="margin-top: var(--space-12);">
-          <p class="text-dark-gray2" style="margin-bottom: var(--space-4);">Showing 9 of 50+ projects</p>
-          <button class="btn btn-outline">Load More Projects</button>
+        <!-- Custom Build CTA -->
+        <div class="reveal" style="margin-top: var(--space-12);">
+          <div class="card" style="padding: var(--space-8); text-align: center; background: var(--color-charcoal-black);">
+            <h4 style="margin-bottom: var(--space-3);">Can't find the right template?</h4>
+            <p class="text-secondary" style="margin-bottom: var(--space-6);">We'll create a custom design tailored to your specific needs and brand.</p>
+            <a href="contact.html" class="btn btn-primary">Request Custom Build</a>
+          </div>
         </div>
       </div>
     </section>
@@ -530,176 +462,243 @@
     </section>
 
     <!-- ============================================
-         TEMPLATE LIBRARY
+         PORTFOLIO FILTER & GRID
          ============================================ -->
-    <section id="templates" class="section section-white">
+    <!-- <section id="portfolio" class="section section-white">
       <div class="container">
-        <!-- Section Header -->
-        <div class="section-header section-header2 reveal">
-          <span class="overline">Ready-Made</span>
-          <h2 class="text-dark">Template <span class="text-gold">Library</span></h2>
-          <p>Pre-designed templates optimised for your industry. Customise and launch in days, not weeks.</p>
+        // Filter Buttons 
+        <div class="reveal" style="margin-bottom: var(--space-10);">
+          <div style="display: flex; flex-wrap: wrap; justify-content: center; gap: var(--space-3);">
+            <button class="btn btn-ghost active" style="color: var(--color-soft-gold);" data-filter="all">All Projects</button>
+            <button class="btn btn-ghost" style="color: var(--color-soft-gold);" data-filter="law">Law Firms</button>
+            <button class="btn btn-ghost" style="color: var(--color-soft-gold);" data-filter="fitness">Fitness</button>
+            <button class="btn btn-ghost" style="color: var(--color-soft-gold);" data-filter="realestate">Real Estate</button>
+            <button class="btn btn-ghost" style="color: var(--color-soft-gold);" data-filter="agency">Agencies</button>
+            <button class="btn btn-ghost" style="color: var(--color-soft-gold);" data-filter="startup">Startups</button>
+            <button class="btn btn-ghost" style="color: var(--color-soft-gold);" data-filter="restaurant">Restaurants</button>
+            <button class="btn btn-ghost" style="color: var(--color-soft-gold);" data-filter="coach">Coaches</button>
+          </div>
         </div>
         
-        <!-- Templates Grid -->
-        <div class="grid grid-cols-4 gap-6" data-stagger>
+        // Portfolio Grid 
+        <div class="grid grid-cols-3 gap-8" data-stagger id="portfolio-grid">
           
-          <!-- Template 1 -->
-          <div class="card reveal" style="padding: 0; overflow: hidden;">
-            <div style="height: 180px; background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); position: relative;">
-              <div style="position: absolute; top: var(--space-3); right: var(--space-3);">
-                <span class="badge badge-gold">Law</span>
-              </div>
-              <div style="position: absolute; bottom: var(--space-4); left: var(--space-4);">
-                <div style="font-family: var(--font-heading); color: var(--color-off-white); font-size: var(--text-lg);">Advocate</div>
+          // Project 1 - Law Firm 
+          <div class="card card-image reveal" data-category="law">
+            <div style="position: relative; overflow: hidden; border-radius: var(--radius-lg) var(--radius-lg) 0 0;">
+              <div style="height: 220px; background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f0f23 100%); display: flex; align-items: center; justify-content: center; position: relative;">
+                <div style="text-align: center;">
+                  <div style="font-family: var(--font-heading); font-size: var(--text-2xl); color: var(--color-soft-gold); margin-bottom: var(--space-2);">M&A</div>
+                  <div style="font-size: var(--text-xs); color: var(--text-muted); letter-spacing: 0.2em; text-transform: uppercase;">Legal Partners</div>
+                </div>
+                // Overlay on hover 
+                <div style="position: absolute; inset: 0; background: rgba(212, 175, 55, 0.9); display: flex; align-items: center; justify-content: center; opacity: 0; transition: opacity 0.3s ease;" class="portfolio-overlay">
+                  <a href="#" class="btn btn-dark btn-sm">View Project</a>
+                </div>
               </div>
             </div>
-            <div style="padding: var(--space-5);">
-              <div style="display: flex; justify-content: space-between; align-items: center;">
-                <span class="text-gold font-semibold">£350</span>
-                <a href="contact.html" class="btn btn-outline btn-sm">Use Template</a>
+            <div class="card-content">
+              <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: var(--space-3);">
+                <span class="badge badge-gold">Law Firm</span>
+                <span class="text-muted text-sm">36h delivery</span>
               </div>
+              <h4 class="card-title">Mitchell & Associates</h4>
+              <p class="text-sm text-secondary">Complete rebrand and website for a London-based law firm. Professional, trustworthy design.</p>
             </div>
           </div>
           
-          <!-- Template 2 -->
-          <div class="card reveal" style="padding: 0; overflow: hidden;">
-            <div style="height: 180px; background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%); position: relative;">
-              <div style="position: absolute; top: var(--space-3); right: var(--space-3);">
+          // Project 2 - Fitness 
+          <div class="card card-image reveal" data-category="fitness">
+            <div style="position: relative; overflow: hidden; border-radius: var(--radius-lg) var(--radius-lg) 0 0;">
+              <div style="height: 220px; background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 50%, #0a0a0a 100%); display: flex; align-items: center; justify-content: center; position: relative;">
+                <div style="text-align: center;">
+                  <div style="font-family: var(--font-body); font-size: var(--text-2xl); font-weight: var(--font-bold); color: var(--color-off-white); margin-bottom: var(--space-2);">PEAK</div>
+                  <div style="font-size: var(--text-xs); color: var(--color-soft-gold); letter-spacing: 0.15em; text-transform: uppercase;">Performance Gym</div>
+                </div>
+                <div style="position: absolute; inset: 0; background: rgba(212, 175, 55, 0.9); display: flex; align-items: center; justify-content: center; opacity: 0; transition: opacity 0.3s ease;" class="portfolio-overlay">
+                  <a href="#" class="btn btn-dark btn-sm">View Project</a>
+                </div>
+              </div>
+            </div>
+            <div class="card-content">
+              <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: var(--space-3);">
                 <span class="badge badge-gold">Fitness</span>
+                <span class="text-muted text-sm">48h delivery</span>
               </div>
-              <div style="position: absolute; bottom: var(--space-4); left: var(--space-4);">
-                <div style="font-family: var(--font-body); font-weight: var(--font-bold); color: var(--color-off-white); font-size: var(--text-lg);">POWER</div>
-              </div>
-            </div>
-            <div style="padding: var(--space-5);">
-              <div style="display: flex; justify-content: space-between; align-items: center;">
-                <span class="text-gold font-semibold">£350</span>
-                <a href="contact.html" class="btn btn-outline btn-sm">Use Template</a>
-              </div>
+              <h4 class="card-title">Peak Performance Gym</h4>
+              <p class="text-sm text-secondary">Bold, energetic website with class booking integration. Memberships increased 40%.</p>
             </div>
           </div>
           
-          <!-- Template 3 -->
-          <div class="card reveal" style="padding: 0; overflow: hidden;">
-            <div style="height: 180px; background: linear-gradient(135deg, #1f2937 0%, #111827 100%); position: relative;">
-              <div style="position: absolute; top: var(--space-3); right: var(--space-3);">
-                <span class="badge badge-gold">Property</span>
-              </div>
-              <div style="position: absolute; bottom: var(--space-4); left: var(--space-4);">
-                <div style="font-family: var(--font-heading); color: var(--color-off-white); font-size: var(--text-lg);">Estate</div>
-              </div>
-            </div>
-            <div style="padding: var(--space-5);">
-              <div style="display: flex; justify-content: space-between; align-items: center;">
-                <span class="text-gold font-semibold">£400</span>
-                <a href="contact.html" class="btn btn-outline btn-sm">Use Template</a>
+          // Project 3 - Real Estate 
+          <div class="card card-image reveal" data-category="realestate">
+            <div style="position: relative; overflow: hidden; border-radius: var(--radius-lg) var(--radius-lg) 0 0;">
+              <div style="height: 220px; background: linear-gradient(135deg, #1f2937 0%, #111827 50%, #0d1117 100%); display: flex; align-items: center; justify-content: center; position: relative;">
+                <div style="text-align: center;">
+                  <div style="font-family: var(--font-heading); font-size: var(--text-xl); color: var(--color-off-white); margin-bottom: var(--space-2);">Urban Living</div>
+                  <div style="font-size: var(--text-xs); color: var(--color-soft-gold); letter-spacing: 0.1em; text-transform: uppercase;">Properties</div>
+                </div>
+                <div style="position: absolute; inset: 0; background: rgba(212, 175, 55, 0.9); display: flex; align-items: center; justify-content: center; opacity: 0; transition: opacity 0.3s ease;" class="portfolio-overlay">
+                  <a href="#" class="btn btn-dark btn-sm">View Project</a>
+                </div>
               </div>
             </div>
-          </div>
-          
-          <!-- Template 4 -->
-          <div class="card reveal" style="padding: 0; overflow: hidden;">
-            <div style="height: 180px; background: linear-gradient(135deg, #0f0f0f 0%, #1a1a1a 100%); position: relative;">
-              <div style="position: absolute; top: var(--space-3); right: var(--space-3);">
-                <span class="badge badge-gold">Agency</span>
+            <div class="card-content">
+              <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: var(--space-3);">
+                <span class="badge badge-gold">Real Estate</span>
+                <span class="text-muted text-sm">72h delivery</span>
               </div>
-              <div style="position: absolute; bottom: var(--space-4); left: var(--space-4);">
-                <div style="font-family: var(--font-heading); font-style: italic; color: var(--color-off-white); font-size: var(--text-lg);">Studio</div>
-              </div>
-            </div>
-            <div style="padding: var(--space-5);">
-              <div style="display: flex; justify-content: space-between; align-items: center;">
-                <span class="text-gold font-semibold">£350</span>
-                <a href="contact.html" class="btn btn-outline btn-sm">Use Template</a>
-              </div>
+              <h4 class="card-title">Urban Living Properties</h4>
+              <p class="text-sm text-secondary">Luxury property listings with virtual tour integration. Elegant, high-end design.</p>
             </div>
           </div>
           
-          <!-- Template 5 -->
-          <div class="card reveal" style="padding: 0; overflow: hidden;">
-            <div style="height: 180px; background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); position: relative;">
-              <div style="position: absolute; top: var(--space-3); right: var(--space-3);">
-                <span class="badge badge-gold">Coach</span>
-              </div>
-              <div style="position: absolute; bottom: var(--space-4); left: var(--space-4);">
-                <div style="font-family: var(--font-heading); color: var(--color-off-white); font-size: var(--text-lg);">Mentor</div>
-              </div>
-            </div>
-            <div style="padding: var(--space-5);">
-              <div style="display: flex; justify-content: space-between; align-items: center;">
-                <span class="text-gold font-semibold">£300</span>
-                <a href="contact.html" class="btn btn-outline btn-sm">Use Template</a>
+          // Project 4 - Startup 
+          <div class="card card-image reveal" data-category="startup">
+            <div style="position: relative; overflow: hidden; border-radius: var(--radius-lg) var(--radius-lg) 0 0;">
+              <div style="height: 220px; background: linear-gradient(135deg, #0c0a09 0%, #1c1917 50%, #0a0908 100%); display: flex; align-items: center; justify-content: center; position: relative;">
+                <div style="text-align: center;">
+                  <div style="font-family: var(--font-body); font-size: var(--text-2xl); font-weight: var(--font-semibold); color: var(--color-soft-gold); margin-bottom: var(--space-2);">TechFlow</div>
+                  <div style="font-size: var(--text-xs); color: var(--text-muted); letter-spacing: 0.1em; text-transform: uppercase;">Solutions</div>
+                </div>
+                <div style="position: absolute; inset: 0; background: rgba(212, 175, 55, 0.9); display: flex; align-items: center; justify-content: center; opacity: 0; transition: opacity 0.3s ease;" class="portfolio-overlay">
+                  <a href="#" class="btn btn-dark btn-sm">View Project</a>
+                </div>
               </div>
             </div>
-          </div>
-          
-          <!-- Template 6 -->
-          <div class="card reveal" style="padding: 0; overflow: hidden;">
-            <div style="height: 180px; background: linear-gradient(135deg, #292524 0%, #1c1917 100%); position: relative;">
-              <div style="position: absolute; top: var(--space-3); right: var(--space-3);">
-                <span class="badge badge-gold">Restaurant</span>
-              </div>
-              <div style="position: absolute; bottom: var(--space-4); left: var(--space-4);">
-                <div style="font-family: var(--font-heading); color: var(--color-off-white); font-size: var(--text-lg);">Bistro</div>
-              </div>
-            </div>
-            <div style="padding: var(--space-5);">
-              <div style="display: flex; justify-content: space-between; align-items: center;">
-                <span class="text-gold font-semibold">£350</span>
-                <a href="contact.html" class="btn btn-outline btn-sm">Use Template</a>
-              </div>
-            </div>
-          </div>
-          
-          <!-- Template 7 -->
-          <div class="card reveal" style="padding: 0; overflow: hidden;">
-            <div style="height: 180px; background: linear-gradient(135deg, #18181b 0%, #27272a 100%); position: relative;">
-              <div style="position: absolute; top: var(--space-3); right: var(--space-3);">
-                <span class="badge badge-gold">E-commerce</span>
-              </div>
-              <div style="position: absolute; bottom: var(--space-4); left: var(--space-4);">
-                <div style="font-family: var(--font-body); font-weight: var(--font-semibold); color: var(--color-off-white); font-size: var(--text-lg);">Shopfront</div>
-              </div>
-            </div>
-            <div style="padding: var(--space-5);">
-              <div style="display: flex; justify-content: space-between; align-items: center;">
-                <span class="text-gold font-semibold">£500</span>
-                <a href="contact.html" class="btn btn-outline btn-sm">Use Template</a>
-              </div>
-            </div>
-          </div>
-          
-          <!-- Template 8 -->
-          <div class="card reveal" style="padding: 0; overflow: hidden;">
-            <div style="height: 180px; background: linear-gradient(135deg, #0c0a09 0%, #1c1917 100%); position: relative;">
-              <div style="position: absolute; top: var(--space-3); right: var(--space-3);">
+            <div class="card-content">
+              <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: var(--space-3);">
                 <span class="badge badge-gold">Startup</span>
+                <span class="text-muted text-sm">24h delivery</span>
               </div>
-              <div style="position: absolute; bottom: var(--space-4); left: var(--space-4);">
-                <div style="font-family: var(--font-body); font-weight: var(--font-semibold); color: var(--color-soft-gold); font-size: var(--text-lg);">Launch</div>
+              <h4 class="card-title">TechFlow Solutions</h4>
+              <p class="text-sm text-secondary">SaaS landing page with animated features. Investor-ready, conversion-focused design.</p>
+            </div>
+          </div>
+          
+          // Project 5 - Agency 
+          <div class="card card-image reveal" data-category="agency">
+            <div style="position: relative; overflow: hidden; border-radius: var(--radius-lg) var(--radius-lg) 0 0;">
+              <div style="height: 220px; background: linear-gradient(135deg, #0f0f0f 0%, #1a1a1a 50%, #050505 100%); display: flex; align-items: center; justify-content: center; position: relative;">
+                <div style="text-align: center;">
+                  <div style="font-family: var(--font-heading); font-size: var(--text-2xl); font-style: italic; color: var(--color-off-white); margin-bottom: var(--space-2);">Créative</div>
+                  <div style="font-size: var(--text-xs); color: var(--color-soft-gold); letter-spacing: 0.2em; text-transform: uppercase;">Studio</div>
+                </div>
+                <div style="position: absolute; inset: 0; background: rgba(212, 175, 55, 0.9); display: flex; align-items: center; justify-content: center; opacity: 0; transition: opacity 0.3s ease;" class="portfolio-overlay">
+                  <a href="#" class="btn btn-dark btn-sm">View Project</a>
+                </div>
               </div>
             </div>
-            <div style="padding: var(--space-5);">
-              <div style="display: flex; justify-content: space-between; align-items: center;">
-                <span class="text-gold font-semibold">£350</span>
-                <a href="contact.html" class="btn btn-outline btn-sm">Use Template</a>
+            <div class="card-content">
+              <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: var(--space-3);">
+                <span class="badge badge-gold">Agency</span>
+                <span class="text-muted text-sm">48h delivery</span>
               </div>
+              <h4 class="card-title">Créative Studio</h4>
+              <p class="text-sm text-secondary">Portfolio-focused design agency website. Minimal, artistic, and highly visual.</p>
+            </div>
+          </div>
+          
+          // Project 6 - Restaurant 
+          <div class="card card-image reveal" data-category="restaurant">
+            <div style="position: relative; overflow: hidden; border-radius: var(--radius-lg) var(--radius-lg) 0 0;">
+              <div style="height: 220px; background: linear-gradient(135deg, #292524 0%, #1c1917 50%, #0c0a09 100%); display: flex; align-items: center; justify-content: center; position: relative;">
+                <div style="text-align: center;">
+                  <div style="font-family: var(--font-heading); font-size: var(--text-2xl); color: var(--color-soft-gold); margin-bottom: var(--space-2);">Sapore</div>
+                  <div style="font-size: var(--text-xs); color: var(--text-muted); letter-spacing: 0.15em; text-transform: uppercase;">Italian Kitchen</div>
+                </div>
+                <div style="position: absolute; inset: 0; background: rgba(212, 175, 55, 0.9); display: flex; align-items: center; justify-content: center; opacity: 0; transition: opacity 0.3s ease;" class="portfolio-overlay">
+                  <a href="#" class="btn btn-dark btn-sm">View Project</a>
+                </div>
+              </div>
+            </div>
+            <div class="card-content">
+              <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: var(--space-3);">
+                <span class="badge badge-gold">Restaurant</span>
+                <span class="text-muted text-sm">36h delivery</span>
+              </div>
+              <h4 class="card-title">Sapore Italian Kitchen</h4>
+              <p class="text-sm text-secondary">Appetising restaurant website with online menu and reservation system.</p>
+            </div>
+          </div>
+          
+          // Project 7 - Coach 
+          <div class="card card-image reveal" data-category="coach">
+            <div style="position: relative; overflow: hidden; border-radius: var(--radius-lg) var(--radius-lg) 0 0;">
+              <div style="height: 220px; background: linear-gradient(135deg, #1e293b 0%, #0f172a 50%, #020617 100%); display: flex; align-items: center; justify-content: center; position: relative;">
+                <div style="text-align: center;">
+                  <div style="font-family: var(--font-heading); font-size: var(--text-xl); color: var(--color-off-white); margin-bottom: var(--space-2);">Sarah Chen</div>
+                  <div style="font-size: var(--text-xs); color: var(--color-soft-gold); letter-spacing: 0.1em; text-transform: uppercase;">Life Coach</div>
+                </div>
+                <div style="position: absolute; inset: 0; background: rgba(212, 175, 55, 0.9); display: flex; align-items: center; justify-content: center; opacity: 0; transition: opacity 0.3s ease;" class="portfolio-overlay">
+                  <a href="#" class="btn btn-dark btn-sm">View Project</a>
+                </div>
+              </div>
+            </div>
+            <div class="card-content">
+              <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: var(--space-3);">
+                <span class="badge badge-gold">Coach</span>
+                <span class="text-muted text-sm">24h delivery</span>
+              </div>
+              <h4 class="card-title">Sarah Chen Coaching</h4>
+              <p class="text-sm text-secondary">Personal brand website with booking integration. Inspiring, conversion-focused.</p>
+            </div>
+          </div>
+          
+          // Project 8 - Law Firm 2 
+          <div class="card card-image reveal" data-category="law">
+            <div style="position: relative; overflow: hidden; border-radius: var(--radius-lg) var(--radius-lg) 0 0;">
+              <div style="height: 220px; background: linear-gradient(135deg, #14213d 0%, #1d3557 50%, #0a1628 100%); display: flex; align-items: center; justify-content: center; position: relative;">
+                <div style="text-align: center;">
+                  <div style="font-family: var(--font-heading); font-size: var(--text-xl); color: var(--color-off-white); margin-bottom: var(--space-2);">Parker & Reid</div>
+                  <div style="font-size: var(--text-xs); color: var(--color-soft-gold); letter-spacing: 0.1em; text-transform: uppercase;">Solicitors</div>
+                </div>
+                <div style="position: absolute; inset: 0; background: rgba(212, 175, 55, 0.9); display: flex; align-items: center; justify-content: center; opacity: 0; transition: opacity 0.3s ease;" class="portfolio-overlay">
+                  <a href="#" class="btn btn-dark btn-sm">View Project</a>
+                </div>
+              </div>
+            </div>
+            <div class="card-content">
+              <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: var(--space-3);">
+                <span class="badge badge-gold">Law Firm</span>
+                <span class="text-muted text-sm">48h delivery</span>
+              </div>
+              <h4 class="card-title">Parker & Reid Solicitors</h4>
+              <p class="text-sm text-secondary">Corporate law firm website with practice area pages and contact forms.</p>
+            </div>
+          </div>
+          
+          // Project 9 - Fitness 2 
+          <div class="card card-image reveal" data-category="fitness">
+            <div style="position: relative; overflow: hidden; border-radius: var(--radius-lg) var(--radius-lg) 0 0;">
+              <div style="height: 220px; background: linear-gradient(135deg, #18181b 0%, #27272a 50%, #09090b 100%); display: flex; align-items: center; justify-content: center; position: relative;">
+                <div style="text-align: center;">
+                  <div style="font-family: var(--font-body); font-size: var(--text-xl); font-weight: var(--font-bold); color: var(--color-soft-gold); margin-bottom: var(--space-2);">IRON</div>
+                  <div style="font-size: var(--text-xs); color: var(--text-muted); letter-spacing: 0.2em; text-transform: uppercase;">Athletics</div>
+                </div>
+                <div style="position: absolute; inset: 0; background: rgba(212, 175, 55, 0.9); display: flex; align-items: center; justify-content: center; opacity: 0; transition: opacity 0.3s ease;" class="portfolio-overlay">
+                  <a href="#" class="btn btn-dark btn-sm">View Project</a>
+                </div>
+              </div>
+            </div>
+            <div class="card-content">
+              <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: var(--space-3);">
+                <span class="badge badge-gold">Fitness</span>
+                <span class="text-muted text-sm">36h delivery</span>
+              </div>
+              <h4 class="card-title">Iron Athletics</h4>
+              <p class="text-sm text-secondary">Personal training website with program packages and testimonials section.</p>
             </div>
           </div>
           
         </div>
         
-        <!-- Custom Build CTA -->
-        <div class="reveal" style="margin-top: var(--space-12);">
-          <div class="card" style="padding: var(--space-8); text-align: center; background: var(--color-charcoal-black);">
-            <h4 style="margin-bottom: var(--space-3);">Can't find the right template?</h4>
-            <p class="text-secondary" style="margin-bottom: var(--space-6);">We'll create a custom design tailored to your specific needs and brand.</p>
-            <a href="contact.html" class="btn btn-primary">Request Custom Build</a>
-          </div>
+        <div class="text-center reveal" style="margin-top: var(--space-12);">
+          <p class="text-dark-gray2" style="margin-bottom: var(--space-4);">Showing 9 of 50+ projects</p>
+          <button class="btn btn-outline">Load More Projects</button>
         </div>
       </div>
-    </section>
+    </section> -->
 
     <!-- ============================================
          CTA SECTION

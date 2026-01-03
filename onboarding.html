@@ -23,12 +23,17 @@
   <title>Client Portal | Built Right Studio</title>
   
   <style>
-    /* Additional styles for onboarding portal */
+    /* ============================================
+       PORTAL-SPECIFIC STYLES + RESPONSIVE
+       ============================================ */
+    
+    /* Sidebar */
     .portal-sidebar {
       position: sticky;
       top: 120px;
     }
     
+    /* Progress Steps */
     .progress-step {
       display: flex;
       align-items: flex-start;
@@ -67,6 +72,7 @@
       box-shadow: 0 0 0 4px rgba(212, 175, 55, 0.2);
     }
     
+    /* Upload Zone */
     .upload-zone {
       border: 2px dashed var(--border-default);
       border-radius: var(--radius-lg);
@@ -82,6 +88,7 @@
       background: rgba(212, 175, 55, 0.05);
     }
     
+    /* File Items */
     .file-item {
       display: flex;
       align-items: center;
@@ -90,13 +97,24 @@
       background: var(--color-charcoal-black);
       border-radius: var(--radius-md);
       margin-top: var(--space-3);
+      flex-wrap: wrap;
+      gap: var(--space-2);
     }
     
+    /* Tab Navigation */
     .tab-nav {
       display: flex;
       gap: var(--space-2);
       border-bottom: 1px solid var(--border-subtle);
       margin-bottom: var(--space-8);
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
+      -ms-overflow-style: none;
+    }
+    
+    .tab-nav::-webkit-scrollbar {
+      display: none;
     }
     
     .tab-btn {
@@ -109,6 +127,8 @@
       cursor: pointer;
       position: relative;
       transition: color var(--transition-base);
+      white-space: nowrap;
+      flex-shrink: 0;
     }
     
     .tab-btn:hover {
@@ -136,6 +156,424 @@
     .tab-content.active {
       display: block;
     }
+    
+    /* Portal Layout Grid */
+    .portal-grid {
+      display: grid;
+      grid-template-columns: 280px 1fr;
+      gap: var(--space-12);
+    }
+    
+    /* Hero Grid */
+    .hero-grid {
+      display: grid;
+      grid-template-columns: 2fr 1fr;
+      gap: var(--space-12);
+    }
+    
+    /* Form Grids */
+    .form-grid-2 {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: var(--space-6);
+    }
+    
+    .form-grid-3 {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: var(--space-6);
+    }
+    
+    /* Style Cards Grid */
+    .style-cards-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: var(--space-4);
+    }
+    
+    /* Images Grid */
+    .images-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: var(--space-3);
+    }
+    
+    /* Tips Grid */
+    .tips-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: var(--space-6);
+    }
+    
+    /* Goal Options */
+    .goal-options {
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--space-3);
+      margin-top: var(--space-2);
+    }
+    
+    .goal-option {
+      display: flex;
+      align-items: center;
+      gap: var(--space-2);
+      cursor: pointer;
+      padding: var(--space-3) var(--space-4);
+      background: var(--color-charcoal-black);
+      border-radius: var(--radius-md);
+      border: 1px solid var(--border-subtle);
+      transition: all 0.2s ease;
+    }
+    
+    .goal-option:hover {
+      border-color: var(--color-soft-gold);
+    }
+    
+    /* Form Footer */
+    .form-footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding-top: var(--space-6);
+      border-top: 1px solid var(--border-subtle);
+      gap: var(--space-4);
+    }
+    
+    /* Color Picker Row */
+    .color-picker-row {
+      display: flex;
+      gap: var(--space-2);
+    }
+    
+    .color-picker-row input[type="color"] {
+      width: 50px;
+      height: 42px;
+      border: none;
+      border-radius: var(--radius-md);
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+    
+    .color-picker-row input[type="text"] {
+      flex: 1;
+      min-width: 0;
+    }
+    
+    /* Style Card Selection */
+    .style-card {
+      cursor: pointer;
+    }
+    
+    .style-card-inner {
+      padding: var(--space-4);
+      text-align: center;
+      border: 2px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      transition: border-color 0.2s;
+      background: var(--color-deep-slate);
+    }
+    
+    .style-card input:checked + .style-card-inner {
+      border-color: var(--color-soft-gold);
+    }
+    
+    .style-card-preview {
+      height: 60px;
+      border-radius: var(--radius-sm);
+      margin-bottom: var(--space-3);
+    }
+    
+    /* Header responsive adjustments */
+    .header-portal-actions {
+      display: flex;
+      align-items: center;
+      gap: var(--space-4);
+    }
+    
+    /* ============================================
+       RESPONSIVE BREAKPOINTS
+       ============================================ */
+    
+    /* Tablet - 1024px and below */
+    @media (max-width: 1024px) {
+      .portal-grid {
+        grid-template-columns: 240px 1fr;
+        gap: var(--space-8);
+      }
+      
+      .hero-grid {
+        grid-template-columns: 1fr;
+        gap: var(--space-6);
+      }
+      
+      .tips-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+      
+      .style-cards-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+    
+    /* Tablet Portrait - 900px and below */
+    @media (max-width: 900px) {
+      .portal-grid {
+        grid-template-columns: 1fr;
+        gap: var(--space-6);
+      }
+      
+      .portal-sidebar {
+        position: relative;
+        top: 0;
+      }
+      
+      /* Convert sidebar to horizontal on tablet */
+      .portal-sidebar .card {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: var(--space-6);
+        align-items: start;
+      }
+      
+      .progress-steps {
+        display: flex;
+        flex-wrap: wrap;
+        gap: var(--space-4);
+      }
+      
+      .progress-step {
+        border-left: none;
+        padding-left: 0;
+        margin-left: 0;
+        padding: var(--space-2) var(--space-3);
+        background: var(--color-charcoal-black);
+        border-radius: var(--radius-md);
+      }
+      
+      .progress-step::before {
+        position: relative;
+        left: 0;
+        top: 0;
+        margin-right: var(--space-2);
+      }
+      
+      .progress-step.active {
+        border-left: none;
+        background: rgba(212, 175, 55, 0.1);
+      }
+      
+      .form-grid-3 {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+    
+    /* Mobile - 768px and below */
+    @media (max-width: 768px) {
+      .header-inner {
+        padding: var(--space-3) var(--space-4);
+      }
+      
+      .header-portal-actions {
+        gap: var(--space-2);
+      }
+      
+      .header-portal-actions .btn {
+        padding: var(--space-2) var(--space-3);
+        font-size: var(--text-xs);
+      }
+      
+      .badge {
+        font-size: 10px;
+        padding: var(--space-1) var(--space-2);
+      }
+      
+      /* Section padding */
+      .section {
+        padding: var(--space-8) var(--space-4);
+      }
+      
+      /* Hero adjustments */
+      .hero-grid {
+        gap: var(--space-4);
+      }
+      
+      h1 {
+        font-size: clamp(1.75rem, 6vw, 2.5rem);
+      }
+      
+      .lead {
+        font-size: var(--text-base);
+      }
+      
+      /* Sidebar becomes full-width card */
+      .portal-sidebar .card {
+        grid-template-columns: 1fr;
+        padding: var(--space-4);
+      }
+      
+      .progress-steps {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: var(--space-2);
+      }
+      
+      .progress-step {
+        padding: var(--space-2);
+        font-size: var(--text-xs);
+      }
+      
+      /* Support card hidden on mobile - show as collapsible */
+      .portal-sidebar .card + .card {
+        margin-top: var(--space-4);
+      }
+      
+      /* Tab navigation */
+      .tab-nav {
+        margin-bottom: var(--space-4);
+        padding-bottom: var(--space-2);
+      }
+      
+      .tab-btn {
+        padding: var(--space-3) var(--space-4);
+        font-size: var(--text-xs);
+      }
+      
+      /* Forms */
+      .form-grid-2,
+      .form-grid-3 {
+        grid-template-columns: 1fr;
+        gap: var(--space-4);
+      }
+      
+      .style-cards-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: var(--space-3);
+      }
+      
+      .goal-options {
+        flex-direction: column;
+      }
+      
+      .goal-option {
+        width: 100%;
+        justify-content: flex-start;
+      }
+      
+      /* Upload zone */
+      .upload-zone {
+        padding: var(--space-6);
+      }
+      
+      .upload-zone svg {
+        width: 36px;
+        height: 36px;
+      }
+      
+      /* Images grid */
+      .images-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+      
+      /* Tips grid */
+      .tips-grid {
+        grid-template-columns: 1fr;
+        gap: var(--space-4);
+      }
+      
+      /* Card padding */
+      .card {
+        padding: var(--space-4);
+      }
+      
+      /* Form footer */
+      .form-footer {
+        flex-direction: column;
+        align-items: stretch;
+        gap: var(--space-3);
+      }
+      
+      .form-footer .text-muted {
+        text-align: center;
+        order: 2;
+      }
+      
+      .form-footer .btn {
+        width: 100%;
+        justify-content: center;
+        order: 1;
+      }
+      
+      /* Color pickers stack */
+      .form-grid-3 .form-group {
+        margin-bottom: 0;
+      }
+    }
+    
+    /* Small Mobile - 480px and below */
+    @media (max-width: 480px) {
+      .header-portal-actions .btn-ghost {
+        display: none;
+      }
+      
+      h1 {
+        font-size: 1.5rem;
+      }
+      
+      .progress-steps {
+        grid-template-columns: 1fr;
+      }
+      
+      .style-cards-grid {
+        grid-template-columns: 1fr;
+      }
+      
+      .tab-btn {
+        padding: var(--space-2) var(--space-3);
+      }
+      
+      .images-grid {
+        grid-template-columns: 1fr 1fr;
+        gap: var(--space-2);
+      }
+      
+      /* File items stack */
+      .file-item {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: var(--space-3);
+      }
+      
+      .file-item .btn {
+        width: 100%;
+      }
+    }
+    
+    /* Footer responsive */
+    @media (max-width: 768px) {
+      .footer-grid {
+        grid-template-columns: 1fr;
+        gap: var(--space-8);
+        text-align: center;
+      }
+      
+      .footer-brand {
+        order: -1;
+      }
+      
+      .social-links {
+        justify-content: center;
+      }
+      
+      .footer-bottom {
+        flex-direction: column;
+        gap: var(--space-4);
+        text-align: center;
+      }
+      
+      .footer-legal {
+        justify-content: center;
+      }
+    }
   </style>
 </head>
 <body>
@@ -147,11 +585,11 @@
     <div class="header-inner">
       <!-- Logo -->
       <a href="index.html" class="logo">
-        <img src="assets/images/logo.svg" alt="Built Right Studio">
+        <img src="assets/images/logo3.png" alt="Built Right Studio" style="height: 150px;">
       </a>
       
       <!-- Portal Badge -->
-      <div style="display: flex; align-items: center; gap: var(--space-4);">
+      <div class="header-portal-actions">
         <span class="badge badge-gold">Client Portal</span>
         <a href="contact.html" class="btn btn-ghost btn-sm">Need Help?</a>
       </div>
@@ -168,12 +606,12 @@
          ============================================ -->
     <section class="section section-dark" style="padding-top: var(--space-12); padding-bottom: var(--space-12);">
       <div class="container">
-        <div class="grid grid-cols-3 gap-12">
+        <div class="hero-grid">
           <!-- Welcome Message -->
-          <div style="grid-column: span 2;">
+          <div>
             <div class="reveal">
               <span class="overline">Welcome Back</span>
-              <h1>Client <span class="text-gold">Onboarding</span></h1>
+              <h1 style="margin: var(--space-4) 0px;">Client <span class="text-gold">Onboarding</span></h1>
               <p class="lead">Complete the steps below to help us build your perfect website. The more detail you provide, the faster we can deliver.</p>
             </div>
           </div>
@@ -198,56 +636,58 @@
          ============================================ -->
     <section class="section section-slate">
       <div class="container">
-        <div class="grid" style="grid-template-columns: 280px 1fr; gap: var(--space-12);">
+        <div class="portal-grid">
           
           <!-- ============================================
                SIDEBAR - Progress Tracker
                ============================================ -->
           <aside class="portal-sidebar reveal">
             <div class="card" style="padding: var(--space-6);">
-              <h5 style="margin-bottom: var(--space-6);">Onboarding Progress</h5>
-              
-              <!-- Progress Steps -->
-              <div class="progress-steps">
-                <div class="progress-step completed">
-                  <div>
-                    <div class="text-white text-sm font-medium">Deposit Paid</div>
-                    <div class="text-muted text-xs">Completed</div>
-                  </div>
-                </div>
+              <div>
+                <h5 style="margin-bottom: var(--space-6);">Onboarding Progress</h5>
                 
-                <div class="progress-step active">
-                  <div>
-                    <div class="text-gold text-sm font-medium">Project Details</div>
-                    <div class="text-muted text-xs">In progress</div>
+                <!-- Progress Steps -->
+                <div class="progress-steps">
+                  <div class="progress-step completed">
+                    <div>
+                      <div class="text-white text-sm font-medium">Deposit Paid</div>
+                      <div class="text-muted text-xs">Completed</div>
+                    </div>
                   </div>
-                </div>
-                
-                <div class="progress-step">
-                  <div>
-                    <div class="text-secondary text-sm">Brand Assets</div>
-                    <div class="text-muted text-xs">Pending</div>
+                  
+                  <div class="progress-step active">
+                    <div>
+                      <div class="text-gold text-sm font-medium">Project Details</div>
+                      <div class="text-muted text-xs">In progress</div>
+                    </div>
                   </div>
-                </div>
-                
-                <div class="progress-step">
-                  <div>
-                    <div class="text-secondary text-sm">Content Upload</div>
-                    <div class="text-muted text-xs">Pending</div>
+                  
+                  <div class="progress-step">
+                    <div>
+                      <div class="text-secondary text-sm">Brand Assets</div>
+                      <div class="text-muted text-xs">Pending</div>
+                    </div>
                   </div>
-                </div>
-                
-                <div class="progress-step">
-                  <div>
-                    <div class="text-secondary text-sm">Review & Approve</div>
-                    <div class="text-muted text-xs">Pending</div>
+                  
+                  <div class="progress-step">
+                    <div>
+                      <div class="text-secondary text-sm">Content Upload</div>
+                      <div class="text-muted text-xs">Pending</div>
+                    </div>
                   </div>
-                </div>
-                
-                <div class="progress-step" style="border-left-color: transparent;">
-                  <div>
-                    <div class="text-secondary text-sm">Launch!</div>
-                    <div class="text-muted text-xs">Pending</div>
+                  
+                  <div class="progress-step">
+                    <div>
+                      <div class="text-secondary text-sm">Review & Approve</div>
+                      <div class="text-muted text-xs">Pending</div>
+                    </div>
+                  </div>
+                  
+                  <div class="progress-step" style="border-left-color: transparent;">
+                    <div>
+                      <div class="text-secondary text-sm">Launch!</div>
+                      <div class="text-muted text-xs">Pending</div>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -268,7 +708,7 @@
             <div class="card" style="padding: var(--space-6); margin-top: var(--space-6);">
               <h6 style="margin-bottom: var(--space-3);">Need Help?</h6>
               <p class="text-muted text-sm" style="margin-bottom: var(--space-4);">Questions about the onboarding process? We're here to help.</p>
-              <a href="mailto:hello@builtrightstudio.com" class="btn btn-outline btn-sm btn-block">Contact Support</a>
+              <a href="mailto:support@builtrightlabs.com" class="btn btn-outline btn-sm btn-block">Contact Support</a>
             </div>
           </aside>
 
@@ -298,7 +738,7 @@
                   <div style="margin-bottom: var(--space-8);">
                     <h5 style="margin-bottom: var(--space-4); padding-bottom: var(--space-4); border-bottom: 1px solid var(--border-subtle);">Business Information</h5>
                     
-                    <div class="grid grid-cols-2 gap-6">
+                    <div class="form-grid-2">
                       <div class="form-group">
                         <label for="business-name" class="form-label">Business Name <span class="text-gold">*</span></label>
                         <input type="text" id="business-name" name="business-name" class="form-input" placeholder="Your Business Ltd" required>
@@ -326,7 +766,7 @@
                       <textarea id="business-description" name="business-description" class="form-input" rows="4" placeholder="Tell us what your business does, who your customers are, and what makes you unique..." required></textarea>
                     </div>
                     
-                    <div class="grid grid-cols-2 gap-6">
+                    <div class="form-grid-2">
                       <div class="form-group">
                         <label for="target-audience" class="form-label">Target Audience</label>
                         <input type="text" id="target-audience" name="target-audience" class="form-input" placeholder="e.g., Small business owners, 30-50 years old">
@@ -345,24 +785,24 @@
                     
                     <div class="form-group">
                       <label class="form-label">Primary Goal <span class="text-gold">*</span></label>
-                      <div style="display: flex; flex-wrap: wrap; gap: var(--space-3); margin-top: var(--space-2);">
-                        <label style="display: flex; align-items: center; gap: var(--space-2); cursor: pointer; padding: var(--space-3) var(--space-4); background: var(--color-charcoal-black); border-radius: var(--radius-md); border: 1px solid var(--border-subtle);">
+                      <div class="goal-options">
+                        <label class="goal-option">
                           <input type="radio" name="primary-goal" value="leads" style="accent-color: var(--color-soft-gold);">
                           <span class="text-sm">Generate Leads</span>
                         </label>
-                        <label style="display: flex; align-items: center; gap: var(--space-2); cursor: pointer; padding: var(--space-3) var(--space-4); background: var(--color-charcoal-black); border-radius: var(--radius-md); border: 1px solid var(--border-subtle);">
+                        <label class="goal-option">
                           <input type="radio" name="primary-goal" value="bookings" style="accent-color: var(--color-soft-gold);">
                           <span class="text-sm">Get Bookings</span>
                         </label>
-                        <label style="display: flex; align-items: center; gap: var(--space-2); cursor: pointer; padding: var(--space-3) var(--space-4); background: var(--color-charcoal-black); border-radius: var(--radius-md); border: 1px solid var(--border-subtle);">
+                        <label class="goal-option">
                           <input type="radio" name="primary-goal" value="sales" style="accent-color: var(--color-soft-gold);">
                           <span class="text-sm">Sell Products</span>
                         </label>
-                        <label style="display: flex; align-items: center; gap: var(--space-2); cursor: pointer; padding: var(--space-3) var(--space-4); background: var(--color-charcoal-black); border-radius: var(--radius-md); border: 1px solid var(--border-subtle);">
+                        <label class="goal-option">
                           <input type="radio" name="primary-goal" value="credibility" style="accent-color: var(--color-soft-gold);">
                           <span class="text-sm">Build Credibility</span>
                         </label>
-                        <label style="display: flex; align-items: center; gap: var(--space-2); cursor: pointer; padding: var(--space-3) var(--space-4); background: var(--color-charcoal-black); border-radius: var(--radius-md); border: 1px solid var(--border-subtle);">
+                        <label class="goal-option">
                           <input type="radio" name="primary-goal" value="information" style="accent-color: var(--color-soft-gold);">
                           <span class="text-sm">Share Information</span>
                         </label>
@@ -382,7 +822,7 @@
                   </div>
                   
                   <!-- Save Button -->
-                  <div style="display: flex; justify-content: space-between; align-items: center; padding-top: var(--space-6); border-top: 1px solid var(--border-subtle);">
+                  <div class="form-footer">
                     <span class="text-muted text-sm">All fields are saved automatically</span>
                     <button type="submit" class="btn btn-primary">Save & Continue</button>
                   </div>
@@ -429,28 +869,28 @@
                 <div style="margin-bottom: var(--space-8);">
                   <h5 style="margin-bottom: var(--space-4); padding-bottom: var(--space-4); border-bottom: 1px solid var(--border-subtle);">Brand Colours</h5>
                   
-                  <div class="grid grid-cols-3 gap-6">
+                  <div class="form-grid-3">
                     <div class="form-group">
                       <label for="primary-color" class="form-label">Primary Colour</label>
-                      <div style="display: flex; gap: var(--space-2);">
-                        <input type="color" id="primary-color" name="primary-color" value="#D4AF37" style="width: 50px; height: 42px; border: none; border-radius: var(--radius-md); cursor: pointer;">
-                        <input type="text" class="form-input" placeholder="#D4AF37" style="flex: 1;">
+                      <div class="color-picker-row">
+                        <input type="color" id="primary-color" name="primary-color" value="#D4AF37">
+                        <input type="text" class="form-input" placeholder="#D4AF37">
                       </div>
                     </div>
                     
                     <div class="form-group">
                       <label for="secondary-color" class="form-label">Secondary Colour</label>
-                      <div style="display: flex; gap: var(--space-2);">
-                        <input type="color" id="secondary-color" name="secondary-color" value="#1F1F1F" style="width: 50px; height: 42px; border: none; border-radius: var(--radius-md); cursor: pointer;">
-                        <input type="text" class="form-input" placeholder="#1F1F1F" style="flex: 1;">
+                      <div class="color-picker-row">
+                        <input type="color" id="secondary-color" name="secondary-color" value="#1F1F1F">
+                        <input type="text" class="form-input" placeholder="#1F1F1F">
                       </div>
                     </div>
                     
                     <div class="form-group">
                       <label for="accent-color" class="form-label">Accent Colour</label>
-                      <div style="display: flex; gap: var(--space-2);">
-                        <input type="color" id="accent-color" name="accent-color" value="#F2F2F2" style="width: 50px; height: 42px; border: none; border-radius: var(--radius-md); cursor: pointer;">
-                        <input type="text" class="form-input" placeholder="#F2F2F2" style="flex: 1;">
+                      <div class="color-picker-row">
+                        <input type="color" id="accent-color" name="accent-color" value="#F2F2F2">
+                        <input type="text" class="form-input" placeholder="#F2F2F2">
                       </div>
                     </div>
                   </div>
@@ -479,7 +919,7 @@
                 </div>
                 
                 <!-- Save Button -->
-                <div style="display: flex; justify-content: space-between; align-items: center; padding-top: var(--space-6); border-top: 1px solid var(--border-subtle);">
+                <div class="form-footer">
                   <span class="text-muted text-sm">All files are saved automatically</span>
                   <button type="button" class="btn btn-primary">Save & Continue</button>
                 </div>
@@ -540,7 +980,7 @@
                     <input type="file" id="images-file" accept=".jpg,.jpeg,.png,.webp" multiple style="display: none;">
                   </div>
                   
-                  <div id="uploaded-images" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--space-3); margin-top: var(--space-4);">
+                  <div id="uploaded-images" class="images-grid" style="margin-top: var(--space-4);">
                     <!-- Uploaded images will appear here -->
                   </div>
                   
@@ -553,7 +993,7 @@
                 </div>
                 
                 <!-- Save Button -->
-                <div style="display: flex; justify-content: space-between; align-items: center; padding-top: var(--space-6); border-top: 1px solid var(--border-subtle);">
+                <div class="form-footer">
                   <span class="text-muted text-sm">All files are saved automatically</span>
                   <button type="button" class="btn btn-primary">Save & Continue</button>
                 </div>
@@ -574,47 +1014,47 @@
                   
                   <div class="form-group">
                     <label class="form-label">Which style best describes what you're looking for?</label>
-                    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-4); margin-top: var(--space-3);">
-                      <label style="cursor: pointer;">
+                    <div class="style-cards-grid" style="margin-top: var(--space-3);">
+                      <label class="style-card">
                         <input type="radio" name="style" value="minimal" style="display: none;">
-                        <div class="card" style="padding: var(--space-4); text-align: center; border: 2px solid var(--border-subtle); transition: border-color 0.2s;">
-                          <div style="height: 60px; background: linear-gradient(135deg, #fff 0%, #f5f5f5 100%); border-radius: var(--radius-sm); margin-bottom: var(--space-3);"></div>
+                        <div class="style-card-inner">
+                          <div class="style-card-preview" style="background: linear-gradient(135deg, #fff 0%, #f5f5f5 100%);"></div>
                           <span class="text-sm">Minimal & Clean</span>
                         </div>
                       </label>
-                      <label style="cursor: pointer;">
+                      <label class="style-card">
                         <input type="radio" name="style" value="bold" style="display: none;">
-                        <div class="card" style="padding: var(--space-4); text-align: center; border: 2px solid var(--border-subtle); transition: border-color 0.2s;">
-                          <div style="height: 60px; background: linear-gradient(135deg, #1a1a1a 0%, #333 100%); border-radius: var(--radius-sm); margin-bottom: var(--space-3);"></div>
+                        <div class="style-card-inner">
+                          <div class="style-card-preview" style="background: linear-gradient(135deg, #1a1a1a 0%, #333 100%);"></div>
                           <span class="text-sm">Bold & Dark</span>
                         </div>
                       </label>
-                      <label style="cursor: pointer;">
+                      <label class="style-card">
                         <input type="radio" name="style" value="elegant" style="display: none;">
-                        <div class="card" style="padding: var(--space-4); text-align: center; border: 2px solid var(--border-subtle); transition: border-color 0.2s;">
-                          <div style="height: 60px; background: linear-gradient(135deg, #D4AF37 0%, #B8860B 100%); border-radius: var(--radius-sm); margin-bottom: var(--space-3);"></div>
+                        <div class="style-card-inner">
+                          <div class="style-card-preview" style="background: linear-gradient(135deg, #D4AF37 0%, #B8860B 100%);"></div>
                           <span class="text-sm">Elegant & Luxurious</span>
                         </div>
                       </label>
-                      <label style="cursor: pointer;">
+                      <label class="style-card">
                         <input type="radio" name="style" value="playful" style="display: none;">
-                        <div class="card" style="padding: var(--space-4); text-align: center; border: 2px solid var(--border-subtle); transition: border-color 0.2s;">
-                          <div style="height: 60px; background: linear-gradient(135deg, #ff6b6b 0%, #feca57 100%); border-radius: var(--radius-sm); margin-bottom: var(--space-3);"></div>
+                        <div class="style-card-inner">
+                          <div class="style-card-preview" style="background: linear-gradient(135deg, #FF6B6B 0%, #4ECDC4 100%);"></div>
                           <span class="text-sm">Playful & Colourful</span>
                         </div>
                       </label>
-                      <label style="cursor: pointer;">
+                      <label class="style-card">
                         <input type="radio" name="style" value="corporate" style="display: none;">
-                        <div class="card" style="padding: var(--space-4); text-align: center; border: 2px solid var(--border-subtle); transition: border-color 0.2s;">
-                          <div style="height: 60px; background: linear-gradient(135deg, #1e3a5f 0%, #2c5282 100%); border-radius: var(--radius-sm); margin-bottom: var(--space-3);"></div>
+                        <div class="style-card-inner">
+                          <div class="style-card-preview" style="background: linear-gradient(135deg, #2C3E50 0%, #3498DB 100%);"></div>
                           <span class="text-sm">Corporate & Professional</span>
                         </div>
                       </label>
-                      <label style="cursor: pointer;">
-                        <input type="radio" name="style" value="creative" style="display: none;">
-                        <div class="card" style="padding: var(--space-4); text-align: center; border: 2px solid var(--border-subtle); transition: border-color 0.2s;">
-                          <div style="height: 60px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: var(--radius-sm); margin-bottom: var(--space-3);"></div>
-                          <span class="text-sm">Creative & Artistic</span>
+                      <label class="style-card">
+                        <input type="radio" name="style" value="organic" style="display: none;">
+                        <div class="style-card-inner">
+                          <div class="style-card-preview" style="background: linear-gradient(135deg, #A8D5BA 0%, #F5E6CC 100%);"></div>
+                          <span class="text-sm">Organic & Natural</span>
                         </div>
                       </label>
                     </div>
@@ -626,14 +1066,14 @@
                   <h5 style="margin-bottom: var(--space-4); padding-bottom: var(--space-4); border-bottom: 1px solid var(--border-subtle);">Inspiration</h5>
                   
                   <div class="form-group">
-                    <label for="inspiration-sites" class="form-label">Websites You Like</label>
-                    <textarea id="inspiration-sites" name="inspiration-sites" class="form-input" rows="3" placeholder="Share URLs of websites you admire (even if they're not in your industry)..."></textarea>
-                    <div class="form-hint">What do you like about each one?</div>
+                    <label for="inspiration-sites" class="form-label">Websites You Admire</label>
+                    <textarea id="inspiration-sites" name="inspiration-sites" class="form-input" rows="3" placeholder="List any websites you like the look and feel of (with URLs if possible)..."></textarea>
+                    <div class="form-hint">What specifically do you like about them?</div>
                   </div>
                   
                   <div class="form-group">
-                    <label for="dislike" class="form-label">What to Avoid</label>
-                    <textarea id="dislike" name="dislike" class="form-input" rows="3" placeholder="Anything specific you don't want? Certain colours, styles, or elements to avoid?"></textarea>
+                    <label for="avoid" class="form-label">What to Avoid</label>
+                    <textarea id="avoid" name="avoid" class="form-input" rows="3" placeholder="Any design elements, colours, or styles you definitely don't want..."></textarea>
                   </div>
                 </div>
                 
@@ -642,35 +1082,35 @@
                   <h5 style="margin-bottom: var(--space-4); padding-bottom: var(--space-4); border-bottom: 1px solid var(--border-subtle);">Additional Notes</h5>
                   
                   <div class="form-group">
-                    <label for="additional-notes" class="form-label">Anything Else We Should Know?</label>
-                    <textarea id="additional-notes" name="additional-notes" class="form-input" rows="4" placeholder="Any other details, requirements, or special requests..."></textarea>
+                    <label for="additional-notes" class="form-label">Anything Else?</label>
+                    <textarea id="additional-notes" name="additional-notes" class="form-input" rows="4" placeholder="Any other information that would help us build your perfect website..."></textarea>
                   </div>
                 </div>
                 
-                <!-- Submit Button -->
-                <div style="display: flex; justify-content: space-between; align-items: center; padding-top: var(--space-6); border-top: 1px solid var(--border-subtle);">
-                  <span class="text-muted text-sm">All information is saved automatically</span>
-                  <button type="button" class="btn btn-primary btn-lg">Submit Onboarding</button>
+                <!-- Save Button -->
+                <div class="form-footer">
+                  <span class="text-muted text-sm">All fields are saved automatically</span>
+                  <button type="button" class="btn btn-primary">Complete Onboarding</button>
                 </div>
               </div>
             </div>
-            
+
           </div>
         </div>
       </div>
     </section>
 
     <!-- ============================================
-         HELPFUL TIPS SECTION
+         TIPS SECTION
          ============================================ -->
     <section class="section section-dark">
       <div class="container">
-        <div class="section-header reveal">
-          <span class="overline">Tips</span>
-          <h2>Helpful <span class="text-gold">Guidelines</span></h2>
+        <div class="section-header text-center reveal">
+          <span class="overline">Helpful Tips</span>
+          <h2>Get the Best <span class="text-gold">Results</span></h2>
         </div>
         
-        <div class="grid grid-cols-3 gap-8" data-stagger>
+        <div class="tips-grid">
           <div class="card reveal" style="padding: var(--space-6);">
             <div style="width: 48px; height: 48px; background: rgba(212, 175, 55, 0.1); border-radius: var(--radius-lg); margin-bottom: var(--space-4); display: flex; align-items: center; justify-content: center;">
               <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--color-soft-gold)" stroke-width="1.5">
@@ -715,13 +1155,82 @@
   <!-- ============================================
        FOOTER (Simplified)
        ============================================ -->
-  <footer class="footer" style="padding: var(--space-8) 0;">
+  <footer class="footer">
     <div class="container">
-      <div style="display: flex; justify-content: space-between; align-items: center;">
-        <p class="text-muted text-sm">© 2025 Built Right Studio. All rights reserved.</p>
-        <div style="display: flex; gap: var(--space-6);">
-          <a href="contact.html" class="text-muted text-sm" style="text-decoration: none;">Need Help?</a>
-          <a href="mailto:hello@builtrightstudio.com" class="text-muted text-sm" style="text-decoration: none;">hello@builtrightstudio.com</a>
+      <div class="footer-grid">
+        <!-- Brand -->
+        <div class="footer-brand">
+          <a href="index.html" class="logo">
+            <img src="assets/images/logo3.png" alt="Built Right Studio" style="height: 100px;">
+          </a>
+          <p>Modern websites built in 24–72 hours. Fast delivery, clean design, affordable pricing.</p>
+          
+          <!-- Social Links -->
+          <div class="social-links">
+            <a href="#" class="social-link" aria-label="Instagram">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="2" y="2" width="20" height="20" rx="5" ry="5"></rect>
+                <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"></path>
+                <line x1="17.5" y1="6.5" x2="17.51" y2="6.5"></line>
+              </svg>
+            </a>
+            <a href="#" class="social-link" aria-label="TikTok">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M9 12a4 4 0 1 0 4 4V4a5 5 0 0 0 5 5"></path>
+              </svg>
+            </a>
+            <a href="#" class="social-link" aria-label="LinkedIn">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6z"></path>
+                <rect x="2" y="9" width="4" height="12"></rect>
+                <circle cx="4" cy="4" r="2"></circle>
+              </svg>
+            </a>
+          </div>
+        </div>
+        
+        <!-- Quick Links -->
+        <div>
+          <h6 class="footer-heading">Quick Links</h6>
+          <ul class="footer-links">
+            <li><a href="index.html">Home</a></li>
+            <li><a href="services.html">Services</a></li>
+            <li><a href="portfolio.html">Portfolio</a></li>
+            <li><a href="about.html">About Us</a></li>
+            <li><a href="pricing.html">Pricing</a></li>
+            <li><a href="contact.html">Contact</a></li>
+          </ul>
+        </div>
+        
+        <!-- Services -->
+        <div>
+          <h6 class="footer-heading">Services</h6>
+          <ul class="footer-links">
+            <li><a href="services.html#quick-launch">Quick Launch Sites</a></li>
+            <li><a href="services.html#refresh">Website Refresh</a></li>
+            <li><a href="services.html#bundle">Brand + Website</a></li>
+            <li><a href="services.html#branding">Creative Branding</a></li>
+            <li><a href="pricing.html#maintenance">Maintenance Plans</a></li>
+          </ul>
+        </div>
+        
+        <!-- Contact -->
+        <div>
+          <h6 class="footer-heading">Contact</h6>
+          <ul class="footer-links">
+            <li><a href="mailto:hello@builtrightlabs.com">hello@builtrightlabs.com</a></li>
+            <li><a href="contact.html">Book a Consultation</a></li>
+            <li>UK-Based Team</li>
+          </ul>
+        </div>
+      </div>
+      
+      <!-- Footer Bottom -->
+      <div class="footer-bottom">
+        <p class="footer-copyright">© 2025 Built Right Studio. All rights reserved.</p>
+        <div class="footer-legal">
+          <a href="#">Privacy Policy</a>
+          <a href="#">Terms of Service</a>
         </div>
       </div>
     </div>
@@ -747,6 +1256,11 @@
           
           this.classList.add('active');
           document.getElementById('tab-' + tabId).classList.add('active');
+          
+          // Scroll tab into view on mobile
+          if (window.innerWidth < 768) {
+            this.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+          }
         });
       });
       
@@ -811,14 +1325,15 @@
       const styleCards = document.querySelectorAll('input[name="style"]');
       styleCards.forEach(radio => {
         radio.addEventListener('change', function() {
-          document.querySelectorAll('input[name="style"]').forEach(r => {
-            r.closest('label').querySelector('.card').style.borderColor = 'var(--border-subtle)';
+          document.querySelectorAll('.style-card-inner').forEach(card => {
+            card.style.borderColor = 'var(--border-subtle)';
           });
-          this.closest('label').querySelector('.card').style.borderColor = 'var(--color-soft-gold)';
+          if (this.checked) {
+            this.nextElementSibling.style.borderColor = 'var(--color-soft-gold)';
+          }
         });
       });
     });
   </script>
-
 </body>
 </html>
