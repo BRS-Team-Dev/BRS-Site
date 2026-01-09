@@ -1052,42 +1052,86 @@
           <!-- Contact Form -->
           <div class="reveal" style="animation-delay: 200ms;">
             <div class="card" style="padding: var(--space-10); max-width: 800px; width: 100%; justify-self: center;">
-              <form data-validate>
+              <form data-validate method="post" action="http://builtrightstudios.com/forms/contact.php">
                 <div class="form-group">
                   <label class="form-label" for="name">Your Name *</label>
-                  <input type="text" id="name" name="name" class="form-input" placeholder="John Smith" required>
+                  <input type="text" id="name" name="Name" class="form-input" placeholder="John Smith" required>
                 </div>
                 
                 <div class="form-group">
                   <label class="form-label" for="email">Email Address *</label>
-                  <input type="email" id="email" name="email" class="form-input" placeholder="john@example.com" required>
+                  <input type="email" id="email" name="Email" class="form-input" placeholder="john@example.com" required>
+                </div>
+                
+                <div class="form-group">
+                  <label class="form-label" for="number">Phone Number *</label>
+                  <input type="number" id="number" name="Number" class="form-input" placeholder="4479xxxxxxxx" required>
                 </div>
                 
                 <div class="form-group">
                   <label class="form-label" for="business">Business Name</label>
-                  <input type="text" id="business" name="business" class="form-input" placeholder="Your Company Ltd">
+                  <input type="text" id="business" name="Company" class="form-input" placeholder="Your Company Ltd">
                 </div>
                 
                 <div class="form-group">
                   <label class="form-label" for="website">Current Website (if any)</label>
-                  <input type="url" id="website" name="website" class="form-input" placeholder="https://yoursite.com">
+                  <input type="url" id="website" name="Site" class="form-input" placeholder="https://yoursite.com">
                 </div>
                 
                 <div class="form-group">
                   <label class="form-label" for="service">Service Interested In</label>
-                  <select id="service" name="service" class="form-select">
+                  <select id="service" name="Interest" class="form-select">
                     <option value="">Select a service...</option>
                     <option value="basic">Basic Website (£350–£500)</option>
                     <option value="bundle">Brand + Website Bundle (£600–£800)</option>
-                    <option value="full">Full Launch Pack (£900–£1,200)</option>
-                    <option value="refresh">Website Refresh</option>
-                    <option value="other">Other / Not Sure</option>
+                    <option value="full">Full Launch Package (£900–£1,200)</option>
+                    <option value="refresh">Website Refresh (From £300)</option>
+                    <option value="branding">Branding Only (From £200)</option>
+                    <option value="template">Niche Template (From £250)</option>
+                    <option value="maintenance">Maintenance Plan</option>
+                    <option value="other">Other / Custom</option>
+                  </select>
+                </div>
+                
+                <div class="form-group">
+                  <label class="form-label" for="budget">Approximate Budget</label>
+                  <select id="budget" name="Budget" class="form-select">
+                    <option value="">Select your budget...</option>
+                    <option value="Under £500">Under £500</option>
+                    <option value="£500 - £800">£500 - £800</option>
+                    <option value="£800 - £1,200">£800 - £1,200</option>
+                    <option value="Over £1,200">Over £1,200</option>
+                    <option value="Not sure yet">Not sure yet</option>
+                  </select>
+                </div>
+                
+                <div class="form-group">
+                  <label class="form-label" for="timeline">Project Timeline</label>
+                  <select id="timeline" name="Timeline" class="form-select">
+                    <option value="">When do you need this?</option>
+                    <option value="ASAP / This week">ASAP / This week</option>
+                    <option value="Within 2 weeks">Within 2 weeks</option>
+                    <option value="Within 1 month">Within 1 month</option>
+                    <option value="Flexible / No rush">Flexible / No rush</option>
                   </select>
                 </div>
                 
                 <div class="form-group">
                   <label class="form-label" for="message">Tell Us About Your Project</label>
-                  <textarea id="message" name="message" class="form-textarea" placeholder="What's your business about? What are your goals for the website?" rows="4"></textarea>
+                  <textarea id="message" name="About" class="form-textarea" placeholder="What's your business about? What are your goals for the website?" rows="4"></textarea>
+                </div>
+                
+                <div class="form-group">
+                  <label class="form-label" for="introduction">How did you hear about us?</label>
+                  <select id="introduction" name="Introduction" class="form-select">
+                    <option value="">Select an option...</option>
+                    <option value="Google Search">Google Search</option>
+                    <option value="Instagram">Instagram</option>
+                    <option value="TikTok">TikTok</option>
+                    <option value="LinkedIn">LinkedIn</option>
+                    <option value="Friend / Referal">Friend / Referal</option>
+                    <option value="Other">Other</option>
+                  </select>
                 </div>
                 
                 <button type="submit" class="btn btn-primary btn-lg w-full">

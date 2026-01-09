@@ -168,35 +168,35 @@
           <div class="reveal" id="form">
             <h3 style="margin-bottom: var(--space-6);">Send Us a <span class="text-gold">Message</span></h3>
             
-            <form class="contact-form" data-validate action="#" method="POST">
+            <form class="contact-form" data-validate action="http://builtrightstudios.com/forms/contact.php" method="POST">
               <div class="form-group">
                 <label for="name" class="form-label">Full Name <span class="text-gold">*</span></label>
-                <input type="text" id="name" name="name" class="form-input" placeholder="John Smith" required data-validate-required>
+                <input type="text" id="name" name="Name" class="form-input" placeholder="John Smith" required data-validate-required>
               </div>
               
               <div class="form-group">
                 <label for="email" class="form-label">Email Address <span class="text-gold">*</span></label>
-                <input type="email" id="email" name="email" class="form-input" placeholder="john@example.com" required data-validate-required data-validate-email>
+                <input type="email" id="email" name="Email" class="form-input" placeholder="john@example.com" required data-validate-required data-validate-email>
               </div>
               
               <div class="form-group">
                 <label for="phone" class="form-label">Phone Number</label>
-                <input type="tel" id="phone" name="phone" class="form-input" placeholder="+44 7XXX XXXXXX" data-validate-phone>
+                <input type="tel" id="phone" name="Number" class="form-input" placeholder="+44 7XXX XXXXXX" data-validate-phone>
               </div>
               
               <div class="form-group">
                 <label for="business" class="form-label">Business Name</label>
-                <input type="text" id="business" name="business" class="form-input" placeholder="Your Business Ltd">
+                <input type="text" id="business" name="Company" class="form-input" placeholder="Your Business Ltd">
               </div>
               
               <div class="form-group">
                 <label for="website" class="form-label">Current Website (if any)</label>
-                <input type="url" id="website" name="website" class="form-input" placeholder="https://yoursite.com" data-validate-url>
+                <input type="url" id="website" name="Site" class="form-input" placeholder="https://yoursite.com" data-validate-url>
               </div>
               
               <div class="form-group">
                 <label for="service" class="form-label">Service Interested In <span class="text-gold">*</span></label>
-                <select id="service" name="service" class="form-select" required>
+                <select id="service" name="Interest" class="form-select" required>
                   <option value="" disabled selected>Select a service...</option>
                   <option value="basic">Basic Website (£350–£500)</option>
                   <option value="bundle">Brand + Website Bundle (£600–£800)</option>
@@ -211,30 +211,30 @@
               
               <div class="form-group">
                 <label for="budget" class="form-label">Approximate Budget</label>
-                <select id="budget" name="budget" class="form-select">
+                <select id="budget" name="Budget" class="form-select">
                   <option value="" disabled selected>Select your budget range...</option>
-                  <option value="under-500">Under £500</option>
-                  <option value="500-800">£500 – £800</option>
-                  <option value="800-1200">£800 – £1,200</option>
-                  <option value="over-1200">Over £1,200</option>
-                  <option value="not-sure">Not sure yet</option>
+                  <option value="Under £500">Under £500</option>
+                  <option value="£500 - £800">£500 – £800</option>
+                  <option value="£800 - £1,200">£800 – £1,200</option>
+                  <option value="Over £1,200">Over £1,200</option>
+                  <option value="Not sure yet">Not sure yet</option>
                 </select>
               </div>
               
               <div class="form-group">
                 <label for="timeline" class="form-label">Project Timeline</label>
-                <select id="timeline" name="timeline" class="form-select">
+                <select id="timeline" name="Timeline" class="form-select">
                   <option value="" disabled selected>When do you need this?</option>
-                  <option value="asap">ASAP / This week</option>
-                  <option value="2-weeks">Within 2 weeks</option>
-                  <option value="1-month">Within 1 month</option>
-                  <option value="flexible">Flexible / No rush</option>
+                  <option value="ASAP / This week">ASAP / This week</option>
+                  <option value="Within 2 weeks">Within 2 weeks</option>
+                  <option value="Within 1 month">Within 1 month</option>
+                  <option value="Flexible / No rush">Flexible / No rush</option>
                 </select>
               </div>
               
               <div class="form-group">
                 <label for="message" class="form-label">Project Details <span class="text-gold">*</span></label>
-                <textarea id="message" name="message" class="form-input" rows="5" placeholder="Tell us about your project, goals, and any specific requirements..." required data-validate-required data-validate-minlength="20"></textarea>
+                <textarea id="message" name="About" class="form-input" rows="5" placeholder="Tell us about your project, goals, and any specific requirements..." required data-validate-required data-validate-minlength="20"></textarea>
                 <div class="form-hint">Minimum 20 characters</div>
               </div>
               
@@ -242,12 +242,12 @@
                 <label for="referral" class="form-label">How did you hear about us?</label>
                 <select id="referral" name="referral" class="form-select">
                   <option value="" disabled selected>Select an option...</option>
-                  <option value="google">Google Search</option>
-                  <option value="instagram">Instagram</option>
-                  <option value="tiktok">TikTok</option>
-                  <option value="linkedin">LinkedIn</option>
-                  <option value="referral">Friend / Referral</option>
-                  <option value="other">Other</option>
+                  <option value="Google Search">Google Search</option>
+                  <option value="Instagram">Instagram</option>
+                  <option value="TikTok">TikTok</option>
+                  <option value="LinkedIn">LinkedIn</option>
+                  <option value="Friend / Referal">Friend / Referral</option>
+                  <option value="Other">Other</option>
                 </select>
               </div>
               
