@@ -75,13 +75,16 @@ jobs:
         working-directory: cms/frontend
         run: npx ng build --configuration=${{ steps.vars.outputs.ng_config }}
 
-      # --- SSH setup: install deploy key, trust host ---
+      # --- SSH setup: install deploy key. Host key TOFU on first connect
+      # via StrictHostKeyChecking=accept-new (runner is ephemeral; ssh-keyscan
+      # was flaky against the Hostinger SSH endpoint).
       - name: Configure SSH
         run: |
           mkdir -p ~/.ssh
-          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/deploy_key
+          chmod 700 ~/.ssh
+          printf '%s\n' "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
-          ssh-keyscan -p ${{ secrets.SSH_PORT }} -H ${{ secrets.SSH_HOST }} >> ~/.ssh/known_hosts 2>/dev/null
+          touch ~/.ssh/known_hosts && chmod 644 ~/.ssh/known_hosts
 
       # --- Rsync cms/ contents to server's cc/ dir ---
       # exclude-from is relative to cms/. .deployignore covers: uploads/, storage/,
@@ -91,7 +94,7 @@ jobs:
           rsync -avz --delete \
             --exclude-from=cms/.deployignore \
             --exclude='frontend/dist/' \
-            -e "ssh -i ~/.ssh/deploy_key -p ${{ secrets.SSH_PORT }} -o StrictHostKeyChecking=yes" \
+            -e "ssh -i ~/.ssh/deploy_key -p ${{ secrets.SSH_PORT }} -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile=~/.ssh/known_hosts" \
             cms/ \
             ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:${{ steps.vars.outputs.remote_dir }}/
 
@@ -99,7 +102,7 @@ jobs:
       - name: Rsync Angular dist
         run: |
           rsync -avz --delete \
-            -e "ssh -i ~/.ssh/deploy_key -p ${{ secrets.SSH_PORT }} -o StrictHostKeyChecking=yes" \
+            -e "ssh -i ~/.ssh/deploy_key -p ${{ secrets.SSH_PORT }} -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile=~/.ssh/known_hosts" \
             cms/frontend/dist/builtrightstudio/browser/ \
             ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:${{ steps.vars.outputs.remote_dir }}/dist/
 
