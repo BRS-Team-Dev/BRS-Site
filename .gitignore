@@ -10,7 +10,8 @@
 /cms/.env
 /cms/.env.*
 !/cms/.env.example
-/cms/api/config.php
+# NOTE: cms/api/config.php was legacy-sensitive (held DB creds inline). Post-refactor
+# it's a generic .env loader with no secrets, so it ships with the repo.
 
 # Runtime / user data
 /cms/uploads/
