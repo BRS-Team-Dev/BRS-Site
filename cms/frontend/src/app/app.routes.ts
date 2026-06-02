@@ -19,6 +19,8 @@ import { Shell } from './layout/shell';
 
 export const routes: Routes = [
   { path: 'login', component: Login },
+  { path: 'forgot-password', loadComponent: () => import('./features/auth/forgot-password').then(m => m.ForgotPassword) },
+  { path: 'reset-password',  loadComponent: () => import('./features/auth/reset-password').then(m => m.ResetPassword) },
   // Public form (iframe-safe; no shell, no auth)
   { path: 'forms/:slug',                loadComponent: () => import('./features/public-form/public-form').then(m => m.PublicForm) },
   // Public onboarding portal (token in URL; no shell, no auth)

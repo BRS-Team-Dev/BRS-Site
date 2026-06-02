@@ -4,6 +4,7 @@ import { filter } from 'rxjs';
 import { Api } from '../core/api';
 import { AdminSection, FormDef } from '../core/models';
 import { SettingsService } from '../core/settings.service';
+import { environment } from '@env/environment';
 
 @Component({
   selector: 'app-side-nav',
@@ -238,7 +239,8 @@ export class SideNav {
   private api = inject(Api);
   private router = inject(Router);
   brandName = this.svc.brandName;
-  logoUrl = this.svc.brandLogoUrl;
+  // Fall back to the bundled BRS icon when no brand logo is configured.
+  logoUrl = computed(() => this.svc.brandLogoUrl() || `${environment.basePath}/icon.png`);
   initials = this.svc.brandInitials;
   logoFailed = false;
   onboardingForms = signal<FormDef[]>([]);
