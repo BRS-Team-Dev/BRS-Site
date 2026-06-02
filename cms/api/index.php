@@ -10,13 +10,16 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'OPTIONS') {
     Json::send(['ok' => true]);
 }
 
-// Determine path AFTER /api/
+// Determine path AFTER /api/. The script's directory (auto-detected from
+// SCRIPT_NAME) is the URL prefix — works for any deployment path:
+//   local  /builtrightstudio/cms/api/index.php → base /builtrightstudio/cms/api
+//   server /cc/api/index.php                   → base /cc/api
 $uri  = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?? '/';
-$base = '/builtrightstudio/api';
-if (strpos($uri, $base) === 0) {
+$base = rtrim(str_replace('\\', '/', dirname($_SERVER['SCRIPT_NAME'] ?? '/api/index.php')), '/');
+if ($base !== '' && strpos($uri, $base) === 0) {
     $path = trim(substr($uri, strlen($base)), '/');
 } else {
-    // Fallback: if rewrites set PATH_INFO or QUERY_STRING route, use those
+    // Fallback: explicit __route override
     $path = trim((string)($_GET['__route'] ?? ''), '/');
 }
 
