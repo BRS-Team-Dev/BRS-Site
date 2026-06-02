@@ -1,0 +1,22 @@
+RewriteEngine On
+RewriteBase /builtrightstudio/cms/
+
+# /api/* → PHP front controller
+RewriteRule ^api(/.*)?$ api/index.php [L,QSA]
+
+# Already-existing files/dirs (e.g. .htaccess itself) -> serve directly
+RewriteCond %{REQUEST_FILENAME} -f [OR]
+RewriteCond %{REQUEST_FILENAME} -d
+RewriteRule ^ - [L]
+
+# If the request matches a file inside the Angular dist, serve it from there
+RewriteCond %{DOCUMENT_ROOT}/builtrightstudio/cms/frontend/dist/builtrightstudio/browser/$1 -f
+RewriteRule ^(.*)$ frontend/dist/builtrightstudio/browser/$1 [L]
+
+# Otherwise, send to the Angular SPA shell (client-side router takes over)
+RewriteRule ^ frontend/dist/builtrightstudio/browser/index.html [L]
+
+# Allow iframe embedding of public form pages
+<IfModule mod_headers.c>
+  Header always unset X-Frame-Options
+</IfModule>

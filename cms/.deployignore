@@ -1,0 +1,42 @@
+# Files excluded from rsync deploys.
+# These either don't belong on the server, must be preserved (user data),
+# or are environment-specific and managed out-of-band.
+
+# Source-only / build inputs (we deploy the built dist/, not the sources)
+frontend/src/
+frontend/node_modules/
+frontend/public/
+frontend/angular.json
+frontend/package.json
+frontend/package-lock.json
+frontend/tsconfig*.json
+frontend/proxy.conf.json
+frontend/README.md
+frontend/.angular/
+
+# Local-only directories
+docs/
+memory.md
+seed_test_*.php
+
+# Local .htaccess (we ship .htaccess.deploy → .htaccess in deploy step)
+.htaccess
+
+# Secrets — env file is created on server, never overwritten
+.env
+.env.example
+api/config.php
+api/config.example.php
+
+# Git / CI internals
+.git/
+.github/
+.gitignore
+.deployignore
+
+# IDE / OS noise
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+*.log

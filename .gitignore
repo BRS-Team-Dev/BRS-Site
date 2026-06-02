@@ -1,0 +1,29 @@
+# --- CMS subfolder ---
+
+# Dependencies / build artefacts
+/cms/api/vendor/
+/cms/frontend/node_modules/
+/cms/frontend/dist/
+/cms/frontend/.angular/
+
+# Secrets / per-machine config
+/cms/.env
+/cms/.env.*
+!/cms/.env.example
+/cms/api/config.php
+
+# Runtime / user data
+/cms/uploads/
+/cms/storage/
+
+# Local seed scripts (XAMPP only) — at repo root for legacy reasons
+/seed_test_*.php
+
+# --- Project-wide ---
+/memory.md
+/docs/
+.DS_Store
+Thumbs.db
+*.log
+.vscode/
+.idea/

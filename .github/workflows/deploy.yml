@@ -1,0 +1,137 @@
+name: Deploy CMS
+
+# Scoped to the cms/ subfolder. Marketing site files at repo root are NOT
+# touched by this workflow.
+
+on:
+  push:
+    branches: [dev]
+    paths:
+      - 'cms/**'
+      - '.github/workflows/deploy.yml'
+  workflow_dispatch:
+    inputs:
+      target:
+        description: "Environment to deploy"
+        required: true
+        default: "dev"
+        type: choice
+        options: [dev, prod]
+
+concurrency:
+  # Never run two deploys to the same env at once.
+  group: deploy-${{ github.event.inputs.target || 'dev' }}
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.target || 'dev' }}
+    env:
+      TARGET: ${{ github.event.inputs.target || 'dev' }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # --- Resolve per-env target dir + Angular configuration ---
+      - name: Resolve env-specific variables
+        id: vars
+        run: |
+          if [ "$TARGET" = "prod" ]; then
+            echo "remote_dir=/home/u584458514/domains/builtrightstudio.com/public_html/cc" >> "$GITHUB_OUTPUT"
+            echo "ng_config=production" >> "$GITHUB_OUTPUT"
+          else
+            echo "remote_dir=/home/u584458514/domains/builtrightstudio.com/public_html/Dev/cc" >> "$GITHUB_OUTPUT"
+            echo "ng_config=dev" >> "$GITHUB_OUTPUT"
+          fi
+
+      # --- Backend: composer install (no dev deps) ---
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: pdo, pdo_mysql, mbstring, openssl, fileinfo, curl, zip
+          tools: composer:v2
+          coverage: none
+
+      - name: Composer install (cms/api)
+        working-directory: cms/api
+        run: composer install --no-dev --optimize-autoloader --no-interaction --no-progress
+
+      # --- Frontend: build for target env ---
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: cms/frontend/package-lock.json
+
+      - name: npm ci (cms/frontend)
+        working-directory: cms/frontend
+        run: npm ci
+
+      - name: Angular build (${{ steps.vars.outputs.ng_config }})
+        working-directory: cms/frontend
+        run: npx ng build --configuration=${{ steps.vars.outputs.ng_config }}
+
+      # --- SSH setup: install deploy key, trust host ---
+      - name: Configure SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -p ${{ secrets.SSH_PORT }} -H ${{ secrets.SSH_HOST }} >> ~/.ssh/known_hosts 2>/dev/null
+
+      # --- Rsync cms/ contents to server's cc/ dir ---
+      # exclude-from is relative to cms/. .deployignore covers: uploads/, storage/,
+      # .env, frontend/src, etc. We deploy code; user-data on the server is preserved.
+      - name: Rsync cms/ to ${{ env.TARGET }}
+        run: |
+          rsync -avz --delete \
+            --exclude-from=cms/.deployignore \
+            --exclude='frontend/dist/' \
+            -e "ssh -i ~/.ssh/deploy_key -p ${{ secrets.SSH_PORT }} -o StrictHostKeyChecking=yes" \
+            cms/ \
+            ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:${{ steps.vars.outputs.remote_dir }}/
+
+      # --- Ship the built Angular bundle into cc/dist/ (flattened) ---
+      - name: Rsync Angular dist
+        run: |
+          rsync -avz --delete \
+            -e "ssh -i ~/.ssh/deploy_key -p ${{ secrets.SSH_PORT }} -o StrictHostKeyChecking=yes" \
+            cms/frontend/dist/builtrightstudio/browser/ \
+            ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:${{ steps.vars.outputs.remote_dir }}/dist/
+
+      # --- Install per-env .htaccess ---
+      - name: Install .htaccess
+        run: |
+          ssh -i ~/.ssh/deploy_key -p ${{ secrets.SSH_PORT }} \
+            ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} \
+            "cp ${{ steps.vars.outputs.remote_dir }}/.htaccess.deploy ${{ steps.vars.outputs.remote_dir }}/.htaccess"
+
+      # --- Ensure runtime dirs exist + are writable (preserved across deploys) ---
+      - name: Ensure runtime dirs
+        run: |
+          ssh -i ~/.ssh/deploy_key -p ${{ secrets.SSH_PORT }} \
+            ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} \
+            "mkdir -p ${{ steps.vars.outputs.remote_dir }}/uploads ${{ steps.vars.outputs.remote_dir }}/storage && chmod 775 ${{ steps.vars.outputs.remote_dir }}/uploads ${{ steps.vars.outputs.remote_dir }}/storage"
+
+      # --- Run pending DB migrations (idempotent; runs from server-side .env) ---
+      - name: Run migrations
+        run: |
+          ssh -i ~/.ssh/deploy_key -p ${{ secrets.SSH_PORT }} \
+            ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} \
+            "cd ${{ steps.vars.outputs.remote_dir }} && CI=true php db/migrate.php"
+
+      # --- Smoke check ---
+      - name: Smoke test
+        run: |
+          if [ "$TARGET" = "prod" ]; then BASE="https://builtrightstudio.com/cc"; else BASE="https://dev.builtrightstudio.com/cc"; fi
+          echo "Probing $BASE/api/auth/me (expect 401)"
+          code=$(curl -s -o /dev/null -w "%{http_code}" "$BASE/api/auth/me" || echo 000)
+          echo "HTTP $code"
+          # 401 = backend reachable + un-authed; 200/302 OK from SPA shell too.
+          if [ "$code" != "401" ] && [ "$code" != "200" ] && [ "$code" != "302" ]; then
+            echo "Smoke test failed (got $code)"; exit 1
+          fi

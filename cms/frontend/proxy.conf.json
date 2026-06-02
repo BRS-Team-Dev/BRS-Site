@@ -1,0 +1,12 @@
+{
+  "/builtrightstudio/cms/api": {
+    "target": "http://localhost",
+    "secure": false,
+    "changeOrigin": true
+  },
+  "/builtrightstudio/cms/uploads": {
+    "target": "http://localhost",
+    "secure": false,
+    "changeOrigin": true
+  }
+}
