@@ -1,52 +1,56 @@
-name: Deploy CMS
+name: Build CMS
 
-# Scoped to the cms/ subfolder. Marketing site files at repo root are NOT
-# touched by this workflow.
+# Builds the CMS artifact (Angular dist + composer vendor) and force-pushes the
+# result to a deployed-{env} branch. The Hostinger server's cron job pulls from
+# that branch — we never SSH from CI to Hostinger (their brute-force protection
+# blocks Azure-based runner IPs).
 
 on:
   push:
-    branches: [dev]
+    branches: [dev, main]
     paths:
       - 'cms/**'
       - '.github/workflows/deploy.yml'
   workflow_dispatch:
     inputs:
       target:
-        description: "Environment to deploy"
+        description: "Environment to build for"
         required: true
         default: "dev"
         type: choice
         options: [dev, prod]
 
 concurrency:
-  # Never run two deploys to the same env at once.
-  group: deploy-${{ github.event.inputs.target || 'dev' }}
-  cancel-in-progress: false
+  group: build-${{ github.event.inputs.target || github.ref_name }}
+  cancel-in-progress: true
 
 jobs:
-  deploy:
+  build:
     runs-on: ubuntu-latest
-    environment: ${{ github.event.inputs.target || 'dev' }}
-    env:
-      TARGET: ${{ github.event.inputs.target || 'dev' }}
+    permissions:
+      contents: write   # to force-push deployed-{env} branch
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
 
-      # --- Resolve per-env target dir + Angular configuration ---
-      - name: Resolve env-specific variables
+      - name: Resolve target env
         id: vars
         run: |
-          if [ "$TARGET" = "prod" ]; then
-            echo "remote_dir=/home/u584458514/domains/builtrightstudio.com/public_html/cc" >> "$GITHUB_OUTPUT"
-            echo "ng_config=production" >> "$GITHUB_OUTPUT"
+          if [ -n "${{ github.event.inputs.target }}" ]; then
+            T="${{ github.event.inputs.target }}"
+          elif [ "${{ github.ref_name }}" = "main" ]; then
+            T=prod
           else
-            echo "remote_dir=/home/u584458514/domains/builtrightstudio.com/public_html/Dev/cc" >> "$GITHUB_OUTPUT"
-            echo "ng_config=dev" >> "$GITHUB_OUTPUT"
+            T=dev
           fi
+          if [ "$T" = "prod" ]; then NG=production; else NG=dev; fi
+          echo "target=$T" >> "$GITHUB_OUTPUT"
+          echo "ng_config=$NG" >> "$GITHUB_OUTPUT"
+          echo "Building for $T (ng configuration: $NG)"
 
-      # --- Backend: composer install (no dev deps) ---
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
         with:
@@ -59,12 +63,11 @@ jobs:
         working-directory: cms/api
         run: composer install --no-dev --optimize-autoloader --no-interaction --no-progress
 
-      # --- Frontend: build for target env ---
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: '22'
-          cache: 'npm'
+          cache: npm
           cache-dependency-path: cms/frontend/package-lock.json
 
       - name: npm ci (cms/frontend)
@@ -75,66 +78,44 @@ jobs:
         working-directory: cms/frontend
         run: npx ng build --configuration=${{ steps.vars.outputs.ng_config }}
 
-      # --- SSH setup: install deploy key. Host key TOFU on first connect
-      # via StrictHostKeyChecking=accept-new (runner is ephemeral; ssh-keyscan
-      # was flaky against the Hostinger SSH endpoint).
-      - name: Configure SSH
+      # --- Assemble the server-shaped artifact tree under _artifact/ ---
+      # Mirrors what the server's rsync expects:
+      #   api/  (with vendor/)
+      #   db/
+      #   index.php
+      #   .htaccess.deploy → renamed to .htaccess at deploy time on the server
+      #   dist/  (flattened from cms/frontend/dist/builtrightstudio/browser/)
+      - name: Assemble artifact
         run: |
-          mkdir -p ~/.ssh
-          chmod 700 ~/.ssh
-          printf '%s\n' "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/deploy_key
-          chmod 600 ~/.ssh/deploy_key
-          touch ~/.ssh/known_hosts && chmod 644 ~/.ssh/known_hosts
+          set -e
+          ART=_artifact
+          rm -rf "$ART" && mkdir -p "$ART"
+          cp -a cms/api "$ART/"
+          cp -a cms/db  "$ART/"
+          cp -a cms/index.php "$ART/"
+          cp -a cms/.htaccess.deploy "$ART/"
+          mkdir -p "$ART/dist"
+          cp -a cms/frontend/dist/builtrightstudio/browser/. "$ART/dist/"
+          ls -la "$ART"
+          du -sh "$ART"
 
-      # --- Rsync cms/ contents to server's cc/ dir ---
-      # exclude-from is relative to cms/. .deployignore covers: uploads/, storage/,
-      # .env, frontend/src, etc. We deploy code; user-data on the server is preserved.
-      - name: Rsync cms/ to ${{ env.TARGET }}
+      # Orphan-history branch containing ONLY the artifact tree at its root.
+      # Server clones this branch and rsyncs its contents into cc/.
+      - name: Publish to deployed-${{ steps.vars.outputs.target }}
+        env:
+          BRANCH: deployed-${{ steps.vars.outputs.target }}
+          SHA: ${{ github.sha }}
         run: |
-          rsync -avz --delete \
-            --exclude-from=cms/.deployignore \
-            --exclude='frontend/dist/' \
-            -e "ssh -i ~/.ssh/deploy_key -p ${{ secrets.SSH_PORT }} -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile=~/.ssh/known_hosts" \
-            cms/ \
-            ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:${{ steps.vars.outputs.remote_dir }}/
-
-      # --- Ship the built Angular bundle into cc/dist/ (flattened) ---
-      - name: Rsync Angular dist
-        run: |
-          rsync -avz --delete \
-            -e "ssh -i ~/.ssh/deploy_key -p ${{ secrets.SSH_PORT }} -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile=~/.ssh/known_hosts" \
-            cms/frontend/dist/builtrightstudio/browser/ \
-            ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:${{ steps.vars.outputs.remote_dir }}/dist/
-
-      # --- Install per-env .htaccess ---
-      - name: Install .htaccess
-        run: |
-          ssh -i ~/.ssh/deploy_key -p ${{ secrets.SSH_PORT }} \
-            ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} \
-            "cp ${{ steps.vars.outputs.remote_dir }}/.htaccess.deploy ${{ steps.vars.outputs.remote_dir }}/.htaccess"
-
-      # --- Ensure runtime dirs exist + are writable (preserved across deploys) ---
-      - name: Ensure runtime dirs
-        run: |
-          ssh -i ~/.ssh/deploy_key -p ${{ secrets.SSH_PORT }} \
-            ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} \
-            "mkdir -p ${{ steps.vars.outputs.remote_dir }}/uploads ${{ steps.vars.outputs.remote_dir }}/storage && chmod 775 ${{ steps.vars.outputs.remote_dir }}/uploads ${{ steps.vars.outputs.remote_dir }}/storage"
-
-      # --- Run pending DB migrations (idempotent; runs from server-side .env) ---
-      - name: Run migrations
-        run: |
-          ssh -i ~/.ssh/deploy_key -p ${{ secrets.SSH_PORT }} \
-            ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} \
-            "cd ${{ steps.vars.outputs.remote_dir }} && CI=true php db/migrate.php"
-
-      # --- Smoke check ---
-      - name: Smoke test
-        run: |
-          if [ "$TARGET" = "prod" ]; then BASE="https://builtrightstudio.com/cc"; else BASE="https://dev.builtrightstudio.com/cc"; fi
-          echo "Probing $BASE/api/auth/me (expect 401)"
-          code=$(curl -s -o /dev/null -w "%{http_code}" "$BASE/api/auth/me" || echo 000)
-          echo "HTTP $code"
-          # 401 = backend reachable + un-authed; 200/302 OK from SPA shell too.
-          if [ "$code" != "401" ] && [ "$code" != "200" ] && [ "$code" != "302" ]; then
-            echo "Smoke test failed (got $code)"; exit 1
-          fi
+          set -e
+          mkdir publish
+          cp -a _artifact/. publish/
+          cd publish
+          git init -q -b "$BRANCH"
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          echo "*.log" > .gitignore
+          git add -A
+          git commit -q -m "deploy: ${SHA::7} ($BRANCH)"
+          git remote add origin "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git"
+          git push -f -q origin "$BRANCH"
+          echo "Pushed $(git rev-parse HEAD) to $BRANCH"
