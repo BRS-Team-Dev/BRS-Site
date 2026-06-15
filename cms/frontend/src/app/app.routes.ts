@@ -27,6 +27,8 @@ export const routes: Routes = [
   { path: 'onboarding/:formId/:token',  loadComponent: () => import('./features/onboarding/onboarding-portal').then(m => m.OnboardingPortal) },
   // Public HR onboarding portal for new hires (token in URL; no shell, no auth)
   { path: 'hr-onboarding/:token',       loadComponent: () => import('./features/hr/hr-onboarding-portal').then(m => m.HrOnboardingPortal) },
+  // Public Recruitment onboarding portal for candidates (token in URL; no shell, no auth)
+  { path: 'recruitment-onboarding/:token', loadComponent: () => import('./features/recruitment/recruitment-onboarding-portal').then(m => m.RecruitmentOnboardingPortal) },
   { path: 'surveys/:token',             loadComponent: () => import('./features/public/public-survey').then(m => m.PublicSurvey) },
   // Public job board — anonymous, no shell, no auth.
   { path: 'jobs',                       loadComponent: () => import('./features/public/public-jobs').then(m => m.PublicJobs) },
@@ -142,7 +144,12 @@ export const routes: Routes = [
       { path: 'hr/engagement',                 loadComponent: () => import('./features/hr/hr-engagement').then(m => m.HrEngagement) },
       { path: 'hr/succession',                 loadComponent: () => import('./features/hr/hr-succession').then(m => m.HrSuccession) },
       { path: 'hr/recruitment',                loadComponent: () => import('./features/hr/hr-recruitment').then(m => m.HrRecruitment) },
-      { path: 'hr/documents',                  loadComponent: () => import('./features/hr/hr-documents').then(m => m.HrDocuments) },
+      // Documents moved to the Operations system. The /hr/documents URL is
+      // kept as a redirect so any in-flight bookmarks/links keep resolving.
+      // The component still lives under features/hr/ since the data model,
+      // tables (hr_documents, hr_document_types), and backend (hr.php) all
+      // remain HR-owned — only the navigation home changes.
+      { path: 'hr/documents',                  redirectTo: 'operations/contracts', pathMatch: 'full' },
       // Payroll moved to /accounting/payroll. Keep the old URL as a redirect
       // so existing bookmarks / Management links resolve.
       { path: 'hr/payroll',                    redirectTo: 'accounting/payroll', pathMatch: 'full' },
@@ -164,6 +171,55 @@ export const routes: Routes = [
       { path: 'management/hiring',     loadComponent: () => import('./features/management/management-hiring').then(m => m.ManagementHiring) },
       { path: 'management/succession', loadComponent: () => import('./features/management/management-succession').then(m => m.ManagementSuccession) },
       { path: 'management/analytics',  loadComponent: () => import('./features/management/management-analytics').then(m => m.ManagementAnalytics) },
+
+      // ────────── Operations ──────────
+      // Newly added system. Dashboard-only scaffold today; sub-pages get added
+      // as features land in cms/frontend/src/app/features/operations/.
+      { path: 'operations',                  redirectTo: 'operations/dashboard', pathMatch: 'full' },
+      { path: 'operations/dashboard',        loadComponent: () => import('./features/operations/operations-dashboard').then(m => m.OperationsDashboard) },
+      { path: 'operations/taskboard',        loadComponent: () => import('./features/operations/tenders-taskboard').then(m => m.TendersTaskboard) },
+      { path: 'operations/partners',           loadComponent: () => import('./features/operations/partners-admin').then(m => m.PartnersAdmin) },
+      { path: 'operations/partners/new',       loadComponent: () => import('./features/operations/partners-admin').then(m => m.PartnersAdmin) },
+      { path: 'operations/partners/:id',       loadComponent: () => import('./features/operations/partners-admin').then(m => m.PartnersAdmin) },
+      { path: 'operations/partners/:id/edit',  loadComponent: () => import('./features/operations/partners-admin').then(m => m.PartnersAdmin) },
+      { path: 'operations/contractors',           loadComponent: () => import('./features/operations/contractors-admin').then(m => m.ContractorsAdmin) },
+      { path: 'operations/contractors/new',       loadComponent: () => import('./features/operations/contractors-admin').then(m => m.ContractorsAdmin) },
+      { path: 'operations/contractors/:id',       loadComponent: () => import('./features/operations/contractors-admin').then(m => m.ContractorsAdmin) },
+      { path: 'operations/contractors/:id/edit',  loadComponent: () => import('./features/operations/contractors-admin').then(m => m.ContractorsAdmin) },
+      { path: 'operations/affiliates',            loadComponent: () => import('./features/operations/affiliates-admin').then(m => m.AffiliatesAdmin) },
+      { path: 'operations/affiliates/new',        loadComponent: () => import('./features/operations/affiliates-admin').then(m => m.AffiliatesAdmin) },
+      { path: 'operations/affiliates/:id',        loadComponent: () => import('./features/operations/affiliates-admin').then(m => m.AffiliatesAdmin) },
+      { path: 'operations/affiliates/:id/edit',   loadComponent: () => import('./features/operations/affiliates-admin').then(m => m.AffiliatesAdmin) },
+      // Contracts (was the HR Documents page — renamed once a separate generic
+      // Operations Documents page was added). Same component + backend; route
+      // data tells hr-documents.ts to show only contract-kind sections and
+      // re-label its heading.
+      { path: 'operations/contracts',        loadComponent: () => import('./features/hr/hr-documents').then(m => m.HrDocuments), data: { onlyKind: 'contract' } },
+      // Generic Documents view — aggregated uploads across HR + Tenders, plus
+      // a filesystem Browse tab rooted at cms/uploads/.
+      { path: 'operations/documents',        loadComponent: () => import('./features/operations/operations-documents').then(m => m.OperationsDocuments) },
+      { path: 'operations/tenders',          loadComponent: () => import('./features/operations/tenders-admin').then(m => m.TendersAdmin) },
+      { path: 'operations/tenders/new',      loadComponent: () => import('./features/operations/tenders-admin').then(m => m.TendersAdmin) },
+      // 'import' must come BEFORE ':id' — Angular matches routes in order, and
+      // ':id' would otherwise swallow the literal "import" segment.
+      { path: 'operations/tenders/import',   loadComponent: () => import('./features/operations/tenders-import').then(m => m.TendersImport) },
+      { path: 'operations/tenders/:id',      loadComponent: () => import('./features/operations/tenders-admin').then(m => m.TendersAdmin) },
+      { path: 'operations/tenders/:id/edit', loadComponent: () => import('./features/operations/tenders-admin').then(m => m.TendersAdmin) },
+
+      // ────────── Recruitment ──────────
+      // Agency placing candidates with external clients (migration 077).
+      // Clients are filtered from the shared `clients` table via the
+      // `is_recruitment_client` flag rather than a separate table.
+      { path: 'recruitment',                  redirectTo: 'recruitment/dashboard', pathMatch: 'full' },
+      { path: 'recruitment/dashboard',        loadComponent: () => import('./features/recruitment/recruitment-dashboard').then(m => m.RecruitmentDashboard) },
+      { path: 'recruitment/clients',          loadComponent: () => import('./features/recruitment/recruitment-clients').then(m => m.RecruitmentClients) },
+      { path: 'recruitment/clients/:id',       loadComponent: () => import('./features/recruitment/recruitment-client-detail').then(m => m.RecruitmentClientDetail) },
+      { path: 'recruitment/candidates',       loadComponent: () => import('./features/recruitment/recruitment-candidates').then(m => m.RecruitmentCandidates) },
+      { path: 'recruitment/candidates/new',   loadComponent: () => import('./features/recruitment/recruitment-candidates').then(m => m.RecruitmentCandidates) },
+      { path: 'recruitment/candidates/:id',   loadComponent: () => import('./features/recruitment/recruitment-candidates').then(m => m.RecruitmentCandidates) },
+      { path: 'recruitment/candidates/:id/edit', loadComponent: () => import('./features/recruitment/recruitment-candidates').then(m => m.RecruitmentCandidates) },
+      { path: 'recruitment/documentation',    loadComponent: () => import('./features/recruitment/recruitment-documentation').then(m => m.RecruitmentDocumentation) },
+      { path: 'recruitment/settings',         loadComponent: () => import('./features/recruitment/recruitment-settings').then(m => m.RecruitmentSettings) },
 
       // ────────── Accounting ──────────
       // Phase 1: dashboard + invoices + payroll (payroll relocated from /hr).

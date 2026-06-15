@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { environment } from '@env/environment';
 import { Api } from '../../core/api';
 import { HrApplication, HrApplicationNote, HrCandidate, HrInterview, HrJob, TaskTeam } from '../../core/models';
+import { EntityContracts } from '../../shared/entity-contracts';
 
 const STAGES: Array<{ key: HrApplication['stage']; label: string }> = [
   { key: 'applied',    label: 'Applied' },
@@ -16,7 +17,7 @@ const STAGES: Array<{ key: HrApplication['stage']; label: string }> = [
 
 @Component({
   selector: 'app-hr-recruitment',
-  imports: [FormsModule],
+  imports: [FormsModule, EntityContracts],
   template: `
     <div class="toolbar">
       <h1>Recruitment</h1>
@@ -284,6 +285,11 @@ const STAGES: Array<{ key: HrApplication['stage']; label: string }> = [
                   </select>
                 </div>
               </div>
+            </div>
+
+            <div class="section-card">
+              <h3 class="card-title">Contracts</h3>
+              <app-entity-contracts audience="applicant" [entityId]="v.candidate_id"></app-entity-contracts>
             </div>
 
             <div class="section-card">

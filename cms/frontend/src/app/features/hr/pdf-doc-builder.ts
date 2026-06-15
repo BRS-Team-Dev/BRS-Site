@@ -2,8 +2,8 @@ import { Component, EventEmitter, Input, Output, computed, inject, signal } from
 import { FormsModule } from '@angular/forms';
 import { Api } from '../../core/api';
 import { environment } from '@env/environment';
-import { PdfDocBlock, PdfDocBlockKind, PdfDocPage } from '../../core/models';
-import { renderPdfDocBlob } from './pdf-doc-renderer';
+import { ContractAudience, PdfDocBlock, PdfDocBlockKind, PdfDocPage } from '../../core/models';
+import { labelSlug, renderPdfDocBlob } from './pdf-doc-renderer';
 
 /**
  * Page-based PDF authoring tool used to compose docusign-style templates.
@@ -25,7 +25,7 @@ import { renderPdfDocBlob } from './pdf-doc-renderer';
       <div class="page-list">
         <h4 class="muted small">Pages</h4>
         @for (p of pages(); track p.id; let pi = $index; let last = $last) {
-          <button class="page-tab" [class.active]="activeIdx() === pi" (click)="activeIdx.set(pi)" type="button">
+          <button class="page-tab" [class.active]="activeIdx() === pi" (click)="setPage(pi)" type="button">
             <span>Page {{ pi + 1 }}</span>
             <span class="muted small">{{ p.blocks.length }} block{{ p.blocks.length === 1 ? '' : 's' }}</span>
           </button>
@@ -37,6 +37,12 @@ import { renderPdfDocBlob } from './pdf-doc-renderer';
         <div class="page-editor">
           <div class="page-toolbar">
             <strong>Page {{ activeIdx() + 1 }} of {{ pages().length }}</strong>
+            <label class="sign-toggle" title="When ticked, this page includes the standard signature/date footer.">
+              <input type="checkbox"
+                     [checked]="showsSignZone(activeIdx())"
+                     (change)="setShowSignZone(activeIdx(), $any($event.target).checked)" />
+              <span>Signature footer</span>
+            </label>
             <span class="spacer"></span>
             <button class="ghost icon-btn" type="button" (click)="movePage(-1)" [disabled]="activeIdx() === 0" title="Move up">↑</button>
             <button class="ghost icon-btn" type="button" (click)="movePage(1)" [disabled]="activeIdx() >= pages().length - 1" title="Move down">↓</button>
@@ -61,11 +67,53 @@ import { renderPdfDocBlob } from './pdf-doc-renderer';
                       <option [ngValue]="2">H2</option>
                       <option [ngValue]="3">H3</option>
                     </select>
-                    <input [(ngModel)]="b.body" name="hd_{{ b.id }}" placeholder="Heading text" />
+                    <input #fld [(ngModel)]="b.body" name="hd_{{ b.id }}" placeholder="Heading text"
+                           (focus)="lastFocused = fld" />
+                  </div>
+                  <div class="token-bar">
+                    @for (t of tokenList(); track t.key) {
+                      <button type="button" class="token-chip" (click)="insertToken(fld, b, t.key)" [title]="t.label">
+                        [[{{ t.key }}]]
+                      </button>
+                    }
                   </div>
                 }
                 @if (b.kind === 'text') {
-                  <textarea rows="6" [(ngModel)]="b.body" name="tx_{{ b.id }}" placeholder="Paragraph text. Plain text — line breaks preserved."></textarea>
+                  <textarea #fld rows="6" [(ngModel)]="b.body" name="tx_{{ b.id }}"
+                            placeholder="Paragraph text. Plain text — line breaks preserved. Use [[token]] to insert a placeholder."
+                            (focus)="lastFocused = fld"></textarea>
+                  <div class="token-bar">
+                    @for (t of tokenList(); track t.key) {
+                      <button type="button" class="token-chip" (click)="insertToken(fld, b, t.key)" [title]="t.label">
+                        [[{{ t.key }}]]
+                      </button>
+                    }
+                  </div>
+                }
+                @if (b.kind === 'bullet') {
+                  <textarea #fld rows="6" [(ngModel)]="b.body" name="bl_{{ b.id }}"
+                            placeholder="One bullet per line. Use [[token]] to insert a placeholder."
+                            (focus)="lastFocused = fld"></textarea>
+                  <div class="token-bar">
+                    @for (t of tokenList(); track t.key) {
+                      <button type="button" class="token-chip" (click)="insertToken(fld, b, t.key)" [title]="t.label">
+                        [[{{ t.key }}]]
+                      </button>
+                    }
+                  </div>
+                }
+                @if (b.kind === 'variable') {
+                  <div class="row">
+                    <input [(ngModel)]="b.label" name="vlbl_{{ b.id }}"
+                           placeholder="Variable label, e.g. Price, Obligations, Term length" />
+                  </div>
+                  <textarea rows="5" [(ngModel)]="b.body" name="vbody_{{ b.id }}"
+                            placeholder="Default text shown when no override is supplied. Editable per attachment."></textarea>
+                  <p class="muted small" style="margin: 0;">
+                    Reference this block elsewhere with
+                    <code>[[{{ variableTokenSlug(b) || 'label' }}]]</code>.
+                    At attach time the assigned person's admin can override this value.
+                  </p>
                 }
                 @if (b.kind === 'image') {
                   @if (b.url) {
@@ -84,24 +132,36 @@ import { renderPdfDocBlob } from './pdf-doc-renderer';
               </div>
             }
             @if (p.blocks.length === 0) {
-              <p class="muted small">No blocks yet — add a heading, text, image, or spacer to start building this page.</p>
+              <p class="muted small">No blocks yet — add a heading, text, bullet list, variable, image, or spacer to start building this page.</p>
             }
           </div>
 
           <div class="add-row">
             <button type="button" class="add-btn" (click)="addBlock('heading')">+ Heading</button>
             <button type="button" class="add-btn" (click)="addBlock('text')">+ Text</button>
+            <button type="button" class="add-btn" (click)="addBlock('bullet')">+ Bullets</button>
+            <button type="button" class="add-btn" (click)="addBlock('variable')">+ Variable</button>
             <button type="button" class="add-btn" (click)="addBlock('image')">+ Image</button>
             <button type="button" class="add-btn" (click)="addBlock('spacer')">+ Spacer</button>
           </div>
 
-          <div class="sign-preview">
-            <span class="muted small">Standard sign zone (added to every page)</span>
-            <div class="sign-row">
-              <div class="sign-line"><span class="muted small">Signature</span></div>
-              <div class="sign-line short"><span class="muted small">Date</span></div>
+          @if (showsSignZone(activeIdx())) {
+            <div class="sign-preview">
+              <span class="muted small">Signature footer on this page</span>
+              <div class="sign-row">
+                <div class="sign-line"><span class="muted small">Signature</span></div>
+                <div class="sign-line short"><span class="muted small">Date</span></div>
+              </div>
             </div>
-          </div>
+          } @else {
+            <div class="sign-preview empty">
+              <span class="muted small">
+                No signature footer on this page.
+                @if (activeIdx() === pages().length - 1) { (Tick "Signature footer" above to add one.) }
+                @else { (By default only the last page is signed.) }
+              </span>
+            </div>
+          }
         </div>
       }
     </div>
@@ -177,11 +237,36 @@ import { renderPdfDocBlob } from './pdf-doc-renderer';
     }
     .add-btn:hover { color: var(--primary); border-color: var(--primary); }
 
+    .token-bar {
+      display: flex; flex-wrap: wrap; gap: 4px;
+      margin-top: 6px; padding: 6px 8px;
+      background: var(--bg-2); border: 1px dashed var(--line); border-radius: var(--radius-sm);
+    }
+    .token-chip {
+      padding: 2px 8px; font-size: 11px;
+      background: rgba(212, 169, 58, 0.10); color: var(--primary);
+      border: 1px solid var(--primary); border-radius: 999px;
+      cursor: pointer; font-family: ui-monospace, Menlo, Consolas, monospace;
+    }
+    .token-chip:hover { background: rgba(212, 169, 58, 0.22); }
+    code { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 12px; color: var(--primary); }
+
+    .sign-toggle {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 4px 10px; margin-left: 10px;
+      background: var(--bg-2); border: 1px solid var(--line); border-radius: 999px;
+      font-size: 12px; color: var(--muted); cursor: pointer;
+      user-select: none;
+    }
+    .sign-toggle input { margin: 0; cursor: pointer; }
+    .sign-toggle:hover { border-color: var(--primary); color: var(--primary); }
+
     .sign-preview {
       margin-top: 6px; padding: 10px;
       border-top: 1px dashed var(--line);
       display: flex; flex-direction: column; gap: 6px;
     }
+    .sign-preview.empty { opacity: 0.55; font-style: italic; }
     .sign-row { display: flex; gap: 16px; }
     .sign-line { flex: 1; border-bottom: 1px solid var(--fg); padding-bottom: 18px; padding-left: 4px; display: flex; align-items: flex-end; }
     .sign-line.short { flex: 0 0 180px; }
@@ -193,6 +278,18 @@ export class PdfDocBuilder {
 
   /** Document title — used in the page footer. */
   @Input() title = '';
+
+  /** Audience the contract is being authored for (employee / client /
+   *  partner / candidate / …). Drives the token chip palette so the
+   *  author only sees placeholders that resolve against that audience's
+   *  entity record at render time. */
+  @Input() audience: ContractAudience | null = null;
+
+  /** The most recently focused input/textarea on the active page. The
+   *  token chips use this to know where to insert `[[token]]` text at the
+   *  caret. Cleared on page change so chips can't write into a stale
+   *  element that no longer matches the visible page. */
+  lastFocused: HTMLInputElement | HTMLTextAreaElement | null = null;
 
   /**
    * Optional initial state. When the parent passes a JSON string (e.g. edit flow),
@@ -220,9 +317,111 @@ export class PdfDocBuilder {
 
   @Output() pagesChange = new EventEmitter<PdfDocPage[]>();
 
+  /** Stable per-audience token catalogue. The base set (name, email,
+   *  phone, address, today) is shared across every audience because every
+   *  contract recipient has those fields. The audience-specific tail
+   *  surfaces fields the renderer can resolve against that audience's
+   *  primary entity record at attach time. Keep keys snake_case so they
+   *  match the slugifier the renderer uses for variable blocks. */
+  private static readonly BASE_TOKENS = [
+    { key: 'name',         label: 'Full name of the recipient' },
+    { key: 'first_name',   label: 'First name' },
+    { key: 'last_name',    label: 'Last name' },
+    { key: 'email',        label: 'Email address' },
+    { key: 'phone',        label: 'Phone number' },
+    { key: 'address',      label: 'Postal address' },
+    { key: 'today',        label: "Today's date" },
+    { key: 'company_name', label: 'Your company name' },
+  ];
+  private static readonly AUDIENCE_TOKENS: Record<ContractAudience, { key: string; label: string }[]> = {
+    employee:   [{ key: 'role',        label: 'Job title' },
+                 { key: 'start_date',  label: 'Employment start date' },
+                 { key: 'salary',      label: 'Annual salary' }],
+    applicant:  [{ key: 'role',        label: 'Role applied for' },
+                 { key: 'start_date',  label: 'Proposed start date' }],
+    client:     [{ key: 'company',     label: 'Client company' },
+                 { key: 'project',     label: 'Project / engagement name' }],
+    lead:       [{ key: 'company',     label: 'Lead company' },
+                 { key: 'source',      label: 'Lead source' }],
+    partner:    [{ key: 'company',     label: 'Partner company' },
+                 { key: 'partner_type',label: 'Partner type' }],
+    affiliate:  [{ key: 'company',     label: 'Affiliate company' },
+                 { key: 'commission',  label: 'Commission rate' }],
+    contractor: [{ key: 'company',     label: 'Contractor company' },
+                 { key: 'day_rate',    label: 'Day rate' },
+                 { key: 'start_date',  label: 'Engagement start date' }],
+    candidate:  [{ key: 'role',        label: 'Role placed for' },
+                 { key: 'client_name', label: 'Placement client name' },
+                 { key: 'start_date',  label: 'Placement start date' }],
+    supplier:   [{ key: 'company',     label: 'Supplier company' },
+                 { key: 'category',    label: 'Supply category' }],
+    investor:   [{ key: 'company',     label: 'Investor company' },
+                 { key: 'stake',       label: 'Stake / shareholding' }],
+  };
+
+  /** Token chips shown above each text-bearing block. Combines the base
+   *  set with the audience-specific extras and any `[[label]]` slugs
+   *  declared by variable blocks on any page. */
+  tokenList(): { key: string; label: string }[] {
+    const list = [...PdfDocBuilder.BASE_TOKENS];
+    if (this.audience) {
+      const extras = PdfDocBuilder.AUDIENCE_TOKENS[this.audience] || [];
+      list.push(...extras);
+    }
+    // Pull in variable blocks declared anywhere in the document so they're
+    // insertable from any other block. Dedupe by key.
+    const seen = new Set(list.map(t => t.key));
+    for (const p of this.pages()) {
+      for (const b of p.blocks) {
+        if (b.kind !== 'variable') continue;
+        const key = labelSlug(b.label || '');
+        if (!key || seen.has(key)) continue;
+        seen.add(key);
+        list.push({ key, label: `Variable: ${b.label || key}` });
+      }
+    }
+    return list;
+  }
+
+  /** Slug that other blocks reference this variable by — shown next to
+   *  the variable block as a hint so the author knows what `[[…]]` to
+   *  type. */
+  variableTokenSlug(b: PdfDocBlock): string { return labelSlug(b.label || ''); }
+
+  /** Insert `[[key]]` into the focused field at the caret position. We
+   *  mutate the textarea/input value directly (not via ngModel) because
+   *  setting `b.body` in a zoneless world would race the input's pending
+   *  change event. After splicing we dispatch an `input` event so ngModel
+   *  picks up the new value and the rest of the form stays in sync. */
+  insertToken(fld: HTMLInputElement | HTMLTextAreaElement, b: PdfDocBlock, key: string): void {
+    const token = `[[${key}]]`;
+    const target = fld || this.lastFocused;
+    if (!target) {
+      // No focused field — append to the block body as a fallback.
+      b.body = (b.body || '') + token;
+      this.emit();
+      return;
+    }
+    const start = target.selectionStart ?? target.value.length;
+    const end   = target.selectionEnd   ?? target.value.length;
+    target.value = target.value.slice(0, start) + token + target.value.slice(end);
+    const caret = start + token.length;
+    target.setSelectionRange(caret, caret);
+    target.dispatchEvent(new Event('input', { bubbles: true }));
+    target.focus();
+  }
+
+  /** Switch the active page from the sidebar. Clears `lastFocused`
+   *  because the chip-target field belongs to the page we're leaving. */
+  setPage(i: number) {
+    this.activeIdx.set(i);
+    this.lastFocused = null;
+  }
+
   addPage() {
     this.pages.update(list => [...list, { id: this.uid(), blocks: [] }]);
     this.activeIdx.set(this.pages().length - 1);
+    this.lastFocused = null;
     this.emit();
   }
   removePage() {
@@ -232,6 +431,29 @@ export class PdfDocBuilder {
     this.activeIdx.update(i => Math.max(0, Math.min(i, this.pages().length - 1)));
     this.emit();
   }
+  /**
+   * Does the page at index `i` render the Signature/Date footer?
+   *
+   * Resolution rules:
+   *   • If the page has an explicit `show_sign_zone` boolean → honour it.
+   *   • Otherwise (new pages / legacy docs) → default to the LAST page only.
+   *
+   * Keeping the field optional means we don't need a migration of existing
+   * stored templates: they keep rendering exactly as before (last page
+   * signed) but new docs surface the per-page toggle in the toolbar.
+   */
+  showsSignZone(i: number): boolean {
+    const p = this.pages()[i];
+    if (!p) return false;
+    if (typeof p.show_sign_zone === 'boolean') return p.show_sign_zone;
+    return i === this.pages().length - 1;
+  }
+
+  setShowSignZone(i: number, on: boolean) {
+    this.pages.update(list => list.map((p, idx) => idx === i ? { ...p, show_sign_zone: !!on } : p));
+    this.emit();
+  }
+
   movePage(dir: -1 | 1) {
     const i = this.activeIdx();
     const j = i + dir;
@@ -247,8 +469,10 @@ export class PdfDocBuilder {
 
   addBlock(kind: PdfDocBlockKind) {
     const block: PdfDocBlock = { id: this.uid(), kind };
-    if (kind === 'heading') { block.body = ''; block.level = 2; }
-    if (kind === 'text')    { block.body = ''; }
+    if (kind === 'heading')  { block.body = ''; block.level = 2; }
+    if (kind === 'text')     { block.body = ''; }
+    if (kind === 'bullet')   { block.body = ''; }
+    if (kind === 'variable') { block.body = ''; block.label = ''; }
     this.updateActive(p => ({ ...p, blocks: [...p.blocks, block] }));
   }
   removeBlock(idx: number) {

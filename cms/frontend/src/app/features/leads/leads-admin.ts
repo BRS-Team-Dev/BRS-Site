@@ -3,9 +3,10 @@ import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { Api } from '../../core/api';
 import { Lead, LeadInfo, LeadNote, LeadStatus } from '../../core/models';
+import { EntityContracts } from '../../shared/entity-contracts';
 
 type Mode = 'list' | 'view' | 'edit';
-type LeadTabKey = 'info' | 'notes';
+type LeadTabKey = 'info' | 'contracts' | 'notes';
 
 const STATUS_LABELS: Record<LeadStatus, string> = {
   new:       'New',
@@ -27,7 +28,7 @@ const STATUS_LABELS: Record<LeadStatus, string> = {
  */
 @Component({
   selector: 'app-leads-admin',
-  imports: [RouterLink, FormsModule],
+  imports: [RouterLink, FormsModule, EntityContracts],
   template: `
     @if (mode() === 'list') {
       <div class="toolbar">
@@ -196,6 +197,10 @@ const STATUS_LABELS: Record<LeadStatus, string> = {
                       }
                     </div>
                   }
+                }
+                @case ('contracts') {
+                  <div class="tab-head"><h3>Contracts</h3></div>
+                  <app-entity-contracts audience="lead" [entityId]="l.id!"></app-entity-contracts>
                 }
                 @case ('notes') {
                   <div class="tab-head">
@@ -497,6 +502,7 @@ export class LeadsAdmin {
   // Tabs on the right-side detail card.
   readonly tabs: { key: LeadTabKey; label: string }[] = [
     { key: 'info',  label: 'Info' },
+    { key: 'contracts', label: 'Contracts' },
     { key: 'notes', label: 'Notes' },
   ];
   activeTab = signal<LeadTabKey>('info');

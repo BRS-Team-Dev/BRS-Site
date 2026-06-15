@@ -5,12 +5,13 @@ import { environment } from '@env/environment';
 import { Api } from '../../core/api';
 import { HrCertification, HrCourseAssignment, HrDocument, HrDocumentType, HrEmployee, HrEmployeeNote, HrPtoSummary, HrTimeOffEntry } from '../../core/models';
 import { DocumentViewer, ViewableDoc } from '../../shared/document-viewer';
+import { EntityContracts } from '../../shared/entity-contracts';
 
-type Tab = 'profile' | 'documents' | 'time' | 'pto' | 'learning';
+type Tab = 'profile' | 'documents' | 'contracts' | 'time' | 'pto' | 'learning';
 
 @Component({
   selector: 'app-hr-employee-detail',
-  imports: [RouterLink, FormsModule, DocumentViewer],
+  imports: [RouterLink, FormsModule, DocumentViewer, EntityContracts],
   template: `
     @if (employee(); as e) {
       <div class="toolbar">
@@ -336,6 +337,11 @@ type Tab = 'profile' | 'documents' | 'time' | 'pto' | 'learning';
               }
             </div>
           </div>
+        }
+
+        @if (tab() === 'contracts') {
+          <h2 class="card-title">Contracts</h2>
+          <app-entity-contracts audience="employee" [entityId]="e.id!"></app-entity-contracts>
         }
 
         @if (tab() === 'pto') {
@@ -765,6 +771,7 @@ export class HrEmployeeDetail {
   readonly tabs: { key: Tab; label: string }[] = [
     { key: 'profile',    label: 'Profile' },
     { key: 'documents',  label: 'Documents' },
+    { key: 'contracts',  label: 'Contracts' },
     { key: 'time',       label: 'Time off' },
     { key: 'pto',        label: 'PTO ledger' },
     { key: 'learning',   label: 'Learning' },

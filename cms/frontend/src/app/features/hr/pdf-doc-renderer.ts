@@ -21,6 +21,15 @@ export interface PdfRenderOpts {
   signedAt?: string;
   /** Optional name printed under the signature. */
   signerName?: string;
+  /**
+   * Map of token key → value used to substitute `[[token]]` placeholders
+   * inside heading / text / bullet block bodies. The map is also used to
+   * fill `variable` blocks (keyed by the block's `label` slugged to
+   * lower-snake-case). Missing tokens render as a yellow highlighted
+   * fillable box so the recipient knows exactly what still needs
+   * supplying.
+   */
+  tokens?: Record<string, string>;
 }
 
 const A4_W_PX = 794;
@@ -47,6 +56,11 @@ export async function renderPdfDocBlob(pages: PdfDocPage[], opts: PdfRenderOpts 
       wrap.appendChild(sec);
       sections.push(sec);
     });
+    // After all blocks are wired up, walk the DOM once and substitute
+    // [[token]] placeholders inside heading/text/bullet text nodes. We
+    // do this post-build (rather than in blockToNode) so the substitution
+    // can also see variable-block contents.
+    applyTokenSubstitution(wrap, opts.tokens || {});
 
     await waitForImages(wrap);
     await new Promise(res => requestAnimationFrame(() => res(null)));
@@ -89,27 +103,36 @@ function buildPageSection(page: PdfDocPage, idx: number, total: number, opts: Pd
   `;
   page.blocks.forEach(b => sec.appendChild(blockToNode(b)));
 
-  const sign = document.createElement('div');
-  sign.style.cssText = `
-    position: absolute; left: 56px; right: 56px; bottom: 56px;
-    display: flex; gap: 24px; align-items: flex-start;
-  `;
+  // Per-page sign-zone gating: honour an explicit boolean on the page,
+  // otherwise fall back to "last page only" for legacy docs that pre-date
+  // the flag.
+  const signOn = typeof page.show_sign_zone === 'boolean'
+    ? page.show_sign_zone
+    : idx === total - 1;
 
-  const dateText = opts.signedAt || (opts.signatureDataUrl ? new Date().toISOString().slice(0, 10) : '');
+  if (signOn) {
+    const sign = document.createElement('div');
+    sign.style.cssText = `
+      position: absolute; left: 56px; right: 56px; bottom: 56px;
+      display: flex; gap: 24px; align-items: flex-start;
+    `;
 
-  sign.appendChild(buildSignField({
-    flex: '1',
-    image: opts.signatureDataUrl,
-    label: 'Signature',
-    caption: opts.signerName,
-  }));
-  sign.appendChild(buildSignField({
-    flex: '0 0 200px',
-    text: dateText,
-    label: 'Date',
-  }));
+    const dateText = opts.signedAt || (opts.signatureDataUrl ? new Date().toISOString().slice(0, 10) : '');
 
-  sec.appendChild(sign);
+    sign.appendChild(buildSignField({
+      flex: '1',
+      image: opts.signatureDataUrl,
+      label: 'Signature',
+      caption: opts.signerName,
+    }));
+    sign.appendChild(buildSignField({
+      flex: '0 0 200px',
+      text: dateText,
+      label: 'Date',
+    }));
+
+    sec.appendChild(sign);
+  }
 
   const foot = document.createElement('div');
   foot.style.cssText = `
@@ -189,6 +212,42 @@ function blockToNode(b: PdfDocBlock): HTMLElement {
     el.textContent = b.body || '';
     return el;
   }
+  if (b.kind === 'bullet') {
+    const ul = document.createElement('ul');
+    ul.style.cssText = 'margin: 6px 0 12px 20px; padding: 0; color: #111;';
+    const lines = (b.body || '').split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+    for (const line of lines) {
+      const li = document.createElement('li');
+      li.style.cssText = 'margin: 0 0 4px; line-height: 1.55;';
+      li.textContent = line;
+      ul.appendChild(li);
+    }
+    return ul;
+  }
+  if (b.kind === 'variable') {
+    // A variable block is a labelled fillable region. At render time the
+    // token map (keyed by slug(label)) supplies the per-attachment value;
+    // otherwise we fall back to the stored default body so the template
+    // still reads end-to-end. The wrapper carries `data-token` so the
+    // post-build substitution pass can swap content in.
+    const wrap = document.createElement('div');
+    const slug = labelSlug(b.label || '');
+    wrap.setAttribute('data-token', slug);
+    wrap.setAttribute('data-token-label', b.label || '');
+    wrap.style.cssText = 'margin: 6px 0 12px; color: #111;';
+    if (b.label) {
+      const lbl = document.createElement('div');
+      lbl.style.cssText = 'font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; color: #888; margin-bottom: 2px;';
+      lbl.textContent = b.label;
+      wrap.appendChild(lbl);
+    }
+    const body = document.createElement('div');
+    body.style.cssText = 'white-space: pre-wrap; line-height: 1.55;';
+    body.setAttribute('data-token-body', '');
+    body.textContent = b.body || '';
+    wrap.appendChild(body);
+    return wrap;
+  }
   if (b.kind === 'image' && b.url) {
     const el = document.createElement('img');
     el.style.cssText = 'max-width: 100%; height: auto; margin: 6px 0; display: block;';
@@ -203,6 +262,80 @@ function blockToNode(b: PdfDocBlock): HTMLElement {
     return el;
   }
   return document.createElement('span');
+}
+
+/** Lower-snake-case slug for a variable-block label. "Total Price (£)"
+ *  → "total_price". Keeps the token map keys stable across renames that
+ *  only change punctuation/case. */
+export function labelSlug(label: string): string {
+  return (label || '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '');
+}
+
+/**
+ * Walk every text-bearing node under `host` and substitute occurrences of
+ * `[[token]]`. Filled tokens (key present in `map`) become inline plain
+ * text — they read as part of the surrounding sentence. Unfilled tokens
+ * render as a yellow `[ token ]` highlight so a reviewer can immediately
+ * see what's still pending.
+ *
+ * Also fills variable-block bodies from the same token map, keyed by the
+ * label's slug.
+ */
+function applyTokenSubstitution(host: HTMLElement, map: Record<string, string>): void {
+  // Replace variable-block bodies first so subsequent inline substitution
+  // can still see (or skip past) them.
+  host.querySelectorAll<HTMLElement>('[data-token]').forEach(wrap => {
+    const key = wrap.getAttribute('data-token') || '';
+    const body = wrap.querySelector<HTMLElement>('[data-token-body]');
+    if (!body) return;
+    const val = map[key];
+    if (typeof val === 'string' && val.trim() !== '') {
+      body.textContent = val;
+    }
+  });
+
+  // Inline [[token]] substitution. We walk the text nodes manually so we
+  // can replace matches with mixed text + span nodes (for unfilled
+  // highlights) without nuking ancestor styling.
+  const re = /\[\[([a-z0-9_]+)\]\]/gi;
+  const walker = document.createTreeWalker(host, NodeFilter.SHOW_TEXT);
+  const targets: Text[] = [];
+  let n: Node | null;
+  // eslint-disable-next-line no-cond-assign
+  while ((n = walker.nextNode())) {
+    const text = (n as Text).nodeValue || '';
+    if (re.test(text)) targets.push(n as Text);
+    re.lastIndex = 0;
+  }
+  for (const node of targets) {
+    const parent = node.parentNode;
+    if (!parent) continue;
+    const text = node.nodeValue || '';
+    const frag = document.createDocumentFragment();
+    let cursor = 0;
+    re.lastIndex = 0;
+    let m: RegExpExecArray | null;
+    // eslint-disable-next-line no-cond-assign
+    while ((m = re.exec(text))) {
+      if (m.index > cursor) frag.appendChild(document.createTextNode(text.slice(cursor, m.index)));
+      const key = m[1].toLowerCase();
+      const val = map[key];
+      if (typeof val === 'string' && val !== '') {
+        frag.appendChild(document.createTextNode(val));
+      } else {
+        const chip = document.createElement('span');
+        chip.style.cssText = 'background: #fff3b0; color: #5a4500; padding: 0 4px; border-radius: 3px; font-weight: 600;';
+        chip.textContent = key;
+        frag.appendChild(chip);
+      }
+      cursor = m.index + m[0].length;
+    }
+    if (cursor < text.length) frag.appendChild(document.createTextNode(text.slice(cursor)));
+    parent.replaceChild(frag, node);
+  }
 }
 
 function waitForImages(host: HTMLElement): Promise<void> {

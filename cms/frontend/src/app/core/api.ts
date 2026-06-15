@@ -9,7 +9,7 @@ import {
   HrEmployeeNote,
   HrGoal, HrFeedbackNote, HrSkill, HrEmployeeSkill, HrShift,
   HrCourseModule, HrCoursePlayerSnapshot, HrQuizResult,
-  HrDocumentType, HrLegalDocument, HrOnboardingPortalSnapshot, HrOnboardingProgress, HrOnboardingSection, HrReference,
+  ContractType, ContractGroup, EntityContractsResponse, HrDocumentType, HrLegalDocument, HrOnboardingPortalSnapshot, HrOnboardingProgress, HrOnboardingSection, HrReference,
   HrDocument, HrEmployee, HrFeedbackEntry, HrOnboardingTask, HrPayrollPeriod, HrPayslip,
   HrApplication, HrApplicationNote, HrCandidate, HrInterview, HrJob,
   HrPulseAggregate, HrPulseSurvey, HrSuccessionCandidate, HrSuccessionCandidateNote, HrSuccessionPlan, HrSuccessionPlanNote, HrSurveyQuestion, PublicSurveyDef,
@@ -17,6 +17,17 @@ import {
   NewsletterCampaign, NewsletterRecipient,
   OnboardingClient, OnboardingFormPayload,
   TaskItem, TaskItemState, TaskItemType, TaskIteration, TaskProject, TaskTeam, TaskTeamMember,
+  Tender, TenderInfo, TenderContact, TenderContactNumber, TenderDocument, TenderDocumentKind, TenderNote,
+  TenderSection, TenderTracker, OperationTask, OperationTaskStatus,
+  OperationsDocument, OperationsDocumentsBrowse,
+  Partner, PartnerContact, PartnerNote, PartnerAccount,
+  Contractor, ContractorNote,
+  Affiliate, AffiliateNote,
+  RecruitmentCandidate, RecruitmentCandidateDocument, RecruitmentCandidateNote,
+  RecruitmentCandidateStatus, RecruitmentDocGroup, RecruitmentDocType, RecruitmentDocumentRow, RecruitmentOnboarding,
+  RecruitmentOnboardingPortalSnapshot,
+  RecruitmentPlacement, RecruitmentRole, RecruitmentSkill,
+  ServiceOffering,
 } from './models';
 import { AiModel, CustomAiModel } from './ai-models';
 import { environment } from '@env/environment';
@@ -59,6 +70,20 @@ export class Api {
   }
   deleteForm(id: number): Observable<{ ok: boolean }> {
     return this.http.delete<{ ok: boolean }>(`${BASE}/forms/${id}`);
+  }
+
+  // service offerings (CRM Services catalogue — standalone, not onboarding)
+  listServiceOfferings(): Observable<{ services: ServiceOffering[] }> {
+    return this.http.get<{ services: ServiceOffering[] }>(`${BASE}/services`);
+  }
+  createServiceOffering(payload: Partial<ServiceOffering>): Observable<{ id: number }> {
+    return this.http.post<{ id: number }>(`${BASE}/services`, payload);
+  }
+  updateServiceOffering(id: number, payload: Partial<ServiceOffering>): Observable<{ ok: boolean }> {
+    return this.http.put<{ ok: boolean }>(`${BASE}/services/${id}`, payload);
+  }
+  deleteServiceOffering(id: number): Observable<{ ok: boolean }> {
+    return this.http.delete<{ ok: boolean }>(`${BASE}/services/${id}`);
   }
 
   // submissions
@@ -159,7 +184,7 @@ export class Api {
   createClient(payload: Client): Observable<{ id: number }> {
     return this.http.post<{ id: number }>(`${BASE}/clients`, payload);
   }
-  updateClient(id: number, payload: Client): Observable<{ ok: boolean }> {
+  updateClient(id: number, payload: Partial<Client>): Observable<{ ok: boolean }> {
     return this.http.put<{ ok: boolean }>(`${BASE}/clients/${id}`, payload);
   }
   deleteClient(id: number): Observable<{ ok: boolean }> {
@@ -239,6 +264,15 @@ export class Api {
       `${BASE}/clients/${clientId}/services`, { form_id: formId }
     );
   }
+  // Attach a catalogue service (service_offerings) directly to a client.
+  addClientServiceOffering(clientId: number, serviceOfferingId: number): Observable<{ ok: boolean; service_link_id: number }> {
+    return this.http.post<{ ok: boolean; service_link_id: number }>(
+      `${BASE}/clients/${clientId}/services`, { service_offering_id: serviceOfferingId }
+    );
+  }
+  removeClientServiceOffering(clientId: number, linkId: number): Observable<{ ok: boolean }> {
+    return this.http.delete<{ ok: boolean }>(`${BASE}/clients/${clientId}/services/offering/${linkId}`);
+  }
 
   // leads — potential clients funnel; promote() copies fields into a clients row
   listLeads(): Observable<{ leads: Lead[] }> {
@@ -315,6 +349,282 @@ export class Api {
     return this.http.post<{ processed: { id: number; sent?: number; failed?: number; error?: string }[] }>(
       `${BASE}/newsletter/process-due`, {}
     );
+  }
+
+  // tenders — Operations system
+  listTenders(): Observable<{ tenders: Tender[] }> {
+    return this.http.get<{ tenders: Tender[] }>(`${BASE}/tenders`);
+  }
+  getTender(id: number): Observable<{ tender: Tender }> {
+    return this.http.get<{ tender: Tender }>(`${BASE}/tenders/${id}`);
+  }
+  createTender(payload: Tender): Observable<{ id: number }> {
+    return this.http.post<{ id: number }>(`${BASE}/tenders`, payload);
+  }
+  updateTender(id: number, payload: Tender): Observable<{ ok: boolean }> {
+    return this.http.put<{ ok: boolean }>(`${BASE}/tenders/${id}`, payload);
+  }
+  deleteTender(id: number): Observable<{ ok: boolean }> {
+    return this.http.delete<{ ok: boolean }>(`${BASE}/tenders/${id}`);
+  }
+  bulkCreateTenders(tenders: Partial<Tender>[]): Observable<{ inserted: number; errors: { row: number; error: string }[] }> {
+    return this.http.post<{ inserted: number; errors: { row: number; error: string }[] }>(
+      `${BASE}/tenders/bulk`, { tenders }
+    );
+  }
+
+  // Tender sub-resources (mirror the clients/* pattern)
+  listTenderInfo(tenderId: number): Observable<{ info: TenderInfo[] }> {
+    return this.http.get<{ info: TenderInfo[] }>(`${BASE}/tenders/${tenderId}/info`);
+  }
+  createTenderInfo(tenderId: number, payload: TenderInfo): Observable<{ id: number }> {
+    return this.http.post<{ id: number }>(`${BASE}/tenders/${tenderId}/info`, payload);
+  }
+  updateTenderInfo(tenderId: number, infoId: number, payload: TenderInfo): Observable<{ ok: boolean }> {
+    return this.http.put<{ ok: boolean }>(`${BASE}/tenders/${tenderId}/info/${infoId}`, payload);
+  }
+  deleteTenderInfo(tenderId: number, infoId: number): Observable<{ ok: boolean }> {
+    return this.http.delete<{ ok: boolean }>(`${BASE}/tenders/${tenderId}/info/${infoId}`);
+  }
+
+  listTenderContacts(tenderId: number): Observable<{ contacts: TenderContact[] }> {
+    return this.http.get<{ contacts: TenderContact[] }>(`${BASE}/tenders/${tenderId}/contacts`);
+  }
+  createTenderContact(tenderId: number, payload: TenderContact): Observable<{ id: number }> {
+    return this.http.post<{ id: number }>(`${BASE}/tenders/${tenderId}/contacts`, payload);
+  }
+  updateTenderContact(tenderId: number, contactId: number, payload: TenderContact): Observable<{ ok: boolean }> {
+    return this.http.put<{ ok: boolean }>(`${BASE}/tenders/${tenderId}/contacts/${contactId}`, payload);
+  }
+  deleteTenderContact(tenderId: number, contactId: number): Observable<{ ok: boolean }> {
+    return this.http.delete<{ ok: boolean }>(`${BASE}/tenders/${tenderId}/contacts/${contactId}`);
+  }
+  addTenderContactNumber(tenderId: number, contactId: number, payload: TenderContactNumber): Observable<{ id: number }> {
+    return this.http.post<{ id: number }>(`${BASE}/tenders/${tenderId}/contacts/${contactId}/numbers`, payload);
+  }
+  deleteTenderContactNumber(tenderId: number, contactId: number, numberId: number): Observable<{ ok: boolean }> {
+    return this.http.delete<{ ok: boolean }>(`${BASE}/tenders/${tenderId}/contacts/${contactId}/numbers/${numberId}`);
+  }
+
+  listTenderDocuments(tenderId: number, kind?: TenderDocumentKind): Observable<{ documents: TenderDocument[] }> {
+    const url = kind
+      ? `${BASE}/tenders/${tenderId}/documents?kind=${kind}`
+      : `${BASE}/tenders/${tenderId}/documents`;
+    return this.http.get<{ documents: TenderDocument[] }>(url);
+  }
+  createTenderDocument(tenderId: number, payload: TenderDocument): Observable<{ id: number }> {
+    return this.http.post<{ id: number }>(`${BASE}/tenders/${tenderId}/documents`, payload);
+  }
+  updateTenderDocument(tenderId: number, docId: number, payload: TenderDocument): Observable<{ ok: boolean }> {
+    return this.http.put<{ ok: boolean }>(`${BASE}/tenders/${tenderId}/documents/${docId}`, payload);
+  }
+  deleteTenderDocument(tenderId: number, docId: number): Observable<{ ok: boolean }> {
+    return this.http.delete<{ ok: boolean }>(`${BASE}/tenders/${tenderId}/documents/${docId}`);
+  }
+  uploadTenderDocument(
+    tenderId: number,
+    args: { sectionId?: number | null; kind?: TenderDocumentKind; file: File; title?: string; description?: string }
+  ): Observable<{ id: number }> {
+    const fd = new FormData();
+    fd.append('file', args.file);
+    if (args.sectionId != null) fd.append('section_id', String(args.sectionId));
+    if (args.kind)              fd.append('kind', args.kind);
+    if (args.title)             fd.append('title', args.title);
+    if (args.description)       fd.append('description', args.description);
+    // HttpClient leaves Content-Type unset for FormData so the browser sets
+    // the proper multipart boundary; JWT interceptor still attaches the bearer.
+    return this.http.post<{ id: number }>(`${BASE}/tenders/${tenderId}/documents/upload`, fd);
+  }
+  toggleTenderDocumentComplete(tenderId: number, docId: number, isCompleted?: boolean): Observable<{ ok: boolean; is_completed: 0 | 1 }> {
+    return this.http.post<{ ok: boolean; is_completed: 0 | 1 }>(
+      `${BASE}/tenders/${tenderId}/documents/${docId}/complete`,
+      isCompleted === undefined ? {} : { is_completed: isCompleted },
+    );
+  }
+
+  // Tender sections
+  listTenderSections(tenderId: number): Observable<{ sections: TenderSection[]; documents: TenderDocument[] }> {
+    return this.http.get<{ sections: TenderSection[]; documents: TenderDocument[] }>(`${BASE}/tenders/${tenderId}/sections`);
+  }
+  createTenderSection(tenderId: number, payload: TenderSection): Observable<{ id: number }> {
+    return this.http.post<{ id: number }>(`${BASE}/tenders/${tenderId}/sections`, payload);
+  }
+  bulkCreateTenderSections(tenderId: number, sections: TenderSection[]): Observable<{ created: number }> {
+    return this.http.post<{ created: number }>(`${BASE}/tenders/${tenderId}/sections/bulk`, { sections });
+  }
+  updateTenderSection(tenderId: number, sectionId: number, payload: Partial<TenderSection>): Observable<{ ok: boolean }> {
+    return this.http.put<{ ok: boolean }>(`${BASE}/tenders/${tenderId}/sections/${sectionId}`, payload);
+  }
+  deleteTenderSection(tenderId: number, sectionId: number): Observable<{ ok: boolean }> {
+    return this.http.delete<{ ok: boolean }>(`${BASE}/tenders/${tenderId}/sections/${sectionId}`);
+  }
+  toggleTenderSectionComplete(tenderId: number, sectionId: number, isCompleted?: boolean): Observable<{ ok: boolean; is_completed: 0 | 1 }> {
+    return this.http.post<{ ok: boolean; is_completed: 0 | 1 }>(
+      `${BASE}/tenders/${tenderId}/sections/${sectionId}/complete`,
+      isCompleted === undefined ? {} : { is_completed: isCompleted },
+    );
+  }
+
+  // Tender tracker — reminders dashboard
+  getTenderTracker(): Observable<TenderTracker> {
+    return this.http.get<TenderTracker>(`${BASE}/tenders/tracker`);
+  }
+
+  // Operations manual tasks (operation_tasks table)
+  listOperationTasks(status?: OperationTaskStatus): Observable<{ tasks: OperationTask[] }> {
+    const url = status ? `${BASE}/operations/tasks?status=${status}` : `${BASE}/operations/tasks`;
+    return this.http.get<{ tasks: OperationTask[] }>(url);
+  }
+  createOperationTask(payload: OperationTask): Observable<{ id: number }> {
+    return this.http.post<{ id: number }>(`${BASE}/operations/tasks`, payload);
+  }
+  updateOperationTask(id: number, payload: Partial<OperationTask>): Observable<{ ok: boolean }> {
+    return this.http.put<{ ok: boolean }>(`${BASE}/operations/tasks/${id}`, payload);
+  }
+  deleteOperationTask(id: number): Observable<{ ok: boolean }> {
+    return this.http.delete<{ ok: boolean }>(`${BASE}/operations/tasks/${id}`);
+  }
+  setOperationTaskStatus(id: number, status: OperationTaskStatus): Observable<{ ok: boolean; status: OperationTaskStatus; completed_at: string | null }> {
+    return this.http.post<{ ok: boolean; status: OperationTaskStatus; completed_at: string | null }>(
+      `${BASE}/operations/tasks/${id}/status`, { status },
+    );
+  }
+
+  // Operations Documents — aggregated view across hr_documents + tender_documents
+  listOperationsDocuments(): Observable<{ documents: OperationsDocument[] }> {
+    return this.http.get<{ documents: OperationsDocument[] }>(`${BASE}/operations/documents`);
+  }
+  /** Browse the cms/uploads filesystem tree. `path` is the sub-path relative
+   *  to the uploads root (empty = root). */
+  browseOperationsDocuments(path: string = ''): Observable<OperationsDocumentsBrowse> {
+    const url = path
+      ? `${BASE}/operations/documents/browse?path=${encodeURIComponent(path)}`
+      : `${BASE}/operations/documents/browse`;
+    return this.http.get<OperationsDocumentsBrowse>(url);
+  }
+
+  // ───── Operations: Partners ──────────────────────────────────────
+  listPartners(): Observable<{ partners: Partner[] }> {
+    return this.http.get<{ partners: Partner[] }>(`${BASE}/partners`);
+  }
+  getPartner(id: number): Observable<{ partner: Partner }> {
+    return this.http.get<{ partner: Partner }>(`${BASE}/partners/${id}`);
+  }
+  createPartner(payload: Partner): Observable<{ id: number }> {
+    return this.http.post<{ id: number }>(`${BASE}/partners`, payload);
+  }
+  updatePartner(id: number, payload: Partner): Observable<{ ok: boolean }> {
+    return this.http.put<{ ok: boolean }>(`${BASE}/partners/${id}`, payload);
+  }
+  deletePartner(id: number): Observable<{ ok: boolean }> {
+    return this.http.delete<{ ok: boolean }>(`${BASE}/partners/${id}`);
+  }
+  listPartnerContacts(id: number): Observable<{ contacts: PartnerContact[] }> {
+    return this.http.get<{ contacts: PartnerContact[] }>(`${BASE}/partners/${id}/contacts`);
+  }
+  createPartnerContact(id: number, payload: PartnerContact): Observable<{ id: number }> {
+    return this.http.post<{ id: number }>(`${BASE}/partners/${id}/contacts`, payload);
+  }
+  updatePartnerContact(id: number, cid: number, payload: PartnerContact): Observable<{ ok: boolean }> {
+    return this.http.put<{ ok: boolean }>(`${BASE}/partners/${id}/contacts/${cid}`, payload);
+  }
+  deletePartnerContact(id: number, cid: number): Observable<{ ok: boolean }> {
+    return this.http.delete<{ ok: boolean }>(`${BASE}/partners/${id}/contacts/${cid}`);
+  }
+  listPartnerNotes(id: number): Observable<{ notes: PartnerNote[] }> {
+    return this.http.get<{ notes: PartnerNote[] }>(`${BASE}/partners/${id}/notes`);
+  }
+  createPartnerNote(id: number, payload: PartnerNote): Observable<{ id: number }> {
+    return this.http.post<{ id: number }>(`${BASE}/partners/${id}/notes`, payload);
+  }
+  updatePartnerNote(id: number, nid: number, payload: PartnerNote): Observable<{ ok: boolean }> {
+    return this.http.put<{ ok: boolean }>(`${BASE}/partners/${id}/notes/${nid}`, payload);
+  }
+  deletePartnerNote(id: number, nid: number): Observable<{ ok: boolean }> {
+    return this.http.delete<{ ok: boolean }>(`${BASE}/partners/${id}/notes/${nid}`);
+  }
+  listPartnerAccounts(id: number): Observable<{ accounts: PartnerAccount[] }> {
+    return this.http.get<{ accounts: PartnerAccount[] }>(`${BASE}/partners/${id}/accounts`);
+  }
+  createPartnerAccount(id: number, payload: PartnerAccount): Observable<{ id: number }> {
+    return this.http.post<{ id: number }>(`${BASE}/partners/${id}/accounts`, payload);
+  }
+  updatePartnerAccount(id: number, aid: number, payload: PartnerAccount): Observable<{ ok: boolean }> {
+    return this.http.put<{ ok: boolean }>(`${BASE}/partners/${id}/accounts/${aid}`, payload);
+  }
+  deletePartnerAccount(id: number, aid: number): Observable<{ ok: boolean }> {
+    return this.http.delete<{ ok: boolean }>(`${BASE}/partners/${id}/accounts/${aid}`);
+  }
+
+  // ───── Operations: Contractors ───────────────────────────────────
+  listContractors(): Observable<{ contractors: Contractor[] }> {
+    return this.http.get<{ contractors: Contractor[] }>(`${BASE}/contractors`);
+  }
+  getContractor(id: number): Observable<{ contractor: Contractor }> {
+    return this.http.get<{ contractor: Contractor }>(`${BASE}/contractors/${id}`);
+  }
+  createContractor(payload: Contractor): Observable<{ id: number }> {
+    return this.http.post<{ id: number }>(`${BASE}/contractors`, payload);
+  }
+  updateContractor(id: number, payload: Contractor): Observable<{ ok: boolean }> {
+    return this.http.put<{ ok: boolean }>(`${BASE}/contractors/${id}`, payload);
+  }
+  deleteContractor(id: number): Observable<{ ok: boolean }> {
+    return this.http.delete<{ ok: boolean }>(`${BASE}/contractors/${id}`);
+  }
+  listContractorNotes(id: number): Observable<{ notes: ContractorNote[] }> {
+    return this.http.get<{ notes: ContractorNote[] }>(`${BASE}/contractors/${id}/notes`);
+  }
+  createContractorNote(id: number, payload: ContractorNote): Observable<{ id: number }> {
+    return this.http.post<{ id: number }>(`${BASE}/contractors/${id}/notes`, payload);
+  }
+  updateContractorNote(id: number, nid: number, payload: ContractorNote): Observable<{ ok: boolean }> {
+    return this.http.put<{ ok: boolean }>(`${BASE}/contractors/${id}/notes/${nid}`, payload);
+  }
+  deleteContractorNote(id: number, nid: number): Observable<{ ok: boolean }> {
+    return this.http.delete<{ ok: boolean }>(`${BASE}/contractors/${id}/notes/${nid}`);
+  }
+
+  // ───── Operations: Affiliates ────────────────────────────────────
+  listAffiliates(): Observable<{ affiliates: Affiliate[] }> {
+    return this.http.get<{ affiliates: Affiliate[] }>(`${BASE}/affiliates`);
+  }
+  getAffiliate(id: number): Observable<{ affiliate: Affiliate }> {
+    return this.http.get<{ affiliate: Affiliate }>(`${BASE}/affiliates/${id}`);
+  }
+  createAffiliate(payload: Affiliate): Observable<{ id: number }> {
+    return this.http.post<{ id: number }>(`${BASE}/affiliates`, payload);
+  }
+  updateAffiliate(id: number, payload: Affiliate): Observable<{ ok: boolean }> {
+    return this.http.put<{ ok: boolean }>(`${BASE}/affiliates/${id}`, payload);
+  }
+  deleteAffiliate(id: number): Observable<{ ok: boolean }> {
+    return this.http.delete<{ ok: boolean }>(`${BASE}/affiliates/${id}`);
+  }
+  listAffiliateNotes(id: number): Observable<{ notes: AffiliateNote[] }> {
+    return this.http.get<{ notes: AffiliateNote[] }>(`${BASE}/affiliates/${id}/notes`);
+  }
+  createAffiliateNote(id: number, payload: AffiliateNote): Observable<{ id: number }> {
+    return this.http.post<{ id: number }>(`${BASE}/affiliates/${id}/notes`, payload);
+  }
+  updateAffiliateNote(id: number, nid: number, payload: AffiliateNote): Observable<{ ok: boolean }> {
+    return this.http.put<{ ok: boolean }>(`${BASE}/affiliates/${id}/notes/${nid}`, payload);
+  }
+  deleteAffiliateNote(id: number, nid: number): Observable<{ ok: boolean }> {
+    return this.http.delete<{ ok: boolean }>(`${BASE}/affiliates/${id}/notes/${nid}`);
+  }
+
+  listTenderNotes(tenderId: number): Observable<{ notes: TenderNote[] }> {
+    return this.http.get<{ notes: TenderNote[] }>(`${BASE}/tenders/${tenderId}/notes`);
+  }
+  createTenderNote(tenderId: number, payload: TenderNote): Observable<{ id: number }> {
+    return this.http.post<{ id: number }>(`${BASE}/tenders/${tenderId}/notes`, payload);
+  }
+  updateTenderNote(tenderId: number, noteId: number, payload: TenderNote): Observable<{ ok: boolean }> {
+    return this.http.put<{ ok: boolean }>(`${BASE}/tenders/${tenderId}/notes/${noteId}`, payload);
+  }
+  deleteTenderNote(tenderId: number, noteId: number): Observable<{ ok: boolean }> {
+    return this.http.delete<{ ok: boolean }>(`${BASE}/tenders/${tenderId}/notes/${noteId}`);
   }
   updateLead(id: number, payload: Lead): Observable<{ ok: boolean }> {
     return this.http.put<{ ok: boolean }>(`${BASE}/leads/${id}`, payload);
@@ -1166,6 +1476,10 @@ export class Api {
     fd.append('template', template);
     if (p.description) fd.append('description', p.description);
     if (blocksJson)    fd.append('blocks_json', blocksJson);
+    if (p.audience)            fd.append('audience', p.audience);
+    if (p.contract_type_id)    fd.append('contract_type_id', String(p.contract_type_id));
+    if (p.group_id)            fd.append('group_id', String(p.group_id));
+    fd.append('add_to_onboarding', p.add_to_onboarding ? '1' : '0');
     fd.append('is_required',       p.is_required ? '1' : '0');
     fd.append('needs_reference',   p.needs_reference ? '1' : '0');
     fd.append('needs_issue_date',  p.needs_issue_date ? '1' : '0');
@@ -1189,6 +1503,9 @@ export class Api {
     if (p.description != null) fd.append('description', p.description);
     if (template) fd.append('template', template);
     if (blocksJson !== undefined) fd.append('blocks_json', blocksJson);
+    // Always send group_id (empty = Ungrouped) so the bucket can be cleared.
+    fd.append('group_id', p.group_id != null ? String(p.group_id) : '');
+    fd.append('add_to_onboarding', p.add_to_onboarding ? '1' : '0');
     fd.append('is_required',       p.is_required ? '1' : '0');
     fd.append('needs_reference',   p.needs_reference ? '1' : '0');
     fd.append('needs_issue_date',  p.needs_issue_date ? '1' : '0');
@@ -1199,6 +1516,44 @@ export class Api {
   updateHrDocumentType(id: number, p: Partial<HrDocumentType>): Observable<{ ok: boolean }> {
     return this.http.put<{ ok: boolean }>(`${BASE}/hr/document-types/${id}`, p);
   }
+  // Contract-types lookup (NDA / MSA / etc.) — referenced by
+  // HrDocumentType.contract_type_id. Managed inline on the Contracts page.
+  listContractTypes(): Observable<{ types: ContractType[] }> {
+    return this.http.get<{ types: ContractType[] }>(`${BASE}/hr/contract-types`);
+  }
+  createContractType(p: ContractType): Observable<{ id: number; slug: string }> {
+    return this.http.post<{ id: number; slug: string }>(`${BASE}/hr/contract-types`, p);
+  }
+  updateContractType(id: number, p: Partial<ContractType>): Observable<{ ok: boolean }> {
+    return this.http.put<{ ok: boolean }>(`${BASE}/hr/contract-types/${id}`, p);
+  }
+  deleteContractType(id: number): Observable<{ ok: boolean }> {
+    return this.http.delete<{ ok: boolean }>(`${BASE}/hr/contract-types/${id}`);
+  }
+  // Contract groups (092) — collapsible buckets for contract templates.
+  listContractGroups(): Observable<{ groups: ContractGroup[] }> {
+    return this.http.get<{ groups: ContractGroup[] }>(`${BASE}/hr/contract-groups`);
+  }
+  createContractGroup(p: ContractGroup): Observable<{ id: number }> {
+    return this.http.post<{ id: number }>(`${BASE}/hr/contract-groups`, p);
+  }
+  updateContractGroup(id: number, p: Partial<ContractGroup>): Observable<{ ok: boolean }> {
+    return this.http.put<{ ok: boolean }>(`${BASE}/hr/contract-groups/${id}`, p);
+  }
+  deleteContractGroup(id: number): Observable<{ ok: boolean }> {
+    return this.http.delete<{ ok: boolean }>(`${BASE}/hr/contract-groups/${id}`);
+  }
+  // Per-entity contracts (the Contracts tab on client/candidate/etc. detail pages).
+  listEntityContracts(audience: string, entityId: number): Observable<EntityContractsResponse> {
+    return this.http.get<EntityContractsResponse>(`${BASE}/contracts/${audience}/${entityId}`);
+  }
+  signEntityContract(audience: string, entityId: number, docId: number): Observable<{ ok: boolean }> {
+    return this.http.post<{ ok: boolean }>(`${BASE}/contracts/${audience}/${entityId}/${docId}/sign`, {});
+  }
+  unsignEntityContract(audience: string, entityId: number, docId: number): Observable<{ ok: boolean }> {
+    return this.http.post<{ ok: boolean }>(`${BASE}/contracts/${audience}/${entityId}/${docId}/unsign`, {});
+  }
+
   deleteHrDocumentType(id: number): Observable<{ ok: boolean }> {
     return this.http.delete<{ ok: boolean }>(`${BASE}/hr/document-types/${id}`);
   }
@@ -1254,6 +1609,50 @@ export class Api {
   }
   submitHrOnboardingSection(token: string, section: HrOnboardingSection): Observable<{ ok: boolean; progress: HrOnboardingProgress; completed: boolean }> {
     return this.http.post<{ ok: boolean; progress: HrOnboardingProgress; completed: boolean }>(`${BASE}/public-hr-onboarding/${token}/submit/${section}`, {});
+  }
+
+  // ── Public Recruitment onboarding portal (token-gated, no auth) ────
+  //
+  // Companion to the HR portal above, but for the candidate side. The
+  // four stages — sign contract / general info / CV / documents — are
+  // intentionally narrower than the HR equivalent: no payroll, no
+  // references, no learning. Only profile fields a candidate can
+  // self-serve are accepted by the backend.
+  getRecruitmentOnboardingPortal(token: string): Observable<RecruitmentOnboardingPortalSnapshot> {
+    return this.http.get<RecruitmentOnboardingPortalSnapshot>(`${BASE}/public-recruitment-onboarding/${token}`);
+  }
+  saveRecruitmentOnboardingGeneral(token: string, p: Partial<RecruitmentCandidate>): Observable<{ ok: boolean; changed?: number }> {
+    return this.http.put<{ ok: boolean; changed?: number }>(`${BASE}/public-recruitment-onboarding/${token}/general`, p);
+  }
+  signRecruitmentOnboardingContract(token: string, signedName: string): Observable<{ ok: boolean; contract_signed_at: string | null }> {
+    return this.http.post<{ ok: boolean; contract_signed_at: string | null }>(`${BASE}/public-recruitment-onboarding/${token}/sign-contract`, { signed_name: signedName });
+  }
+  uploadRecruitmentOnboardingCv(token: string, file: File): Observable<{ ok: boolean; file_path: string }> {
+    const fd = new FormData();
+    fd.append('file', file);
+    return this.http.post<{ ok: boolean; file_path: string }>(`${BASE}/public-recruitment-onboarding/${token}/cv`, fd);
+  }
+  uploadRecruitmentOnboardingDoc(
+    token: string,
+    file: File | null,
+    meta: {
+      title?: string;
+      doc_type_id?: number | null;
+      reference_number?: string;
+      issuing_body?: string;
+      issued_at?: string;
+      expires_at?: string;
+    },
+  ): Observable<{ id: number }> {
+    const fd = new FormData();
+    if (file)                  fd.append('file', file);
+    if (meta.title)            fd.append('title', meta.title);
+    if (meta.doc_type_id)      fd.append('doc_type_id', String(meta.doc_type_id));
+    if (meta.reference_number) fd.append('reference_number', meta.reference_number);
+    if (meta.issuing_body)     fd.append('issuing_body', meta.issuing_body);
+    if (meta.issued_at)        fd.append('issued_at', meta.issued_at);
+    if (meta.expires_at)       fd.append('expires_at', meta.expires_at);
+    return this.http.post<{ id: number }>(`${BASE}/public-recruitment-onboarding/${token}/documents`, fd);
   }
   // HR-side verify / reject
   verifyHrOnboardingSection(employeeId: number, section: HrOnboardingSection, verify: boolean): Observable<{ ok: boolean; progress: HrOnboardingProgress }> {
@@ -1374,5 +1773,182 @@ export class Api {
   }
   deleteInvoiceLine(invoiceId: number, lineId: number): Observable<{ ok: boolean }> {
     return this.http.delete<{ ok: boolean }>(`${BASE}/accounting/invoices/${invoiceId}/lines/${lineId}`);
+  }
+
+  // ───── Recruitment (migration 077) ────────────────────────────────
+  // Clients reuse the existing /api/clients endpoint with ?is_recruitment=1
+  // so we don't duplicate company records — the same client row can be a
+  // CRM client AND a recruitment client.
+  listRecruitmentClients(): Observable<{ clients: Client[] }> {
+    return this.http.get<{ clients: Client[] }>(`${BASE}/clients?is_recruitment=1`);
+  }
+
+  listRecruitmentCandidates(status?: RecruitmentCandidateStatus): Observable<{ candidates: RecruitmentCandidate[] }> {
+    const url = status ? `${BASE}/recruitment/candidates?status=${status}` : `${BASE}/recruitment/candidates`;
+    return this.http.get<{ candidates: RecruitmentCandidate[] }>(url);
+  }
+  getRecruitmentCandidate(id: number): Observable<{ candidate: RecruitmentCandidate; onboarding: RecruitmentOnboarding }> {
+    return this.http.get<{ candidate: RecruitmentCandidate; onboarding: RecruitmentOnboarding }>(`${BASE}/recruitment/candidates/${id}`);
+  }
+  createRecruitmentCandidate(p: RecruitmentCandidate): Observable<{ id: number }> {
+    return this.http.post<{ id: number }>(`${BASE}/recruitment/candidates`, p);
+  }
+  updateRecruitmentCandidate(id: number, p: Partial<RecruitmentCandidate>): Observable<{ ok: boolean }> {
+    return this.http.put<{ ok: boolean }>(`${BASE}/recruitment/candidates/${id}`, p);
+  }
+  deleteRecruitmentCandidate(id: number): Observable<{ ok: boolean }> {
+    return this.http.delete<{ ok: boolean }>(`${BASE}/recruitment/candidates/${id}`);
+  }
+  uploadRecruitmentCandidateCV(id: number, file: File): Observable<{ ok: boolean; file_path: string }> {
+    const fd = new FormData();
+    fd.append('file', file);
+    return this.http.post<{ ok: boolean; file_path: string }>(`${BASE}/recruitment/candidates/${id}/cv`, fd);
+  }
+
+  // Candidate documents (compliance pack)
+  listRecruitmentCandidateDocuments(id: number): Observable<{ documents: RecruitmentCandidateDocument[] }> {
+    return this.http.get<{ documents: RecruitmentCandidateDocument[] }>(`${BASE}/recruitment/candidates/${id}/documents`);
+  }
+  /** Upload a candidate document. `file` is optional — info-only doc
+   *  types (`submission_type='info_only'`) submit metadata only. */
+  uploadRecruitmentCandidateDocument(
+    id: number,
+    file: File | null,
+    meta: {
+      title?: string;
+      doc_type_id?: number | null;
+      reference_number?: string;
+      issuing_body?: string;
+      issued_at?: string;
+      expires_at?: string;
+    },
+  ): Observable<{ id: number }> {
+    const fd = new FormData();
+    if (file)                  fd.append('file', file);
+    if (meta.title)            fd.append('title', meta.title);
+    if (meta.doc_type_id)      fd.append('doc_type_id', String(meta.doc_type_id));
+    if (meta.reference_number) fd.append('reference_number', meta.reference_number);
+    if (meta.issuing_body)     fd.append('issuing_body', meta.issuing_body);
+    if (meta.issued_at)        fd.append('issued_at', meta.issued_at);
+    if (meta.expires_at)       fd.append('expires_at', meta.expires_at);
+    return this.http.post<{ id: number }>(`${BASE}/recruitment/candidates/${id}/documents`, fd);
+  }
+  updateRecruitmentCandidateDocument(id: number, did: number, p: Partial<RecruitmentCandidateDocument>): Observable<{ ok: boolean }> {
+    return this.http.put<{ ok: boolean }>(`${BASE}/recruitment/candidates/${id}/documents/${did}`, p);
+  }
+  deleteRecruitmentCandidateDocument(id: number, did: number): Observable<{ ok: boolean }> {
+    return this.http.delete<{ ok: boolean }>(`${BASE}/recruitment/candidates/${id}/documents/${did}`);
+  }
+
+  // Candidate notes
+  listRecruitmentCandidateNotes(id: number): Observable<{ notes: RecruitmentCandidateNote[] }> {
+    return this.http.get<{ notes: RecruitmentCandidateNote[] }>(`${BASE}/recruitment/candidates/${id}/notes`);
+  }
+  createRecruitmentCandidateNote(id: number, p: RecruitmentCandidateNote): Observable<{ id: number }> {
+    return this.http.post<{ id: number }>(`${BASE}/recruitment/candidates/${id}/notes`, p);
+  }
+  updateRecruitmentCandidateNote(id: number, nid: number, p: Partial<RecruitmentCandidateNote>): Observable<{ ok: boolean }> {
+    return this.http.put<{ ok: boolean }>(`${BASE}/recruitment/candidates/${id}/notes/${nid}`, p);
+  }
+  deleteRecruitmentCandidateNote(id: number, nid: number): Observable<{ ok: boolean }> {
+    return this.http.delete<{ ok: boolean }>(`${BASE}/recruitment/candidates/${id}/notes/${nid}`);
+  }
+
+  // Placements (candidate × client) — migration 084.
+  listRecruitmentPlacements(id: number): Observable<{ placements: RecruitmentPlacement[] }> {
+    return this.http.get<{ placements: RecruitmentPlacement[] }>(`${BASE}/recruitment/candidates/${id}/placements`);
+  }
+  createRecruitmentPlacement(id: number, p: RecruitmentPlacement): Observable<{ id: number }> {
+    return this.http.post<{ id: number }>(`${BASE}/recruitment/candidates/${id}/placements`, p);
+  }
+  updateRecruitmentPlacement(id: number, pid: number, p: Partial<RecruitmentPlacement>): Observable<{ ok: boolean }> {
+    return this.http.put<{ ok: boolean }>(`${BASE}/recruitment/candidates/${id}/placements/${pid}`, p);
+  }
+  deleteRecruitmentPlacement(id: number, pid: number): Observable<{ ok: boolean }> {
+    return this.http.delete<{ ok: boolean }>(`${BASE}/recruitment/candidates/${id}/placements/${pid}`);
+  }
+  /** All placements that involve a given recruitment client — drives the
+   *  Recruitment client detail page. */
+  listRecruitmentClientPlacements(clientId: number): Observable<{ placements: RecruitmentPlacement[] }> {
+    return this.http.get<{ placements: RecruitmentPlacement[] }>(`${BASE}/recruitment/clients/${clientId}/placements`);
+  }
+
+  // Client-level role openings (migration 085) — multiple candidates
+  // can attach to a single role via the placement endpoint's role_id.
+  listRecruitmentClientRoles(clientId: number): Observable<{ roles: RecruitmentRole[] }> {
+    return this.http.get<{ roles: RecruitmentRole[] }>(`${BASE}/recruitment/clients/${clientId}/roles`);
+  }
+  createRecruitmentClientRole(clientId: number, p: RecruitmentRole): Observable<{ id: number }> {
+    return this.http.post<{ id: number }>(`${BASE}/recruitment/clients/${clientId}/roles`, p);
+  }
+  updateRecruitmentClientRole(clientId: number, roleId: number, p: Partial<RecruitmentRole>): Observable<{ ok: boolean }> {
+    return this.http.put<{ ok: boolean }>(`${BASE}/recruitment/clients/${clientId}/roles/${roleId}`, p);
+  }
+  deleteRecruitmentClientRole(clientId: number, roleId: number): Observable<{ ok: boolean }> {
+    return this.http.delete<{ ok: boolean }>(`${BASE}/recruitment/clients/${clientId}/roles/${roleId}`);
+  }
+
+  // Doc-type catalogue (settings)
+  listRecruitmentDocTypes(): Observable<{ types: RecruitmentDocType[] }> {
+    return this.http.get<{ types: RecruitmentDocType[] }>(`${BASE}/recruitment/doc-types`);
+  }
+  createRecruitmentDocType(p: RecruitmentDocType): Observable<{ id: number }> {
+    return this.http.post<{ id: number }>(`${BASE}/recruitment/doc-types`, p);
+  }
+  updateRecruitmentDocType(id: number, p: Partial<RecruitmentDocType>): Observable<{ ok: boolean }> {
+    return this.http.put<{ ok: boolean }>(`${BASE}/recruitment/doc-types/${id}`, p);
+  }
+  deleteRecruitmentDocType(id: number): Observable<{ ok: boolean }> {
+    return this.http.delete<{ ok: boolean }>(`${BASE}/recruitment/doc-types/${id}`);
+  }
+
+  // Doc-type groups (collapsible sections on /recruitment/settings)
+  listRecruitmentDocGroups(): Observable<{ groups: RecruitmentDocGroup[] }> {
+    return this.http.get<{ groups: RecruitmentDocGroup[] }>(`${BASE}/recruitment/doc-groups`);
+  }
+  createRecruitmentDocGroup(p: RecruitmentDocGroup): Observable<{ id: number }> {
+    return this.http.post<{ id: number }>(`${BASE}/recruitment/doc-groups`, p);
+  }
+  updateRecruitmentDocGroup(id: number, p: Partial<RecruitmentDocGroup>): Observable<{ ok: boolean }> {
+    return this.http.put<{ ok: boolean }>(`${BASE}/recruitment/doc-groups/${id}`, p);
+  }
+  deleteRecruitmentDocGroup(id: number): Observable<{ ok: boolean }> {
+    return this.http.delete<{ ok: boolean }>(`${BASE}/recruitment/doc-groups/${id}`);
+  }
+
+  // Skills catalogue — managed from Settings → Skills tab.
+  listRecruitmentSkills(): Observable<{ skills: RecruitmentSkill[] }> {
+    return this.http.get<{ skills: RecruitmentSkill[] }>(`${BASE}/recruitment/skills`);
+  }
+  createRecruitmentSkill(p: RecruitmentSkill): Observable<{ id: number }> {
+    return this.http.post<{ id: number }>(`${BASE}/recruitment/skills`, p);
+  }
+  updateRecruitmentSkill(id: number, p: Partial<RecruitmentSkill>): Observable<{ ok: boolean }> {
+    return this.http.put<{ ok: boolean }>(`${BASE}/recruitment/skills/${id}`, p);
+  }
+  deleteRecruitmentSkill(id: number): Observable<{ ok: boolean }> {
+    return this.http.delete<{ ok: boolean }>(`${BASE}/recruitment/skills/${id}`);
+  }
+
+  // Aggregated documents view
+  listRecruitmentDocuments(): Observable<{ documents: RecruitmentDocumentRow[] }> {
+    return this.http.get<{ documents: RecruitmentDocumentRow[] }>(`${BASE}/recruitment/documents`);
+  }
+  /** Filesystem walker scoped to cms/uploads/recruitment/. Drives the
+   *  Documentation page's Browse tab. `path` is relative to that root. */
+  browseRecruitmentDocuments(path: string = ''): Observable<OperationsDocumentsBrowse> {
+    const url = path
+      ? `${BASE}/recruitment/documents/browse?path=${encodeURIComponent(path)}`
+      : `${BASE}/recruitment/documents/browse`;
+    return this.http.get<OperationsDocumentsBrowse>(url);
+  }
+  /** Delete a file or folder under cms/uploads/recruitment/. Folders are
+   *  removed recursively; any `recruitment_candidate_documents` /
+   *  `recruitment_candidates.cv_file_path` rows that referenced the
+   *  deleted path are cleared server-side. */
+  deleteRecruitmentBrowseItem(path: string): Observable<{ ok: boolean }> {
+    return this.http.delete<{ ok: boolean }>(
+      `${BASE}/recruitment/documents/browse?path=${encodeURIComponent(path)}`,
+    );
   }
 }

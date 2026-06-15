@@ -63,6 +63,27 @@ try {
         case 'newsletter':
             (require __DIR__ . '/routes/newsletter.php')($method, $segs);
             break;
+        case 'tenders':
+            (require __DIR__ . '/routes/tenders.php')($method, $segs);
+            break;
+        case 'operations':
+            (require __DIR__ . '/routes/operations.php')($method, $segs);
+            break;
+        case 'services':
+            (require __DIR__ . '/routes/services.php')($method, $segs);
+            break;
+        case 'contracts':
+            (require __DIR__ . '/routes/contracts.php')($method, $segs);
+            break;
+        case 'partners':
+            (require __DIR__ . '/routes/partners.php')($method, $segs);
+            break;
+        case 'contractors':
+            (require __DIR__ . '/routes/contractors.php')($method, $segs);
+            break;
+        case 'affiliates':
+            (require __DIR__ . '/routes/affiliates.php')($method, $segs);
+            break;
         case 'dashboard':
             (require __DIR__ . '/routes/dashboard.php')($method, $segs);
             break;
@@ -75,8 +96,14 @@ try {
         case 'accounting':
             (require __DIR__ . '/routes/accounting.php')($method, $segs);
             break;
+        case 'recruitment':
+            (require __DIR__ . '/routes/recruitment.php')($method, $segs);
+            break;
         case 'public-hr-onboarding':
             (require __DIR__ . '/routes/public_hr_onboarding.php')($method, $segs);
+            break;
+        case 'public-recruitment-onboarding':
+            (require __DIR__ . '/routes/public_recruitment_onboarding.php')($method, $segs);
             break;
         case 'public-survey':
             (require __DIR__ . '/routes/public_survey.php')($method, $segs);

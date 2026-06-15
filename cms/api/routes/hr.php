@@ -36,6 +36,8 @@ return function (string $method, array $segs): void {
     if ($sub === 'candidates')       { handleCandidates($pdo, $method, $segs);      return; }
     if ($sub === 'applications')     { handleApplications($pdo, $method, $segs);    return; }
     if ($sub === 'document-types')   { handleDocumentTypes($pdo, $method, $segs);   return; }
+    if ($sub === 'contract-types')   { handleContractTypes($pdo, $method, $segs);   return; }
+    if ($sub === 'contract-groups')  { handleContractGroups($pdo, $method, $segs);  return; }
     if ($sub === 'all-documents')    { handleAllDocuments($pdo, $method);           return; }
     if ($sub === 'all-onboarding')   { handleAllOnboarding($pdo, $method);          return; }
     if ($sub === 'legal')            { handleLegal($pdo, $method, $segs);           return; }
@@ -1094,13 +1096,18 @@ function handleEmployees(\PDO $pdo, string $method, array $segs): void {
             // so new hires automatically pick up the org's required learning.
             syncScopedCourseAssignments($pdo, $newId, $b['department'] ?? null);
 
-            // Fan out every existing signed-document and contract template to this
-            // new hire as a pending row so they see it in their Documents tab /
-            // onboarding portal. Category mirrors the type's kind so signed docs
-            // and contracts stay distinguishable in the employee's listing.
+            // Fan out every existing signed-document and contract template
+            // targeting employees to this new hire as a pending row, so they
+            // see it in their Documents tab / onboarding portal.
+            // (Templates with audience != 'employee' are skipped — they
+            // belong to clients / partners / etc.) Signed docs ride the same
+            // path as contracts because audience defaulted to 'employee'
+            // pre-076 and stays there for non-contract kinds.
             $tpls = $pdo->query("SELECT id, name, kind, template_path, template_mime, template_size
                                  FROM hr_document_types
-                                 WHERE kind IN ('signed','contract') AND template_path IS NOT NULL")->fetchAll();
+                                 WHERE kind IN ('signed','contract')
+                                   AND audience = 'employee'
+                                   AND template_path IS NOT NULL")->fetchAll();
             if ($tpls) {
                 $tplIns = $pdo->prepare('INSERT INTO hr_documents
                     (employee_id, doc_type_id, category, title, file_path, file_size, mime_type, requires_signature, uploaded_by)
@@ -2905,7 +2912,11 @@ function handleCandidates(\PDO $pdo, string $method, array $segs): void {
                 $b['source'] ?? null,
                 $b['notes'] ?? null,
             ]);
-            Json::send(['id' => (int)$pdo->lastInsertId()], 201);
+            $newApplicantId = (int)$pdo->lastInsertId();
+            // Replay every audience='applicant' contract template (e.g. offer
+            // letters) as a pending applicant_documents row.
+            \BRS\Contracts::fanOutToNewEntity($pdo, 'applicant', $newApplicantId);
+            Json::send(['id' => $newApplicantId], 201);
         }
         Json::fail('Method not allowed', 405);
     }
@@ -3198,14 +3209,24 @@ function handleDocumentTypes(\PDO $pdo, string $method, array $segs): void {
                 }
                 $blocksJson = isset($_POST['blocks_json']) && trim((string)$_POST['blocks_json']) !== ''
                     ? (string)$_POST['blocks_json'] : null;
+                $audience = ($kind === 'contract')
+                    ? pickEnum($_POST['audience'] ?? null, ['employee','client','lead','partner','affiliate','contractor','candidate','applicant','supplier','investor'], 'employee')
+                    : 'employee';
+                $contractTypeId = ($kind === 'contract' && isset($_POST['contract_type_id']) && $_POST['contract_type_id'] !== '')
+                    ? (int)$_POST['contract_type_id'] : null;
+                $groupId = ($kind === 'contract' && isset($_POST['group_id']) && $_POST['group_id'] !== '')
+                    ? (int)$_POST['group_id'] : null;
+                $addToOnboarding = ($kind === 'contract' && !empty($_POST['add_to_onboarding'])) ? 1 : 0;
                 $ins = $pdo->prepare('INSERT INTO hr_document_types
-                    (name, description, kind, template_path, template_mime, template_size, template_blocks_json,
+                    (name, description, kind, audience, contract_type_id, group_id, add_to_onboarding,
+                     template_path, template_mime, template_size, template_blocks_json,
                      is_required, needs_reference, needs_issue_date, needs_expiry_date, sort_order)
-                    VALUES (?,?,?,?,?,?,?, ?,?,?,?,?)');
+                    VALUES (?,?,?,?,?,?,?, ?,?,?,?, ?,?,?,?,?)');
                 $ins->execute([
                     $name,
                     $_POST['description'] ?? null,
-                    $kind, $templatePath, $templateMime, $templateSize, $blocksJson,
+                    $kind, $audience, $contractTypeId, $groupId, $addToOnboarding,
+                    $templatePath, $templateMime, $templateSize, $blocksJson,
                     !empty($_POST['is_required'])       ? 1 : 0,
                     !empty($_POST['needs_reference'])   ? 1 : 0,
                     !empty($_POST['needs_issue_date'])  ? 1 : 0,
@@ -3214,7 +3235,7 @@ function handleDocumentTypes(\PDO $pdo, string $method, array $segs): void {
                 ]);
                 $newId = (int)$pdo->lastInsertId();
                 if (($kind === 'signed' || $kind === 'contract') && $templatePath) {
-                    distributeSignedDocumentToActiveEmployees($pdo, $newId, $name, $templatePath, $templateMime, $templateSize, $kind);
+                    \BRS\Contracts::distributeTemplate($pdo, $newId, $name, $templatePath, $templateMime, $templateSize, $kind, $audience);
                 }
                 Json::send(['id' => $newId], 201);
             }
@@ -3270,12 +3291,19 @@ function handleDocumentTypes(\PDO $pdo, string $method, array $segs): void {
         $blocksJson = array_key_exists('blocks_json', $_POST)
             ? (trim((string)$_POST['blocks_json']) === '' ? null : (string)$_POST['blocks_json'])
             : $cur['template_blocks_json'];
+        $groupId = array_key_exists('group_id', $_POST)
+            ? ($_POST['group_id'] === '' || $_POST['group_id'] === null ? null : (int)$_POST['group_id'])
+            : ($cur['group_id'] !== null ? (int)$cur['group_id'] : null);
+        $addToOnboarding = array_key_exists('add_to_onboarding', $_POST)
+            ? (!empty($_POST['add_to_onboarding']) ? 1 : 0)
+            : (int)($cur['add_to_onboarding'] ?? 0);
         $pdo->prepare('UPDATE hr_document_types
-            SET name=?, description=?, template_path=?, template_mime=?, template_size=?, template_blocks_json=?,
+            SET name=?, description=?, group_id=?, add_to_onboarding=?, template_path=?, template_mime=?, template_size=?, template_blocks_json=?,
                 is_required=?, needs_reference=?, needs_issue_date=?, needs_expiry_date=?, sort_order=?
             WHERE id=?')->execute([
             $name,
             array_key_exists('description', $_POST) ? ($_POST['description'] !== '' ? $_POST['description'] : null) : $cur['description'],
+            $groupId, $addToOnboarding,
             $tplPath, $tplMime, $tplSize, $blocksJson,
             isset($_POST['is_required'])       ? (int)!!$_POST['is_required']       : (int)$cur['is_required'],
             isset($_POST['needs_reference'])   ? (int)!!$_POST['needs_reference']   : (int)$cur['needs_reference'],
@@ -3284,12 +3312,14 @@ function handleDocumentTypes(\PDO $pdo, string $method, array $segs): void {
             isset($_POST['sort_order'])        ? (int)$_POST['sort_order']          : (int)$cur['sort_order'],
             $id,
         ]);
-        // If the template file was replaced, push the new file_path/title down to all
-        // pending (unsigned) hr_documents rows so existing distributions stay in sync.
+        // If the template file was replaced, push the new file_path/title down to
+        // every pending (unsigned) row across whichever audience this template
+        // serves so existing distributions stay in sync.
         if (($kind === 'signed' || $kind === 'contract') && !empty($_FILES['template'])) {
-            $pdo->prepare('UPDATE hr_documents
+            $table = \BRS\Contracts::docsTable($cur['audience'] ?? 'employee');
+            $pdo->prepare("UPDATE `$table`
                 SET title = ?, file_path = ?, file_size = ?, mime_type = ?
-                WHERE doc_type_id = ? AND signed_at IS NULL')
+                WHERE doc_type_id = ? AND signed_at IS NULL")
                 ->execute([$name, $tplPath, $tplSize, $tplMime, $id]);
         }
         Json::send(['ok' => true]);
@@ -3315,7 +3345,8 @@ function handleDocumentTypes(\PDO $pdo, string $method, array $segs): void {
         // (unsigned) rows we distributed. Already-signed copies stay.
         $curKind = $cur['kind'] ?? 'upload';
         if ($curKind === 'signed' || $curKind === 'contract') {
-            $pdo->prepare('DELETE FROM hr_documents WHERE doc_type_id = ? AND signed_at IS NULL')->execute([$id]);
+            $table = \BRS\Contracts::docsTable($cur['audience'] ?? 'employee');
+            $pdo->prepare("DELETE FROM `$table` WHERE doc_type_id = ? AND signed_at IS NULL")->execute([$id]);
         }
         $pdo->prepare('DELETE FROM hr_document_types WHERE id = ?')->execute([$id]);
         Json::send(['ok' => true]);
@@ -3324,22 +3355,124 @@ function handleDocumentTypes(\PDO $pdo, string $method, array $segs): void {
 }
 
 /**
- * When HR creates a signed-document type, fan it out to every active employee
- * as a pending hr_documents row pointing at the template. Each employee can
- * then sign via the existing /hr/employees/:eid/sign/:did endpoint.
+ * Contract groups (092) — collapsible buckets for contract templates on the
+ * Operations → Contracts page. Mirrors handleRecruitmentDocGroups.
+ *   GET    /api/hr/contract-groups
+ *   POST   /api/hr/contract-groups            { name, sort_order? }
+ *   PUT    /api/hr/contract-groups/:id        { name?, sort_order? }
+ *   DELETE /api/hr/contract-groups/:id        (types fall back to Ungrouped)
  */
-function distributeSignedDocumentToActiveEmployees(\PDO $pdo, int $typeId, string $name, string $templatePath, ?string $templateMime, ?int $templateSize, string $kind = 'signed'): void {
-    $emps = $pdo->query("SELECT id FROM hr_employees WHERE status IN ('onboarding','active','on_leave')")->fetchAll();
-    if (!$emps) return;
-    // Use the kind itself as the category so contracts and signed docs are
-    // distinguishable in employee Documents listings.
-    $category = ($kind === 'contract') ? 'contract' : 'signed';
-    $ins = $pdo->prepare('INSERT INTO hr_documents
-        (employee_id, doc_type_id, category, title, file_path, file_size, mime_type, requires_signature, uploaded_by)
-        VALUES (?,?,?,?,?,?,?,1,NULL)');
-    foreach ($emps as $e) {
-        $ins->execute([(int)$e['id'], $typeId, $category, $name, $templatePath, $templateSize, $templateMime]);
+function handleContractGroups(\PDO $pdo, string $method, array $segs): void {
+    if (!isset($segs[2])) {
+        if ($method === 'GET') {
+            $rows = $pdo->query('SELECT id, name, sort_order FROM hr_contract_groups ORDER BY sort_order, id')->fetchAll();
+            Json::send(['groups' => $rows]);
+        }
+        if ($method === 'POST') {
+            $b = Json::readBody();
+            $name = trim((string)($b['name'] ?? ''));
+            if ($name === '') Json::fail('name required', 400);
+            $sort = isset($b['sort_order']) ? (int)$b['sort_order']
+                : ((int)$pdo->query('SELECT COALESCE(MAX(sort_order),0)+10 FROM hr_contract_groups')->fetchColumn());
+            $pdo->prepare('INSERT INTO hr_contract_groups (name, sort_order) VALUES (?,?)')->execute([$name, $sort]);
+            Json::send(['id' => (int)$pdo->lastInsertId()], 201);
+        }
+        Json::fail('Method not allowed', 405);
     }
+    $id = (int)$segs[2];
+    if ($id <= 0) Json::fail('Invalid id', 400);
+    $row = $pdo->prepare('SELECT * FROM hr_contract_groups WHERE id = ?');
+    $row->execute([$id]);
+    $cur = $row->fetch();
+    if (!$cur) Json::fail('Group not found', 404);
+
+    if ($method === 'PUT') {
+        $b = Json::readBody();
+        $pdo->prepare('UPDATE hr_contract_groups SET name = ?, sort_order = ? WHERE id = ?')
+            ->execute([
+                trim((string)($b['name'] ?? $cur['name'])) ?: $cur['name'],
+                isset($b['sort_order']) ? (int)$b['sort_order'] : (int)$cur['sort_order'],
+                $id,
+            ]);
+        Json::send(['ok' => true]);
+    }
+    if ($method === 'DELETE') {
+        // FK on hr_document_types.group_id is ON DELETE SET NULL — contracts in
+        // this group become "Ungrouped", they are NOT deleted.
+        $pdo->prepare('DELETE FROM hr_contract_groups WHERE id = ?')->execute([$id]);
+        Json::send(['ok' => true]);
+    }
+    Json::fail('Method not allowed', 405);
+}
+
+// Multi-audience contract helpers (audience → table mapping, fan-out,
+// template distribution) live in lib/Contracts.php so the entity create
+// handlers in clients.php / partners.php / affiliates.php / contractors.php
+// can call into them too (only one route file is loaded per request).
+
+/**
+ * /api/hr/contract-types — editable lookup of contract categories
+ * (NDA / MSA / employment / etc.). Referenced by
+ * `hr_document_types.contract_type_id`. Slugs are derived from the name
+ * on create unless the caller supplies one.
+ *
+ *   GET    /api/hr/contract-types          → { types: [...] }
+ *   POST   /api/hr/contract-types          → { id }
+ *   PUT    /api/hr/contract-types/:id      → { ok }
+ *   DELETE /api/hr/contract-types/:id      → { ok }
+ */
+function handleContractTypes(\PDO $pdo, string $method, array $segs): void {
+    Auth::require();
+    if (!isset($segs[2])) {
+        if ($method === 'GET') {
+            $rows = $pdo->query('SELECT id, name, slug, sort_order FROM contract_types ORDER BY sort_order, id')->fetchAll();
+            Json::send(['types' => $rows]);
+        }
+        if ($method === 'POST') {
+            $b = Json::readBody();
+            $name = trim((string)($b['name'] ?? ''));
+            if ($name === '') Json::fail('name required', 400);
+            $slug = trim((string)($b['slug'] ?? ''));
+            if ($slug === '') {
+                $slug = preg_replace('/[^a-z0-9]+/', '-', strtolower($name)) ?? '';
+                $slug = trim($slug, '-') ?: 'type';
+            }
+            $base = $slug; $i = 2;
+            $check = $pdo->prepare('SELECT 1 FROM contract_types WHERE slug = ?');
+            while (true) {
+                $check->execute([$slug]);
+                if (!$check->fetchColumn()) break;
+                $slug = $base . '-' . $i++;
+            }
+            $sortOrder = isset($b['sort_order']) ? (int)$b['sort_order']
+                : ((int)$pdo->query('SELECT COALESCE(MAX(sort_order),0)+10 FROM contract_types')->fetchColumn());
+            $ins = $pdo->prepare('INSERT INTO contract_types (name, slug, sort_order) VALUES (?,?,?)');
+            $ins->execute([$name, $slug, $sortOrder]);
+            Json::send(['id' => (int)$pdo->lastInsertId(), 'slug' => $slug], 201);
+        }
+        Json::fail('Method not allowed', 405);
+    }
+    $id = (int)$segs[2];
+    $cur = $pdo->prepare('SELECT * FROM contract_types WHERE id = ?');
+    $cur->execute([$id]);
+    $row = $cur->fetch();
+    if (!$row) Json::fail('Type not found', 404);
+
+    if ($method === 'PUT') {
+        $b = $body = Json::readBody();
+        $name = trim((string)($b['name'] ?? $row['name'])) ?: $row['name'];
+        $sort = isset($b['sort_order']) ? (int)$b['sort_order'] : (int)$row['sort_order'];
+        $pdo->prepare('UPDATE contract_types SET name = ?, sort_order = ? WHERE id = ?')
+            ->execute([$name, $sort, $id]);
+        Json::send(['ok' => true]);
+    }
+    if ($method === 'DELETE') {
+        // FK on hr_document_types.contract_type_id is ON DELETE SET NULL, so
+        // existing templates lose the type tag but otherwise stay intact.
+        $pdo->prepare('DELETE FROM contract_types WHERE id = ?')->execute([$id]);
+        Json::send(['ok' => true]);
+    }
+    Json::fail('Method not allowed', 405);
 }
 
 function defaultReviewQuestions(): array {

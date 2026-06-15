@@ -86,6 +86,25 @@ export interface OnboardingFormPayload extends Partial<FormDef> {
   sections: FormSection[];
 }
 
+/**
+ * A standalone catalogue service the company sells (CRM Services page).
+ * NOT an onboarding template — see `service_offerings` table (migration 086).
+ * `price` arrives as a string from PHP/PDO; coerce with Number() on read.
+ */
+export interface ServiceOffering {
+  id?: number;
+  name: string;
+  description?: string | null;
+  price?: number | string | null;
+  currency?: string;
+  payment_type?: 'one_off' | 'recurring';
+  repeat_duration?: 'weekly' | 'monthly' | 'quarterly' | 'yearly' | null;
+  is_active?: 0 | 1 | boolean;
+  sort_order?: number;
+  created_at?: string;
+  updated_at?: string;
+}
+
 export interface Client {
   id?: number;
   name: string;
@@ -95,6 +114,7 @@ export interface Client {
   company?: string | null;
   url?: string | null;
   notes?: string | null;
+  is_recruitment_client?: 0 | 1 | boolean;
   created_at?: string;
   updated_at?: string;
 }
@@ -187,9 +207,16 @@ export interface ClientNote {
 }
 
 export interface ClientService {
-  onboarding_client_id: number;
-  form_id: number;
-  form_slug: string;
+  // 'onboarding' = a Services-attached onboarding instance (has project/work
+  // items). 'catalog' = a `service_offerings` row attached directly (no
+  // project; migration 087). row_key is a stable per-row track key.
+  kind: 'onboarding' | 'catalog';
+  row_key: string;
+  service_link_id: number | null;   // client_service_offerings.id for catalog rows
+  name: string;
+  onboarding_client_id: number | null;
+  form_id: number | null;
+  form_slug: string | null;
   form_title: string;
   qualified_at?: string | null;
   submitted_at?: string | null;
@@ -576,6 +603,59 @@ export interface HrDocument {
   template_blocks_json?: string | null;
 }
 
+/** Audience a contract template targets — drives fan-out to the
+ *  corresponding `*_documents` table (migration 076). */
+export type ContractAudience =
+  | 'employee' | 'client' | 'lead' | 'partner' | 'affiliate'
+  | 'contractor' | 'candidate' | 'applicant' | 'supplier' | 'investor';
+
+/** Editable lookup row from `contract_types` (NDA / MSA / employment / …).
+ *  Referenced by `HrDocumentType.contract_type_id`. */
+export interface ContractType {
+  id?: number;
+  name: string;
+  slug?: string;
+  sort_order?: number;
+}
+
+/** Collapsible bucket for contract templates on the Contracts page (092).
+ *  Referenced by `HrDocumentType.group_id`. */
+export interface ContractGroup {
+  id?: number;
+  name: string;
+  sort_order?: number;
+}
+
+/** One contract document attached to an entity (client/candidate/etc.), as
+ *  surfaced on that entity's Contracts tab. `is_required` is read live from
+ *  the linked hr_document_types template. */
+export interface EntityContract {
+  id: number;
+  doc_type_id: number | null;
+  category: string;
+  title: string;
+  file_path: string | null;
+  mime_type: string | null;
+  requires_signature: 0 | 1;
+  signed_at: string | null;
+  uploaded_at: string;
+  is_required: 0 | 1;
+  type_name: string | null;
+}
+
+export interface EntityContractsSummary {
+  total: number;
+  signed: number;
+  required: number;
+  required_signed: number;
+  required_outstanding: number;
+}
+
+export interface EntityContractsResponse {
+  documents: EntityContract[];
+  summary: EntityContractsSummary;
+}
+
 export interface HrDocumentType {
   id?: number;
   name: string;
@@ -585,6 +665,17 @@ export interface HrDocumentType {
    *  'contract' = same as signed, but lives in its own UI bucket so HR can keep
    *  employment contracts separate from generic signed policies. */
   kind?: 'upload' | 'signed' | 'contract';
+  /** Who the contract is for. Drives which `*_documents` table the rollout
+   *  fans into. Migration 076. Defaults to 'employee' for legacy rows. */
+  audience?: ContractAudience;
+  /** FK to `contract_types.id` — categorises the template (NDA, MSA, etc.). */
+  contract_type_id?: number | null;
+  /** FK to `hr_contract_groups.id` — buckets contracts into collapsible
+   *  sections on the Contracts page (092). Null = Ungrouped. */
+  group_id?: number | null;
+  /** When set on an employee contract, it appears in the new-hire HR
+   *  onboarding portal's "Documents to sign" step (095). */
+  add_to_onboarding?: 0 | 1 | boolean;
   template_path?: string | null;
   template_mime?: string | null;
   template_size?: number | null;
@@ -598,11 +689,14 @@ export interface HrDocumentType {
 }
 
 /** A single ordered block inside a signed-document page. */
-export type PdfDocBlockKind = 'heading' | 'text' | 'image' | 'spacer';
+export type PdfDocBlockKind = 'heading' | 'text' | 'bullet' | 'image' | 'spacer' | 'variable';
 export interface PdfDocBlock {
   id: string;
   kind: PdfDocBlockKind;
-  /** Plain text for heading / text. */
+  /** Plain text for heading / text / bullet / variable.
+   *  For `bullet`: each newline-separated line becomes a list item.
+   *  For `variable`: holds the default body shown when no per-attachment
+   *  override exists (the "obligations / terms / etc." text). */
   body?: string;
   /** Heading level 1–3 (heading kind only). */
   level?: 1 | 2 | 3;
@@ -610,10 +704,18 @@ export interface PdfDocBlock {
   url?: string;
   /** Optional accessible label for image blocks. */
   alt?: string;
+  /** Variable-block label, e.g. "Price" or "Obligations" — surfaces in
+   *  the token picker as `[[label-slug]]` so other blocks can reference
+   *  this value too. */
+  label?: string;
 }
 export interface PdfDocPage {
   id: string;
   blocks: PdfDocBlock[];
+  /** Whether the standard Signature/Date footer renders on this page.
+   *  Omitted on legacy docs created before this flag was added — the
+   *  builder/renderer fall back to "last page only" for those. */
+  show_sign_zone?: boolean;
 }
 
 export interface HrPtoSummary {
@@ -1281,6 +1383,321 @@ export interface NewsletterRecipient {
   error_msg?: string | null;
 }
 
+// Tenders — Operations system, migration 068.
+export type TenderStatus = 'planning' | 'drafting' | 'submitted' | 'awarded' | 'rejected' | 'withdrawn';
+
+export interface Tender {
+  id?: number;
+  title: string;
+  buyer?: string | null;
+  reference?: string | null;
+  value?: number | string | null;
+  currency?: string;
+  category?: string | null;
+  source_url?: string | null;
+  submission_deadline?: string | null;
+  decision_date?: string | null;
+  status?: TenderStatus;
+  notes?: string | null;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface TenderInfo {
+  id?: number;
+  tender_id?: number;
+  name: string;
+  value?: string | null;
+  sort_order?: number;
+}
+
+export interface TenderContactNumber {
+  id?: number;
+  contact_id?: number;
+  number: string;
+  label?: string | null;
+  sort_order?: number;
+}
+
+export interface TenderContact {
+  id?: number;
+  tender_id?: number;
+  first_name: string;
+  last_name?: string | null;
+  position?: string | null;
+  email?: string | null;
+  is_primary?: 0 | 1 | boolean;
+  sort_order?: number;
+  numbers?: TenderContactNumber[];
+}
+
+/** Legacy column on tender_documents — kept nullable for the few rows
+ *  authored before sections existed. The current UI groups by section_id. */
+export type TenderDocumentKind = 'application' | 'proposal' | 'pitch_deck';
+
+export interface TenderSection {
+  id?: number;
+  tender_id?: number;
+  slug: string;
+  label: string;
+  is_completed?: 0 | 1 | boolean;
+  sort_order?: number;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface TenderDocument {
+  id?: number;
+  tender_id?: number;
+  section_id?: number | null;
+  kind?: TenderDocumentKind | null;
+  title: string;
+  description?: string | null;
+  external_url?: string | null;
+  file_path?: string | null;
+  file_size?: number | null;
+  mime_type?: string | null;
+  sort_order?: number;
+  is_completed?: 0 | 1 | boolean;
+  created_at?: string;
+  updated_at?: string;
+}
+
+/** Manual task tracked in `operation_tasks` (migration 071). Surfaced on
+ *  the Operations Taskboard alongside the auto-derived tender tracker rows. */
+export type OperationTaskStatus   = 'to_do' | 'in_progress' | 'done';
+export type OperationTaskPriority = 'low' | 'medium' | 'high';
+
+export interface OperationTask {
+  id?: number;
+  title: string;
+  description?: string | null;
+  category?: string | null;
+  status?: OperationTaskStatus;
+  priority?: OperationTaskPriority;
+  due_date?: string | null;
+  tender_id?: number | null;
+  tender_title?: string | null;
+  completed_at?: string | null;
+  created_at?: string;
+  updated_at?: string;
+}
+
+// ───── Operations: Documents (aggregated view) ─────────────────────
+/** Single normalized row returned by /api/operations/documents — unions
+ *  rows from hr_documents and tender_documents so the Operations Documents
+ *  page can show every uploaded file across systems in one table.
+ *
+ *  `file_path` is cms-relative (e.g. 'uploads/hr/12/1234_file.pdf'); the
+ *  frontend prefixes `environment.basePath` to build a usable URL. */
+export type OperationsDocumentStatus = 'valid' | 'pending' | 'expired';
+export interface OperationsDocument {
+  uid: string;
+  system: 'hr' | 'tender' | 'recruitment';
+  owner_type: string;
+  owner_id: number;
+  owner_name: string;
+  doc_type: string;
+  title: string;
+  reference: string | null;
+  status: OperationsDocumentStatus;
+  uploaded_at: string;
+  expires_at: string | null;
+  issued_at: string | null;
+  file_path: string;
+  file_size: number | null;
+  mime_type: string | null;
+}
+
+/** Response from /api/operations/documents/browse — one directory level
+ *  rooted at cms/uploads/. `path` is the sub-path relative to the root
+ *  ('' = root); `parent` is the parent sub-path or null at the root. */
+export interface OperationsDocumentsBrowse {
+  path: string;
+  parent: string | null;
+  entries: {
+    name: string;
+    type: 'dir' | 'file';
+    size: number | null;
+    modified: string;
+    path: string;
+  }[];
+}
+
+// ───── Operations: Partners (migration 072) ────────────────────────
+export type PartnerStatus = 'prospective' | 'active' | 'paused' | 'terminated';
+export type PartnerType   = 'strategic' | 'reseller' | 'technology' | 'channel' | 'referral' | 'other';
+export type PartnerTier   = 'preferred' | 'standard' | 'prospective';
+
+export interface Partner {
+  id?: number;
+  legal_name: string;
+  trading_name?: string | null;
+  partnership_type?: PartnerType;
+  tier?: PartnerTier;
+  status?: PartnerStatus;
+  start_date?: string | null;
+  renewal_date?: string | null;
+  auto_renew?: 0 | 1 | boolean;
+  contract_value?: number | string | null;
+  currency?: string;
+  primary_email?: string | null;
+  primary_phone?: string | null;
+  website?: string | null;
+  address?: string | null;
+  registration_number?: string | null;
+  vat_number?: string | null;
+  scope?: string | null;
+  relationship_owner_id?: number | null;
+  owner_email?: string | null;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface PartnerContact {
+  id?: number;
+  partner_id?: number;
+  first_name: string;
+  last_name?: string | null;
+  position?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  is_primary?: 0 | 1 | boolean;
+  sort_order?: number;
+}
+
+export interface PartnerNote {
+  id?: number;
+  partner_id?: number;
+  title: string;
+  body?: string | null;
+  sort_order?: number;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface PartnerAccount {
+  id?: number;
+  partner_id?: number;
+  account_name: string;
+  login_url?: string | null;
+  username?: string | null;
+  password?: string | null;
+  sort_order?: number;
+}
+
+// ───── Operations: Contractors (migration 073) ─────────────────────
+export type ContractorStatus  = 'active' | 'inactive' | 'on_break' | 'ended';
+export type ContractorType    = 'individual' | 'agency' | 'freelancer' | 'consultant';
+export type ContractorSource  = 'internal' | 'external';
+export type EngagementType    = 'hourly' | 'daily' | 'project' | 'retainer' | 'full_time' | 'part_time';
+export type Ir35Status        = 'inside' | 'outside' | 'not_applicable' | 'unknown';
+
+export interface Contractor {
+  id?: number;
+  name: string;
+  contractor_type?: ContractorType;
+  internal_external?: ContractorSource;
+  discipline?: string | null;
+  status?: ContractorStatus;
+  engagement_type?: EngagementType;
+  rate?: number | string | null;
+  currency?: string;
+  start_date?: string | null;
+  end_date?: string | null;
+  primary_email?: string | null;
+  primary_phone?: string | null;
+  website?: string | null;
+  address?: string | null;
+  tax_id?: string | null;
+  vat_number?: string | null;
+  company_number?: string | null;
+  ir35_status?: Ir35Status;
+  notes?: string | null;
+  project_manager_id?: number | null;
+  manager_email?: string | null;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface ContractorNote {
+  id?: number;
+  contractor_id?: number;
+  title: string;
+  body?: string | null;
+  sort_order?: number;
+  created_at?: string;
+  updated_at?: string;
+}
+
+// ───── Operations: Affiliates (migration 074) ──────────────────────
+export type AffiliateStatus     = 'pending' | 'active' | 'paused' | 'suspended' | 'terminated';
+export type AffiliateTier       = 'bronze' | 'silver' | 'gold' | 'platinum';
+export type AffiliateType       = 'individual' | 'company';
+export type CommissionType      = 'percentage' | 'flat';
+export type AffiliatePayoutMethod = 'bank_transfer' | 'paypal' | 'stripe' | 'other';
+
+export interface Affiliate {
+  id?: number;
+  name: string;
+  affiliate_type?: AffiliateType;
+  status?: AffiliateStatus;
+  tier?: AffiliateTier;
+  affiliate_code: string;
+  referral_link?: string | null;
+  commission_rate?: number | string | null;
+  commission_type?: CommissionType;
+  currency?: string;
+  payout_method?: AffiliatePayoutMethod;
+  payout_threshold?: number | string | null;
+  payment_terms?: string | null;
+  marketing_channel?: string | null;
+  joined_date?: string | null;
+  end_date?: string | null;
+  primary_email?: string | null;
+  primary_phone?: string | null;
+  website?: string | null;
+  social_handles?: string | null;
+  notes?: string | null;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface AffiliateNote {
+  id?: number;
+  affiliate_id?: number;
+  title: string;
+  body?: string | null;
+  sort_order?: number;
+  created_at?: string;
+  updated_at?: string;
+}
+
+/** Tracker response from /api/tenders/tracker. Each bucket is a Tender row
+ *  with the fields needed to render the reminder card. */
+export interface TenderTrackerRow extends Tender {
+  open_sections?: number;
+  total_sections?: number;
+}
+export interface TenderTracker {
+  overdue: TenderTrackerRow[];
+  due_soon: TenderTrackerRow[];
+  awaiting_decision: TenderTrackerRow[];
+  incomplete: TenderTrackerRow[];
+  stale: TenderTrackerRow[];
+  threshold_days: number;
+}
+
+export interface TenderNote {
+  id?: number;
+  tender_id?: number;
+  title: string;
+  body?: string | null;
+  sort_order?: number;
+  created_at?: string;
+  updated_at?: string;
+}
+
 export interface AppSettings {
   smtp_host?: string;
   smtp_port?: string;
@@ -1294,6 +1711,299 @@ export interface AppSettings {
   public_form_bg_color?: string;
   upload_max_mb?: string;
   [k: string]: string | undefined;
+}
+
+// ───── Recruitment (migration 077) ──────────────────────────────────
+export type RecruitmentCandidateStatus =
+  'new' | 'interviewing' | 'processing' | 'compliant'
+  | 'client_screening' | 'placed' | 'rejected_by_us';
+export type RecruitmentExperienceLevel = 'junior' | 'mid' | 'senior' | 'lead' | 'principal';
+export type RecruitmentAvailability    = 'immediate' | 'one_week' | 'two_weeks' | 'one_month' | 'later';
+export type RecruitmentDocStatus       = 'pending' | 'valid' | 'expired' | 'rejected';
+export type RecruitmentGender          = 'male' | 'female' | 'other' | 'prefer_not_to_say';
+
+export interface RecruitmentCandidate {
+  id?: number;
+  first_name: string;
+  last_name: string;
+  email?: string | null;
+  phone?: string | null;
+  dob?: string | null;
+  nationality?: string | null;
+  gender?: RecruitmentGender | null;
+  address_line1?: string | null;
+  address_line2?: string | null;
+  city?: string | null;
+  region?: string | null;
+  postcode?: string | null;
+  country?: string | null;
+  /** Holds a valid driving licence. Migration 080. */
+  has_driving_license?: 0 | 1 | boolean;
+  /** Separate from holding a licence: willing/able to drive for work
+   *  (commute to sites, drive between clients, etc.). */
+  willing_to_drive?: 0 | 1 | boolean;
+  role?: string | null;
+  /** Agency-side taxonomy ("Clinical Lead", "Site Engineer", etc.). */
+  candidate_type?: string | null;
+  discipline?: string | null;
+  experience_level?: RecruitmentExperienceLevel | null;
+  experience_years?: number | null;
+  /** Comma-separated skill tags. Split on display. Migration 080. */
+  skills?: string | null;
+  day_rate?: number | string | null;
+  currency?: string;
+  availability?: RecruitmentAvailability | null;
+  cv_file_path?: string | null;
+  cv_file_size?: number | null;
+  cv_mime_type?: string | null;
+  status?: RecruitmentCandidateStatus;
+  source?: string | null;
+  contract_doc_id?: number | null;
+  contract_signed_at?: string | null;
+  notes?: string | null;
+  /** Per-candidate token for the public onboarding portal. Generated by
+   *  the API on create; existing rows were backfilled by migration 087.
+   *  Powers /recruitment-onboarding/<token>. */
+  onboarding_token?: string | null;
+  created_at?: string;
+  updated_at?: string;
+}
+
+/** Shape returned by GET /api/public-recruitment-onboarding/:token —
+ *  candidate snapshot + the doc-type checklist (filtered to
+ *  `add_to_onboarding = 1`, bucketed by group). Drives the candidate
+ *  portal at /recruitment-onboarding/<token>. */
+export interface RecruitmentOnboardingPortalSnapshot {
+  candidate: {
+    id: number;
+    first_name: string;
+    last_name: string;
+    email: string | null;
+    phone: string | null;
+    dob: string | null;
+    gender: RecruitmentGender | null;
+    nationality: string | null;
+    address_line1: string | null;
+    address_line2: string | null;
+    city: string | null;
+    region: string | null;
+    postcode: string | null;
+    country: string | null;
+    has_driving_license: 0 | 1;
+    willing_to_drive: 0 | 1;
+    role: string | null;
+    discipline: string | null;
+    experience_level: RecruitmentExperienceLevel | null;
+    experience_years: number | null;
+    skills: string | null;
+    availability: RecruitmentAvailability | null;
+    cv_file_path: string | null;
+    contract_signed_at: string | null;
+  };
+  doc_groups: Array<{
+    id: number;
+    name: string;
+    items: Array<{
+      doc_type_id: number;
+      name: string;
+      description: string | null;
+      is_required: 0 | 1;
+      submission_type: RecruitmentSubmissionType;
+      needs_reference: 0 | 1;
+      needs_issuing_body: 0 | 1;
+      needs_issue_date: 0 | 1;
+      needs_expiry_date: 0 | 1;
+      submitted: RecruitmentCandidateDocument | null;
+    }>;
+  }>;
+}
+
+export type RecruitmentSubmissionType = 'file' | 'info_only';
+
+/** Editable lookup of doc-type groups (Identity / Right to work /
+ *  Financial / …). Drives the collapsible sections on the Settings
+ *  page. Migration 079. */
+export interface RecruitmentDocGroup {
+  id?: number;
+  name: string;
+  sort_order?: number;
+}
+
+/** A single skill the agency tracks against candidates. May exist
+ *  standalone OR be auto-linked to a recruitment_doc_types row (when
+ *  `doc_type_id` is set). Deleting an auto-linked skill un-ticks the
+ *  doc-type's "Add as skill" checkbox automatically. Migration 081. */
+export interface RecruitmentSkill {
+  id?: number;
+  name: string;
+  doc_type_id?: number | null;
+  sort_order?: number;
+}
+
+export interface RecruitmentDocType {
+  id?: number;
+  name: string;
+  description?: string | null;
+  /** Optional FK to `recruitment_doc_groups.id`. Null = "Ungrouped"
+   *  pseudo-section on the Settings page. */
+  group_id?: number | null;
+  /** "Add as skill" checkbox state. Derived on GET from whether a
+   *  `recruitment_skills` row with `doc_type_id = this.id` exists.
+   *  Migration 081. */
+  add_as_skill?: 0 | 1 | boolean;
+  is_required?: 0 | 1 | boolean;
+  /** Whether the type appears in the candidate's onboarding checklist
+   *  (independent of `is_required`). 076-era types defaulted to
+   *  on-checklist behaviour, so migration 078 backfilled this to 1. */
+  add_to_onboarding?: 0 | 1 | boolean;
+  /** 'file' = candidate uploads a real document; 'info_only' = HR
+   *  records dates / reference / issuing body without a file. */
+  submission_type?: RecruitmentSubmissionType;
+  needs_reference?: 0 | 1 | boolean;
+  needs_issue_date?: 0 | 1 | boolean;
+  needs_expiry_date?: 0 | 1 | boolean;
+  needs_issuing_body?: 0 | 1 | boolean;
+  sort_order?: number;
+}
+
+export interface RecruitmentCandidateDocument {
+  id?: number;
+  candidate_id?: number;
+  doc_type_id?: number | null;
+  doc_type_name?: string | null;
+  title: string;
+  /** Null for info-only entries (migration 078). */
+  file_path?: string | null;
+  file_size?: number | null;
+  mime_type?: string | null;
+  reference_number?: string | null;
+  issuing_body?: string | null;
+  issued_at?: string | null;
+  expires_at?: string | null;
+  status?: RecruitmentDocStatus;
+  uploaded_at?: string;
+}
+
+export interface RecruitmentCandidateNote {
+  id?: number;
+  candidate_id?: number;
+  title: string;
+  body?: string | null;
+  /** Pipeline-stage tag — snapshot of the candidate's status at the
+   *  time the note was written. Drives the Notes-tab subtab grouping.
+   *  Migration 083. */
+  status?: RecruitmentCandidateStatus | null;
+  sort_order?: number;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface RecruitmentOnboardingProgress {
+  contract_signed: boolean;
+  docs_required: number;
+  docs_valid: number;
+  docs_pending: number;
+}
+export interface RecruitmentOnboardingChecklistItem {
+  doc_type_id: number;
+  name: string;
+  is_required: 0 | 1;
+  submission_type?: RecruitmentSubmissionType;
+  status: RecruitmentDocStatus | null;
+}
+export interface RecruitmentOnboarding {
+  checklist: RecruitmentOnboardingChecklistItem[];
+  progress: RecruitmentOnboardingProgress;
+}
+
+/** A client-side role opening — migration 085. Multiple candidate
+ *  placements can attach to a single role. */
+export type RecruitmentRoleStatus = 'open' | 'filled' | 'cancelled';
+
+export interface RecruitmentRole {
+  id?: number;
+  client_id?: number;
+  title: string;
+  description?: string | null;
+  target_start_date?: string | null;
+  target_end_date?: string | null;
+  contract_value?: number | string | null;
+  commission_value?: number | string | null;
+  /** Amount received when only part of the commission is paid (091).
+   *  Defaults to half of commission_value in the UI. */
+  commission_part_amount?: number | string | null;
+  /** Agency cut as a % of contract value (091, default 12). The
+   *  commission_value amount is derived from it. */
+  commission_percent?: number | string | null;
+  currency?: string;
+  /** Commission paid status — migrated from placement-level to
+   *  role-level in 086 (one negotiated fee per role). */
+  commission_paid_part?: 0 | 1 | boolean;
+  commission_paid_full?: 0 | 1 | boolean;
+  commission_due_part?: string | null;
+  commission_due_full?: string | null;
+  status?: RecruitmentRoleStatus;
+  notes?: string | null;
+  /** Computed counts surfaced by the GET endpoint (counts of placements
+   *  attached to this role, broken down by status). */
+  total_candidates?: number;
+  vetting_count?: number;
+  placed_count?: number;
+  rejected_count?: number;
+  created_at?: string;
+  updated_at?: string;
+}
+
+/** A single placement (candidate × client) — migration 084. */
+export type RecruitmentPlacementStatus = 'screening' | 'placed' | 'ended' | 'rejected';
+
+export interface RecruitmentPlacement {
+  id?: number;
+  candidate_id?: number;
+  client_id: number;
+  /** Optional link to a `recruitment_roles` entry — set when the
+   *  placement was created from a role's "Add candidate" action. */
+  role_id?: number | null;
+  /** Joined from the role's title on GET. */
+  role_title?: string | null;
+  /** Joined from `clients.name` on GET — not sent on POST/PUT. */
+  client_name?: string;
+  /** Joined from the candidate when listing by client. */
+  candidate_name?: string;
+  candidate_role?: string | null;
+  candidate_status?: RecruitmentCandidateStatus;
+  role?: string | null;
+  status?: RecruitmentPlacementStatus;
+  start_date?: string | null;
+  end_date?: string | null;
+  contract_value?: number | string | null;
+  commission_value?: number | string | null;
+  currency?: string;
+  commission_paid_part?: 0 | 1 | boolean;
+  commission_paid_full?: 0 | 1 | boolean;
+  commission_due_part?: string | null;
+  commission_due_full?: string | null;
+  contract_notes?: string | null;
+  rejection_reason?: string | null;
+  created_at?: string;
+  updated_at?: string;
+}
+
+/** Row returned by /api/recruitment/documents — aggregated docs view. */
+export interface RecruitmentDocumentRow {
+  id: number;
+  candidate_id: number;
+  candidate_name: string;
+  doc_type_name: string | null;
+  title: string;
+  file_path: string;
+  file_size: number | null;
+  mime_type: string | null;
+  reference_number: string | null;
+  issued_at: string | null;
+  expires_at: string | null;
+  status: RecruitmentDocStatus;
+  uploaded_at: string;
 }
 
 export const FIELD_TYPES: { value: FieldType; label: string }[] = [

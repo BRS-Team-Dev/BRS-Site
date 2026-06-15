@@ -119,6 +119,8 @@ import { ThemeService } from '../core/theme.service';
     .sys-dot[data-sys="cms"]        { background: var(--primary); }
     .sys-dot[data-sys="hr"]         { background: #10b981; }
     .sys-dot[data-sys="management"] { background: #a78bfa; }
+    .sys-dot[data-sys="operations"] { background: #f97316; }
+    .sys-dot[data-sys="recruitment"]{ background: #ec4899; }
     .sys-dot[data-sys="accounting"] { background: #14b8a6; }
     .sys-dot[data-sys="crm"]        { background: #3b82f6; }
     .sys-dot[data-sys="account"]    { background: #f59e0b; }

@@ -55,7 +55,11 @@ return function (string $method, array $segs): void {
                 $status,
                 trim((string)($body['source']  ?? '')) ?: null,
             ]);
-            Json::send(['id' => (int)$pdo->lastInsertId()], 201);
+            $newLeadId = (int)$pdo->lastInsertId();
+            // Replay every audience='lead' contract template as a pending
+            // lead_documents row (076 multi-audience contracts).
+            \BRS\Contracts::fanOutToNewEntity($pdo, 'lead', $newLeadId);
+            Json::send(['id' => $newLeadId], 201);
         }
         Json::fail('Method not allowed', 405);
     }

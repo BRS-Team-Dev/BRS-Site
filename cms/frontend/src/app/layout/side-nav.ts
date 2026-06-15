@@ -2,7 +2,7 @@ import { Component, computed, inject, signal } from '@angular/core';
 import { NavigationEnd, Router, RouterLink, RouterLinkActive } from '@angular/router';
 import { filter } from 'rxjs';
 import { Api } from '../core/api';
-import { AdminSection, FormDef } from '../core/models';
+import { AdminSection, FormDef, ServiceOffering } from '../core/models';
 import { SettingsService } from '../core/settings.service';
 import { environment } from '@env/environment';
 
@@ -95,10 +95,16 @@ import { environment } from '@env/environment';
         <div class="nav-group">
           <a routerLink="/admin/services" [class.active]="isServicesActive()">
             <span class="icon">⚒</span> Services
-            @if (childrenOfBuiltin('services').length > 0) { <span class="caret">›</span> }
+            @if (serviceOfferings().length > 0 || childrenOfBuiltin('services').length > 0) { <span class="caret">›</span> }
           </a>
-          @if (childrenOfBuiltin('services').length > 0) {
+          @if (serviceOfferings().length > 0 || childrenOfBuiltin('services').length > 0) {
             <div class="children">
+              @for (s of serviceOfferings(); track s.id) {
+                <a [routerLink]="['/admin/services']" [queryParams]="{ service: s.id }"
+                   [class.active]="isServiceOfferingActive(s.id!)">
+                  <span class="icon">◌</span> {{ s.name }}
+                </a>
+              }
               @for (c of childrenOfBuiltin('services'); track c.id) {
                 <a [routerLink]="childLinkPath(c)" [class.active]="isChildLinkActive(c)">
                   <span class="icon">◌</span> {{ c.main_section_label || c.title }}
@@ -245,6 +251,7 @@ export class SideNav {
   logoFailed = false;
   onboardingForms = signal<FormDef[]>([]);
   standardForms = signal<FormDef[]>([]);
+  serviceOfferings = signal<ServiceOffering[]>([]);
   adminSections = signal<AdminSection[]>([]);
   currentUrl = signal<string>(this.router.url);
   topAdminSections = computed(() =>
@@ -283,6 +290,10 @@ export class SideNav {
     const url = this.currentUrl();
     return url === '/admin/services' || url.startsWith('/admin/services/') || url.startsWith('/admin/services?');
   };
+  /** A specific catalogue service is "active" when its edit modal is deep-linked
+   *  open via `/admin/services?service=<id>`. */
+  isServiceOfferingActive = (id: number): boolean =>
+    new RegExp(`[?&]service=${id}(?:&|$)`).test(this.currentUrl());
   topMainSections = computed(() =>
     this.onboardingForms().filter(f => (f.sidenav_placement ?? 'top') === 'top')
   );
@@ -338,6 +349,7 @@ export class SideNav {
     this.svc.ensureLoaded();
     this.loadOnboardingForms();
     this.loadStandardForms();
+    this.loadServiceOfferings();
     this.loadSections();
     this.router.events.pipe(filter(e => e instanceof NavigationEnd)).subscribe(e => {
       const url = (e as NavigationEnd).urlAfterRedirects;
@@ -349,6 +361,7 @@ export class SideNav {
       // which produced 3 redundant requests on every sidenav click.
       if (url === '/admin/onboarding' || url.startsWith('/admin/onboarding?')) this.loadOnboardingForms();
       if (url === '/admin/forms'      || url.startsWith('/admin/forms?'))      this.loadStandardForms();
+      if (url === '/admin/services'   || url.startsWith('/admin/services?'))   this.loadServiceOfferings();
       if (url === '/admin/sections'   || url.startsWith('/admin/sections?'))   this.loadSections();
     });
   }
@@ -363,6 +376,12 @@ export class SideNav {
     this.api.listForms().subscribe({
       next: r => this.standardForms.set(r.forms),
       error: () => {/* silent */},
+    });
+  }
+  private loadServiceOfferings() {
+    this.api.listServiceOfferings().subscribe({
+      next: r => this.serviceOfferings.set(r.services),
+      error: () => {/* silent — likely not authed yet */},
     });
   }
   private loadSections() {

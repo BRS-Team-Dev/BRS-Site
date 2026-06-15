@@ -1,10 +1,12 @@
 import { Component, inject, signal } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
+import { Observable } from 'rxjs';
 import { Api } from '../../core/api';
-import { Client, ClientAccount, ClientContact, ClientInfo, ClientNote, ClientService, ClientServicesTotals, FormDef, TaskItem } from '../../core/models';
+import { Client, ClientAccount, ClientContact, ClientInfo, ClientNote, ClientService, ClientServicesTotals, FormDef, ServiceOffering, TaskItem } from '../../core/models';
+import { EntityContracts } from '../../shared/entity-contracts';
 
-type TabKey = 'info' | 'contacts' | 'services' | 'accounts' | 'notes';
+type TabKey = 'info' | 'contacts' | 'services' | 'accounts' | 'contracts' | 'notes';
 
 /**
  * Standalone Clients section.
@@ -15,7 +17,7 @@ type TabKey = 'info' | 'contacts' | 'services' | 'accounts' | 'notes';
  */
 @Component({
   selector: 'app-clients-admin',
-  imports: [RouterLink, FormsModule],
+  imports: [RouterLink, FormsModule, EntityContracts],
   template: `
     @if (mode() === 'list') {
       <div class="toolbar">
@@ -244,22 +246,33 @@ type TabKey = 'info' | 'contacts' | 'services' | 'accounts' | 'notes';
                   @if (addServiceOpen()) {
                     <div class="info-form">
                       <div class="muted small" style="margin-bottom: 8px;">
-                        Picks a Services-attached onboarding, creates a new
-                        instance for this client, qualifies it, and (if the
-                        form has a team) auto-creates the project. Picking
-                        the same service again is fine — each becomes its own
-                        instance and project (e.g. multiple websites).
+                        Catalogue services attach with their price; onboarding
+                        processes also create an instance for this client,
+                        qualify it, and (if the form has a team) auto-create the
+                        project. Picking the same one again is fine — each is its
+                        own record.
                       </div>
-                      <label>Service template <span class="req">★</span></label>
-                      <select [(ngModel)]="addServiceFormId" name="add_svc_form">
+                      <label>Service <span class="req">★</span></label>
+                      <select [(ngModel)]="addServiceSel" name="add_svc_form">
                         <option [ngValue]="null">— pick a service —</option>
-                        @for (f of serviceForms(); track f.id) {
-                          <option [ngValue]="f.id">{{ f.title }}</option>
+                        @if (serviceOfferings().length) {
+                          <optgroup label="Catalogue services">
+                            @for (s of serviceOfferings(); track s.id) {
+                              <option [ngValue]="'svc:' + s.id">{{ s.name }}</option>
+                            }
+                          </optgroup>
+                        }
+                        @if (serviceForms().length) {
+                          <optgroup label="Onboarding processes">
+                            @for (f of serviceForms(); track f.id) {
+                              <option [ngValue]="'form:' + f.id">{{ f.title }}</option>
+                            }
+                          </optgroup>
                         }
                       </select>
                       @if (addServiceError()) { <div class="error-msg">{{ addServiceError() }}</div> }
                       <div class="row" style="margin-top: 14px; gap: 8px;">
-                        <button class="primary" (click)="addService()" [disabled]="addServiceSaving() || !addServiceFormId">
+                        <button class="primary" (click)="addService()" [disabled]="addServiceSaving() || !addServiceSel">
                           {{ addServiceSaving() ? 'Adding…' : 'Add service' }}
                         </button>
                         <button class="ghost" (click)="closeAddService()">Cancel</button>
@@ -269,8 +282,8 @@ type TabKey = 'info' | 'contacts' | 'services' | 'accounts' | 'notes';
 
                   @if (services().length === 0) {
                     <p class="muted">
-                      This client isn't signed up to any onboarding processes
-                      attached to Services yet.
+                      No services yet. Use <strong>+ Add service</strong> to
+                      attach a catalogue service or onboarding process.
                     </p>
                   } @else {
                     <div class="totals-grid">
@@ -298,12 +311,14 @@ type TabKey = 'info' | 'contacts' | 'services' | 'accounts' | 'notes';
                     </div>
 
                     <ul class="slot-list services-list">
-                      @for (s of services(); track s.onboarding_client_id) {
-                        <li class="slot" [class.filled]="s.status !== 'ended'" [class.missing]="s.status === 'ended'" [class.expanded]="isServiceExpanded(s.onboarding_client_id)">
-                          <div class="slot-head" (click)="toggleService(s)">
-                            <span class="caret">›</span>
+                      @for (s of services(); track s.row_key) {
+                        <li class="slot" [class.filled]="s.status !== 'ended'" [class.missing]="s.status === 'ended'" [class.expanded]="s.kind === 'onboarding' && isServiceExpanded(s.onboarding_client_id!)">
+                          <div class="slot-head" [class.no-caret]="s.kind === 'catalog'" (click)="s.kind === 'onboarding' && toggleService(s)">
+                            @if (s.kind === 'onboarding') { <span class="caret">›</span> }
                             <strong>{{ s.form_title }}</strong>
-                            @if (s.status === 'ended') {
+                            @if (s.kind === 'catalog') {
+                              <span class="pill" data-pstatus="catalog">Service</span>
+                            } @else if (s.status === 'ended') {
                               <span class="pill ended">Ended</span>
                             } @else if (s.project_status) {
                               <span class="pill" [attr.data-pstatus]="s.project_status">
@@ -325,6 +340,9 @@ type TabKey = 'info' | 'contacts' | 'services' | 'accounts' | 'notes';
                             </span>
                             <span class="spacer"></span>
                             <span class="monthly-chip"><strong>{{ formatMoney(s.monthly_value) }}</strong> /mo</span>
+                            @if (s.kind === 'catalog') {
+                              <button class="ghost icon-btn danger" (click)="removeCatalogService(s, $event)" title="Remove service">✕</button>
+                            }
                           </div>
                           <div class="slot-meta service-breakdown">
                             <span><span class="k">Started</span> {{ formatDate(s.qualified_at || s.submitted_at || s.started_at) }}</span>
@@ -341,7 +359,7 @@ type TabKey = 'info' | 'contacts' | 'services' | 'accounts' | 'notes';
                             </span>
                           </div>
 
-                          @if (isServiceExpanded(s.onboarding_client_id)) {
+                          @if (s.kind === 'onboarding' && isServiceExpanded(s.onboarding_client_id!)) {
                             <div class="service-items">
                               @if (!s.project_id) {
                                 <p class="muted small">No project linked — work items appear here when one is created.</p>
@@ -496,6 +514,10 @@ type TabKey = 'info' | 'contacts' | 'services' | 'accounts' | 'notes';
                       }
                     </div>
                   }
+                }
+                @case ('contracts') {
+                  <div class="tab-head"><h3>Contracts</h3></div>
+                  <app-entity-contracts audience="client" [entityId]="c.id!"></app-entity-contracts>
                 }
                 @case ('notes') {
                   <div class="tab-head">
@@ -725,6 +747,9 @@ type TabKey = 'info' | 'contacts' | 'services' | 'accounts' | 'notes';
     .services-list .pill[data-pstatus="blocked"]  { color: var(--danger); border-color: var(--danger); background: rgba(255,100,100,0.10); }
     .services-list .pill[data-pstatus="complete"] { color: var(--muted); border-color: var(--line); }
     .services-list .pill[data-pstatus="none"]     { color: var(--muted); border-style: dashed; }
+    .services-list .pill[data-pstatus="catalog"]  { color: var(--primary); border-color: var(--primary); background: rgba(212,169,58,0.12); }
+    /* Catalogue rows have no expand caret — pull the title back to the edge. */
+    .services-list .slot-head.no-caret { cursor: default; }
     .services-list .terms-pill {
       padding: 2px 8px; border-radius: 4px; font-size: 12px;
       background: var(--bg-3); border: 1px solid var(--line); color: var(--fg);
@@ -890,6 +915,7 @@ export class ClientsAdmin {
     { key: 'contacts', label: 'Contacts' },
     { key: 'services', label: 'Services' },
     { key: 'accounts', label: 'Accounts' },
+    { key: 'contracts', label: 'Contracts' },
     { key: 'notes',    label: 'Notes' },
   ];
   activeTab = signal<TabKey>('info');
@@ -973,8 +999,10 @@ export class ClientsAdmin {
   // request. Picking the same form twice deliberately produces two separate
   // instances so a client can have multiple of the same service.
   serviceForms = signal<FormDef[]>([]);
+  serviceOfferings = signal<ServiceOffering[]>([]);
   addServiceOpen = signal(false);
-  addServiceFormId: number | null = null;
+  // Encoded selection: 'svc:<id>' = catalogue service, 'form:<id>' = onboarding.
+  addServiceSel: string | null = null;
   addServiceSaving = signal(false);
   addServiceError = signal<string | null>(null);
 
@@ -989,11 +1017,13 @@ export class ClientsAdmin {
     return this.expandedServices().has(ocid);
   }
   toggleService(s: ClientService) {
+    const ocid = s.onboarding_client_id;
+    if (ocid == null) return; // only onboarding rows expand (have work items)
     const cur = new Set(this.expandedServices());
-    if (cur.has(s.onboarding_client_id)) {
-      cur.delete(s.onboarding_client_id);
+    if (cur.has(ocid)) {
+      cur.delete(ocid);
     } else {
-      cur.add(s.onboarding_client_id);
+      cur.add(ocid);
       // Lazy-load work items the first time the row is expanded.
       const pid = s.project_id;
       if (pid && !this.serviceItems().has(pid) && !this.serviceItemsLoading().has(pid)) {
@@ -1412,10 +1442,16 @@ export class ClientsAdmin {
     else this.openAddService();
   }
   openAddService() {
-    this.addServiceFormId = null;
+    this.addServiceSel = null;
     this.addServiceError.set(null);
     this.addServiceOpen.set(true);
-    // Lazy-load the list of Services-attached onboarding forms.
+    // Lazy-load the catalogue services + Services-attached onboarding forms.
+    if (!this.serviceOfferings().length) {
+      this.api.listServiceOfferings().subscribe({
+        next: r => this.serviceOfferings.set(r.services.filter(s => !!s.is_active)),
+        error: () => this.serviceOfferings.set([]),
+      });
+    }
     if (!this.serviceForms().length) {
       this.api.listOnboardingForms().subscribe({
         next: r => this.serviceForms.set(
@@ -1432,19 +1468,35 @@ export class ClientsAdmin {
   addService() {
     const clientId = this.current()?.id;
     if (!clientId) return;
-    if (!this.addServiceFormId) { this.addServiceError.set('Pick a service'); return; }
+    const sel = this.addServiceSel;
+    if (!sel) { this.addServiceError.set('Pick a service'); return; }
     this.addServiceSaving.set(true);
     this.addServiceError.set(null);
-    this.api.addClientService(clientId, this.addServiceFormId).subscribe({
+
+    const [kind, idStr] = sel.split(':');
+    const refId = Number(idStr);
+    const req: Observable<unknown> = kind === 'svc'
+      ? this.api.addClientServiceOffering(clientId, refId)
+      : this.api.addClientService(clientId, refId);
+    req.subscribe({
       next: () => {
         this.addServiceSaving.set(false);
         this.closeAddService();
         this.loadServices(clientId);
       },
-      error: e => {
+      error: (e: any) => {
         this.addServiceSaving.set(false);
         this.addServiceError.set(e?.error?.error || 'Failed to add service');
       },
+    });
+  }
+  removeCatalogService(s: ClientService, e?: Event) {
+    e?.stopPropagation();
+    const clientId = this.current()?.id;
+    if (!clientId || s.service_link_id == null) return;
+    if (!confirm(`Remove "${s.name}" from this client?`)) return;
+    this.api.removeClientServiceOffering(clientId, s.service_link_id).subscribe({
+      next: () => this.loadServices(clientId),
     });
   }
 }

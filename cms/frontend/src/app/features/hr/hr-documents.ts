@@ -1,17 +1,54 @@
 import { Component, ViewChild, computed, inject, signal } from '@angular/core';
-import { Router } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { environment } from '@env/environment';
 import { Api } from '../../core/api';
-import { HrDocument, HrDocumentType, HrEmployee } from '../../core/models';
+import { ContractAudience, ContractType, ContractGroup, HrDocument, HrDocumentType, HrEmployee } from '../../core/models';
+
+const AUDIENCE_OPTIONS: { value: ContractAudience; label: string }[] = [
+  { value: 'employee',   label: 'Employee' },
+  { value: 'applicant',  label: 'Job applicant (in-house hiring)' },
+  { value: 'client',     label: 'Client' },
+  { value: 'lead',       label: 'Lead (prospect)' },
+  { value: 'partner',    label: 'Partner' },
+  { value: 'affiliate',  label: 'Affiliate' },
+  { value: 'contractor', label: 'Contractor / external staff' },
+  { value: 'candidate',  label: 'Candidate (recruitment)' },
+  { value: 'supplier',   label: 'Supplier / Vendor' },
+  { value: 'investor',   label: 'Investor / Shareholder' },
+];
+const AUDIENCE_LABEL: Record<ContractAudience, string> = {
+  employee:   'Employee',
+  applicant:  'Applicant',
+  client:     'Client',
+  lead:       'Lead',
+  partner:    'Partner',
+  affiliate:  'Affiliate',
+  contractor: 'Contractor',
+  candidate:  'Candidate',
+  supplier:   'Supplier',
+  investor:   'Investor',
+};
 import { DocumentViewer, ViewableDoc } from '../../shared/document-viewer';
 import { PdfDocBuilder } from './pdf-doc-builder';
 
 /**
- * /hr/documents — central place for HR to define which documents the company
- * requires from every employee, plus an org-wide index of what's been uploaded.
+ * /operations/contracts (and historically /operations/documents,
+ * /hr/documents — both redirect here as of June 2026): central place to
+ * define which documents the company requires from every employee, plus
+ * an org-wide index of what has been uploaded.
  *
- * The catalog (`hr_document_types`) drives both the onboarding portal's
+ * The component file stays under features/hr/ because the data model,
+ * tables (hr_documents, hr_document_types), backend (hr.php) and embedded
+ * usages in the onboarding portal + employee Documents tab all remain
+ * HR-owned. Only the top-level navigation moved.
+ *
+ * Route data may set `onlyKind: 'contract'` (used on /operations/contracts)
+ * — in that mode the page heading flips to "Contracts" and the Signed
+ * documents + Required types sections are hidden, leaving only the
+ * Contracts catalog and a contract-filtered Org-wide submissions view.
+ *
+ * The catalog (hr_document_types) drives both the onboarding portal's
  * Documents step and each employee's Documents tab — adding a type here
  * propagates everywhere automatically.
  */
@@ -20,15 +57,20 @@ import { PdfDocBuilder } from './pdf-doc-builder';
   imports: [FormsModule, DocumentViewer, PdfDocBuilder],
   template: `
     <div class="toolbar">
-      <h1>Documents</h1>
+      <h1>{{ onlyContracts() ? 'Contracts' : 'Documents' }}</h1>
       <span class="spacer"></span>
-      <button class="ghost" (click)="openAddType()">+ New document type</button>
+      @if (!onlyContracts()) {
+        <button class="ghost" (click)="openAddType()">+ New document type</button>
+      }
       <button class="ghost" (click)="openAddContract()">+ New contract</button>
-      <button class="primary" (click)="openAddSigned()">+ New signed document</button>
+      @if (!onlyContracts()) {
+        <button class="primary" (click)="openAddSigned()">+ New signed document</button>
+      }
     </div>
 
     <div class="content">
       <div class="form-sections">
+        @if (!onlyContracts()) {
         <div class="section-card" [class.collapsed]="isCollapsed('signed')">
           <button class="card-title-btn" type="button" (click)="toggleSection('signed')">
             <span class="caret">{{ isCollapsed('signed') ? '▸' : '▾' }}</span>
@@ -67,6 +109,7 @@ import { PdfDocBuilder } from './pdf-doc-builder';
             }
           }
         </div>
+        }
 
         <div class="section-card" [class.collapsed]="isCollapsed('contract')">
           <button class="card-title-btn" type="button" (click)="toggleSection('contract')">
@@ -76,37 +119,74 @@ import { PdfDocBuilder } from './pdf-doc-builder';
           @if (!isCollapsed('contract')) {
             <p class="muted small no-notes">
               Employment contracts HR uploads or builds once. Every active employee gets a copy in
-              their Documents tab to sign electronically.
+              their Documents tab to sign electronically. Use groups to separate them by kind.
             </p>
 
-            @if (contractTypes().length === 0) {
+            <div class="group-add">
+              <button class="ghost" type="button" (click)="openAddContractGroup()" title="Add group">+ New group</button>
+            </div>
+
+            @if (contractTypes().length === 0 && contractGroups().length === 0) {
               <p class="muted small">No contracts yet — add one to roll it out to every employee.</p>
-            } @else {
-              <ul class="type-list">
-                @for (t of contractTypes(); track t.id; let i = $index; let last = $last) {
-                  @let stats = signedStats(t.id!);
-                  <li class="type-item">
-                    <div class="type-head">
-                      <strong>{{ t.name }}</strong>
-                      <span class="pill required">contract</span>
-                      @if (t.template_path) {
-                        <button class="file-link" type="button" (click)="previewTemplate(t)">View template</button>
-                      }
-                      <span class="spacer"></span>
-                      <span class="muted small">{{ stats.signed }} / {{ stats.total }} signed</span>
-                      <button class="ghost icon-btn" (click)="moveType(t, i, -1, 'contract')" [disabled]="i === 0" title="Move up">↑</button>
-                      <button class="ghost icon-btn" (click)="moveType(t, i, 1, 'contract')" [disabled]="last" title="Move down">↓</button>
-                      <button class="ghost icon-btn" (click)="editContract(t)" title="Edit">✎</button>
-                      <button class="ghost icon-btn danger" (click)="delType(t)" title="Delete">✕</button>
-                    </div>
-                    @if (t.description) { <div class="muted small">{{ t.description }}</div> }
-                  </li>
+            }
+
+            @for (grp of groupedContracts(); track grp.id) {
+              @let gkey = grp.id === null ? 'ungrouped' : (grp.id + '');
+              <div class="contract-group" [class.collapsed]="isGroupCollapsed(gkey)">
+                <div class="contract-group-head">
+                  <button class="group-toggle" type="button" (click)="toggleGroup(gkey)">
+                    <span class="caret">{{ isGroupCollapsed(gkey) ? '▸' : '▾' }}</span>
+                    <strong>{{ grp.name }}</strong>
+                    <span class="muted small">({{ grp.items.length }})</span>
+                  </button>
+                  <span class="spacer"></span>
+                  @if (grp.id !== null) {
+                    <button class="ghost icon-btn" (click)="renameContractGroup({ id: grp.id, name: grp.name })" title="Rename group">✎</button>
+                    <button class="ghost icon-btn danger" (click)="deleteContractGroup({ id: grp.id, name: grp.name })" title="Delete group">✕</button>
+                  }
+                </div>
+                @if (!isGroupCollapsed(gkey)) {
+                @if (grp.items.length === 0) {
+                  <p class="muted small empty-group">No contracts in this group yet.</p>
+                } @else {
+                  <ul class="type-list">
+                    @for (t of grp.items; track t.id; let i = $index; let last = $last) {
+                      @let stats = signedStats(t.id!);
+                      <li class="type-item">
+                        <div class="type-head">
+                          <strong>{{ t.name }}</strong>
+                          <span class="pill audience" [attr.data-audience]="t.audience || 'employee'">
+                            {{ AUDIENCE_LABEL[t.audience || 'employee'] }}
+                          </span>
+                          @if (contractTypeName(t.contract_type_id)) {
+                            <span class="pill ctype">{{ contractTypeName(t.contract_type_id) }}</span>
+                          }
+                          @if (t.template_path) {
+                            <button class="file-link" type="button" (click)="previewTemplate(t)">View template</button>
+                          }
+                          <span class="spacer"></span>
+                          @if ((t.audience || 'employee') === 'employee') {
+                            <span class="muted small">{{ stats.signed }} / {{ stats.total }} signed</span>
+                          } @else {
+                            <span class="muted small">rolled out to all {{ AUDIENCE_LABEL[t.audience!] }}s</span>
+                          }
+                          <button class="ghost icon-btn" (click)="moveContractInGroup(grp.items, i, -1)" [disabled]="i === 0" title="Move up">↑</button>
+                          <button class="ghost icon-btn" (click)="moveContractInGroup(grp.items, i, 1)" [disabled]="last" title="Move down">↓</button>
+                          <button class="ghost icon-btn" (click)="editContract(t)" title="Edit">✎</button>
+                          <button class="ghost icon-btn danger" (click)="delType(t)" title="Delete">✕</button>
+                        </div>
+                        @if (t.description) { <div class="muted small">{{ t.description }}</div> }
+                      </li>
+                    }
+                  </ul>
                 }
-              </ul>
+                }
+              </div>
             }
           }
         </div>
 
+        @if (!onlyContracts()) {
         <div class="section-card" [class.collapsed]="isCollapsed('upload')">
           <button class="card-title-btn" type="button" (click)="toggleSection('upload')">
             <span class="caret">{{ isCollapsed('upload') ? '▸' : '▾' }}</span>
@@ -143,6 +223,7 @@ import { PdfDocBuilder } from './pdf-doc-builder';
             }
           }
         </div>
+        }
 
         <div class="section-card" [class.collapsed]="isCollapsed('org')">
           <div class="org-head">
@@ -211,6 +292,27 @@ import { PdfDocBuilder } from './pdf-doc-builder';
     </div>
 
     <app-document-viewer [doc]="viewing()" (closed)="viewing.set(null)"></app-document-viewer>
+
+    @if (showGroupModal()) {
+      <div class="modal-backdrop" (click)="closeGroupModal()">
+        <div class="modal modal-narrow" (click)="$event.stopPropagation()">
+          <div class="modal-head">
+            <h2>{{ groupDraft().id ? 'Rename group' : 'New group' }}</h2>
+            <button class="ghost icon-btn" (click)="closeGroupModal()" title="Close">✕</button>
+          </div>
+          <div class="modal-body">
+            <label>Group name <span class="required">*</span></label>
+            <input [ngModel]="groupDraft().name" (ngModelChange)="setGroupName($event)" name="g_name"
+                   placeholder="e.g. Employment, Client agreements" (keyup.enter)="saveContractGroup()" />
+            @if (groupError()) { <p class="err">{{ groupError() }}</p> }
+          </div>
+          <div class="modal-foot">
+            <button class="ghost" (click)="closeGroupModal()">Cancel</button>
+            <button class="primary" (click)="saveContractGroup()">{{ groupDraft().id ? 'Save' : 'Create group' }}</button>
+          </div>
+        </div>
+      </div>
+    }
 
     @if (showForm()) {
       <div class="modal-backdrop" (click)="closeForm()">
@@ -286,13 +388,54 @@ import { PdfDocBuilder } from './pdf-doc-builder';
                 <label>Required?</label>
                 <label class="inline-toggle">
                   <input type="checkbox" [(ngModel)]="signedDraft.is_required" name="s_req" />
-                  <span>Mandatory for every employee</span>
+                  <span>Mandatory for every {{ requiredScopeLabel() }}</span>
                 </label>
               </div>
             </div>
 
+            @if (signedDraft.kind === 'contract') {
+              <div class="meta-row">
+                <div class="meta-field">
+                  <label>Class</label>
+                  <select [(ngModel)]="signedDraft.audience" name="s_audience">
+                    @for (a of audienceOptions; track a.value) {
+                      <option [ngValue]="a.value">{{ a.label }}</option>
+                    }
+                  </select>
+                </div>
+                <div class="meta-field">
+                  <label>
+                    Type
+                    <button class="manage-link" type="button" (click)="openManageContractTypes()">Manage</button>
+                  </label>
+                  <select [(ngModel)]="signedDraft.contract_type_id" name="s_ctype">
+                    <option [ngValue]="null">— Choose a type —</option>
+                    @for (c of contractTypeList(); track c.id) {
+                      <option [ngValue]="c.id">{{ c.name }}</option>
+                    }
+                  </select>
+                </div>
+                <div class="meta-field">
+                  <label>Group</label>
+                  <select [(ngModel)]="signedDraft.group_id" name="s_group">
+                    <option [ngValue]="null">— Ungrouped —</option>
+                    @for (g of contractGroups(); track g.id) {
+                      <option [ngValue]="g.id">{{ g.name }}</option>
+                    }
+                  </select>
+                </div>
+              </div>
+            }
+
             <label>Description</label>
             <textarea rows="2" [(ngModel)]="signedDraft.description" name="s_desc" placeholder="Optional helper text shown to the employee."></textarea>
+
+            @if (signedDraft.kind === 'contract' && signedDraft.audience === 'employee') {
+              <label class="inline-toggle onboarding-toggle">
+                <input type="checkbox" [(ngModel)]="signedDraft.add_to_onboarding" name="s_onboarding" />
+                <span>Add to onboarding — show in the new-hire onboarding portal's "Documents to sign" step</span>
+              </label>
+            }
 
             <div class="mode-tabs">
               <button type="button" class="mode-tab" [class.active]="signedMode() === 'build'" (click)="signedMode.set('build')">Build pages</button>
@@ -303,6 +446,7 @@ import { PdfDocBuilder } from './pdf-doc-builder';
               <p class="muted small no-notes">Compose the document page-by-page. Each page renders an A4 PDF with a standard sign zone at the bottom.</p>
               <app-pdf-doc-builder
                 [title]="signedDraft.name || 'Document'"
+                [audience]="signedDraft.audience ?? 'employee'"
                 [initialBlocksJson]="signedDraft.template_blocks_json"></app-pdf-doc-builder>
             } @else {
               <label>Template file <span class="required">*</span></label>
@@ -318,7 +462,47 @@ import { PdfDocBuilder } from './pdf-doc-builder';
           </div>
           <div class="modal-foot">
             <button class="ghost" (click)="closeSignedForm()">Cancel</button>
-            <button class="primary" (click)="saveSigned()" [disabled]="busy()">{{ busy() ? (signedMode() === 'build' ? 'Rendering…' : 'Uploading…') : (signedDraft.id ? 'Save changes' : 'Roll out to employees') }}</button>
+            <button class="primary" (click)="saveSigned()" [disabled]="busy()">{{ busy() ? (signedMode() === 'build' ? 'Rendering…' : 'Uploading…') : (signedDraft.id ? 'Save changes' : rolloutLabel()) }}</button>
+          </div>
+        </div>
+      </div>
+    }
+
+    @if (showManageContractTypes()) {
+      <div class="modal-backdrop" (click)="closeManageContractTypes()">
+        <div class="modal" (click)="$event.stopPropagation()">
+          <div class="modal-head">
+            <h2>Manage contract types</h2>
+            <button class="ghost icon-btn" (click)="closeManageContractTypes()" title="Close">✕</button>
+          </div>
+          <div class="modal-body">
+            <p class="muted small no-notes">
+              Categorise contract templates (NDA, MSA, etc.). Deleting a type un-tags any
+              template that referenced it; templates themselves stay intact.
+            </p>
+
+            <ul class="ctype-list">
+              @for (c of contractTypeList(); track c.id) {
+                <li class="ctype-item">
+                  <input class="ctype-name" [value]="c.name"
+                         (blur)="renameContractType(c, asInputValue($event))" />
+                  <button class="ghost icon-btn danger" (click)="removeContractType(c)" title="Delete">✕</button>
+                </li>
+              } @empty {
+                <li class="muted small">No contract types yet.</li>
+              }
+            </ul>
+
+            <div class="add-row">
+              <input placeholder="e.g. Service agreement"
+                     [value]="newContractTypeName()"
+                     (input)="newContractTypeName.set(asInputValue($event))"
+                     (keydown.enter)="addContractType()" />
+              <button class="ghost" (click)="addContractType()" [disabled]="!newContractTypeName().trim()">+ Add</button>
+            </div>
+          </div>
+          <div class="modal-foot">
+            <button class="primary" (click)="closeManageContractTypes()">Close</button>
           </div>
         </div>
       </div>
@@ -353,6 +537,22 @@ import { PdfDocBuilder } from './pdf-doc-builder';
     .card-title-btn:hover .card-title { color: var(--primary); }
     .section-card.collapsed { gap: 0; }
     .no-notes { margin: 0; }
+
+    .group-add { display: flex; align-items: center; gap: 8px; margin: 4px 0 14px; }
+    .modal-narrow { width: 420px; max-width: 92vw; }
+    .contract-group { margin-bottom: 14px; }
+    .contract-group-head {
+      display: flex; align-items: center; gap: 8px;
+      padding: 6px 2px; margin-bottom: 6px; border-bottom: 1px solid var(--line);
+    }
+    .contract-group-head strong { font-size: 13px; text-transform: uppercase; letter-spacing: 0.4px; color: var(--muted); }
+    .group-toggle {
+      display: inline-flex; align-items: center; gap: 8px;
+      background: transparent; border: none; padding: 0; cursor: pointer; color: var(--fg);
+    }
+    .group-toggle:hover strong { color: var(--fg); }
+    .group-toggle .caret { color: var(--muted); font-size: 11px; }
+    .empty-group { margin: 0 0 4px; padding-left: 2px; }
 
     .type-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
     .type-item {
@@ -439,6 +639,7 @@ import { PdfDocBuilder } from './pdf-doc-builder';
     .modal .modal-head { flex: 0 0 auto; }
     .modal .modal-body { flex: 1 1 auto; overflow: auto; }
     .modal .modal-foot { flex: 0 0 auto; }
+    .onboarding-toggle { margin-top: 12px; }
     .mode-tabs {
       display: flex; gap: 4px;
       margin: 8px 0 4px;
@@ -472,15 +673,111 @@ import { PdfDocBuilder } from './pdf-doc-builder';
     .inline-toggle input[type="checkbox"] { width: 16px; height: 16px; flex: 0 0 16px; cursor: pointer; }
     .required { color: #ef4444; }
     .err { color: #ef4444; font-size: 13px; margin: 4px 0 0; }
+
+    /* Audience / contract-type pills on each contract row. The audience pill
+       colour-codes by who the contract targets so HR can scan the list fast. */
+    .pill.audience {
+      text-transform: uppercase; font-size: 10px; letter-spacing: 0.5px;
+      padding: 2px 8px; border-radius: 999px; border: 1px solid var(--line);
+      background: var(--bg-3); color: var(--muted);
+    }
+    .pill.audience[data-audience="employee"]   { color: #6db4ff; border-color: #4d8edb; background: rgba(77, 142, 219, 0.12); }
+    .pill.audience[data-audience="client"]     { color: #7ed985; border-color: #4caf50; background: rgba(76, 175, 80, 0.12); }
+    .pill.audience[data-audience="partner"]    { color: var(--primary); border-color: var(--primary); background: rgba(255, 193, 7, 0.12); }
+    .pill.audience[data-audience="affiliate"]  { color: #d6a3ff; border-color: #8e5dc4; background: rgba(142, 93, 196, 0.12); }
+    .pill.audience[data-audience="contractor"] { color: #f0b272; border-color: #c2873b; background: rgba(194, 135, 59, 0.12); }
+    .pill.audience[data-audience="candidate"]  { color: #5ad1c4; border-color: #2f9e92; background: rgba(47, 158, 146, 0.12); }
+    .pill.audience[data-audience="applicant"]  { color: #9db4ff; border-color: #5b74c4; background: rgba(91, 116, 196, 0.12); }
+    .pill.audience[data-audience="lead"]       { color: #c9d36b; border-color: #9aa53f; background: rgba(154, 165, 63, 0.12); }
+    .pill.audience[data-audience="supplier"]   { color: #e09bd0; border-color: #b25a9e; background: rgba(178, 90, 158, 0.12); }
+    .pill.audience[data-audience="investor"]   { color: #8fd0a8; border-color: #4f9e6e; background: rgba(79, 158, 110, 0.12); }
+    .pill.ctype {
+      text-transform: none; font-size: 11px; letter-spacing: 0;
+      padding: 2px 8px; border-radius: 999px; border: 1px solid var(--line);
+      background: var(--bg-3); color: var(--fg);
+    }
+
+    /* Inline "Manage" link in the contract-type select label. */
+    .manage-link {
+      background: transparent; border: 0; color: var(--primary); cursor: pointer;
+      padding: 0 0 0 8px; font-size: 12px; text-decoration: underline;
+    }
+    .manage-link:hover { color: var(--primary-2); }
+
+    /* Manage-contract-types modal list. */
+    .ctype-list { list-style: none; margin: 8px 0 16px; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+    .ctype-item { display: flex; gap: 8px; align-items: center; }
+    .ctype-item .ctype-name { flex: 1; }
+    .add-row { display: flex; gap: 8px; align-items: center; }
+    .add-row input { flex: 1; }
   `],
 })
 export class HrDocuments {
   private api = inject(Api);
   private router = inject(Router);
+  private route = inject(ActivatedRoute);
+
+  /** Route data flag: true on /operations/contracts. Hides the Signed /
+   *  Required-types sections and relabels the page heading. */
+  onlyContracts = signal<boolean>(this.route.snapshot.data?.['onlyKind'] === 'contract');
+
+  audienceOptions = AUDIENCE_OPTIONS;
+  AUDIENCE_LABEL = AUDIENCE_LABEL;
 
   employees = signal<HrEmployee[]>([]);
   types = signal<HrDocumentType[]>([]);
   docMap = signal<Map<number, HrDocument[]>>(new Map());
+
+  /** Lookup rows from `contract_types` — populates the "Type" select on
+   *  the contract modal + the inline "Manage types" panel. */
+  contractTypeList = signal<ContractType[]>([]);
+  contractTypeName(id: number | null | undefined): string {
+    if (!id) return '';
+    return this.contractTypeList().find(c => c.id === id)?.name ?? '';
+  }
+
+  showManageContractTypes = signal<boolean>(false);
+  newContractTypeName = signal<string>('');
+  openManageContractTypes() { this.showManageContractTypes.set(true); }
+  closeManageContractTypes() { this.showManageContractTypes.set(false); }
+  addContractType() {
+    const name = this.newContractTypeName().trim();
+    if (!name) return;
+    this.api.createContractType({ name }).subscribe(() => {
+      this.newContractTypeName.set('');
+      this.refreshContractTypes();
+    });
+  }
+  renameContractType(c: ContractType, name: string) {
+    if (!c.id || !name.trim() || name === c.name) return;
+    this.api.updateContractType(c.id, { name: name.trim() }).subscribe(() => this.refreshContractTypes());
+  }
+  removeContractType(c: ContractType) {
+    if (!c.id) return;
+    if (!confirm(`Delete "${c.name}"? Existing contract templates lose the type tag but otherwise stay intact.`)) return;
+    this.api.deleteContractType(c.id).subscribe(() => this.refreshContractTypes());
+  }
+  refreshContractTypes() {
+    this.api.listContractTypes().subscribe(r => this.contractTypeList.set(r.types ?? []));
+  }
+  /** Label on the modal's primary button — switches with audience so HR can
+   *  see at a glance who the rollout will touch. */
+  rolloutLabel(): string {
+    const aud = (this.signedDraft.audience ?? 'employee') as ContractAudience;
+    if (this.signedDraft.kind !== 'contract') return 'Roll out to employees';
+    return `Roll out to all ${AUDIENCE_LABEL[aud].toLowerCase()}s`;
+  }
+  /** "Mandatory for every <class>" — the required toggle scoped to the
+   *  selected audience (contracts) or employee (signed policies). */
+  requiredScopeLabel(): string {
+    const aud = (this.signedDraft.kind === 'contract' ? (this.signedDraft.audience ?? 'employee') : 'employee') as ContractAudience;
+    return AUDIENCE_LABEL[aud].toLowerCase();
+  }
+  /** Pull `.value` out of an Event target without leaking the DOM type
+   *  into every template binding. */
+  asInputValue(ev: Event): string {
+    return (ev.target as HTMLInputElement).value;
+  }
   search = signal<string>('');
   expandedEmp = signal<number | null>(null);
 
@@ -497,6 +794,63 @@ export class HrDocuments {
   uploadTypes   = computed(() => this.types().filter(t => (t.kind ?? 'upload') === 'upload'));
   signedTypes   = computed(() => this.types().filter(t => t.kind === 'signed'));
   contractTypes = computed(() => this.types().filter(t => t.kind === 'contract'));
+
+  /** Contract groups (092) — collapsible buckets for contract templates. */
+  contractGroups = signal<ContractGroup[]>([]);
+  refreshContractGroups() {
+    this.api.listContractGroups().subscribe(r => this.contractGroups.set(r.groups ?? []));
+  }
+  /** Per-group collapse state, keyed by group id (or 'ungrouped'). */
+  collapsedGroups = signal<Set<string>>(new Set());
+  isGroupCollapsed(key: string): boolean { return this.collapsedGroups().has(key); }
+  toggleGroup(key: string) {
+    const next = new Set(this.collapsedGroups());
+    next.has(key) ? next.delete(key) : next.add(key);
+    this.collapsedGroups.set(next);
+  }
+  /** Buckets the contract templates into their groups (in declared order),
+   *  with an in-memory "Ungrouped" section appended when anything is loose.
+   *  `id: null` marks the Ungrouped pseudo-section. */
+  groupedContracts = computed<{ id: number | null; name: string; items: HrDocumentType[] }[]>(() => {
+    const contracts = this.contractTypes();
+    const out: { id: number | null; name: string; items: HrDocumentType[] }[] = [];
+    for (const g of this.contractGroups()) {
+      out.push({ id: g.id!, name: g.name, items: contracts.filter(t => t.group_id === g.id) });
+    }
+    const ungrouped = contracts.filter(t => t.group_id == null);
+    if (ungrouped.length) out.push({ id: null, name: 'Ungrouped', items: ungrouped });
+    return out;
+  });
+  // Group add/rename via an in-app overlay modal (no native prompt()).
+  showGroupModal = signal<boolean>(false);
+  groupDraft = signal<ContractGroup>({ name: '' });
+  groupError = signal<string | null>(null);
+  openAddContractGroup() {
+    this.groupDraft.set({ name: '' });
+    this.groupError.set(null);
+    this.showGroupModal.set(true);
+  }
+  renameContractGroup(g: ContractGroup) {
+    if (!g.id) return;
+    this.groupDraft.set({ id: g.id, name: g.name });
+    this.groupError.set(null);
+    this.showGroupModal.set(true);
+  }
+  closeGroupModal() { this.showGroupModal.set(false); }
+  setGroupName(name: string) { this.groupDraft.set({ ...this.groupDraft(), name }); }
+  saveContractGroup() {
+    const d = this.groupDraft();
+    const name = (d.name ?? '').trim();
+    if (!name) { this.groupError.set('Group name is required.'); return; }
+    const done = () => { this.showGroupModal.set(false); this.refreshContractGroups(); };
+    if (d.id) this.api.updateContractGroup(d.id, { name }).subscribe(done);
+    else      this.api.createContractGroup({ name }).subscribe(done);
+  }
+  deleteContractGroup(g: ContractGroup) {
+    if (!g.id) return;
+    if (!confirm(`Delete group "${g.name}"? Its contracts move to Ungrouped (they are not deleted).`)) return;
+    this.api.deleteContractGroup(g.id).subscribe(() => { this.refreshContractGroups(); this.refreshTypes(); });
+  }
 
   /** Label fragment used by the build-pages modal — switches "signed document"
    *  vs "contract" depending on what the current draft is. */
@@ -528,6 +882,8 @@ export class HrDocuments {
 
   ngOnInit() {
     this.refreshTypes();
+    this.refreshContractTypes();
+    this.refreshContractGroups();
     this.api.listHrEmployees().subscribe(r => this.employees.set(r.employees));
     // One round-trip for the whole org's documents instead of N requests
     // (was: per-employee `listHrDocuments` fanned out via forEach).
@@ -622,6 +978,18 @@ export class HrDocuments {
       error: (e: any) => { this.busy.set(false); this.formError.set(e?.error?.error || 'Could not save type'); },
     });
   }
+  /** Reorder a contract within its group by swapping sort_order with its
+   *  neighbour in that group's item list (group_id is left untouched). */
+  moveContractInGroup(items: HrDocumentType[], idx: number, dir: -1 | 1) {
+    const j = idx + dir;
+    if (j < 0 || j >= items.length) return;
+    const a = items[idx], b = items[j];
+    if (!a.id || !b.id) return;
+    const aOrder = a.sort_order ?? idx * 10;
+    const bOrder = b.sort_order ?? j * 10;
+    this.api.updateHrDocumentType(a.id, { sort_order: bOrder }).subscribe();
+    this.api.updateHrDocumentType(b.id, { sort_order: aOrder }).subscribe(() => this.refreshTypes());
+  }
   /** Swap this type's sort_order with its neighbour within its kind bucket. */
   moveType(t: HrDocumentType, idx: number, dir: -1 | 1, kind: 'upload' | 'signed' | 'contract') {
     const bucket = kind === 'signed'   ? this.signedTypes()
@@ -695,6 +1063,10 @@ export class HrDocuments {
       name: t.name,
       description: t.description ?? '',
       kind: 'contract',
+      audience: (t.audience ?? 'employee') as ContractAudience,
+      contract_type_id: t.contract_type_id ?? null,
+      group_id: t.group_id ?? null,
+      add_to_onboarding: !!t.add_to_onboarding,
       template_path: t.template_path ?? null,
       template_mime: t.template_mime ?? null,
       template_size: t.template_size ?? null,
@@ -833,6 +1205,10 @@ export class HrDocuments {
       name: '',
       description: '',
       kind: 'contract',
+      audience: 'employee',
+      contract_type_id: null,
+      group_id: null,
+      add_to_onboarding: false,
       is_required: true,
       needs_reference: false,
       needs_issue_date: false,

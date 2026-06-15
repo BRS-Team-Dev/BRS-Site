@@ -1,8 +1,9 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, computed, inject, signal } from '@angular/core';
 import { NavigationEnd, Router, RouterLink } from '@angular/router';
 import { filter } from 'rxjs';
 import { Api } from '../core/api';
 import { TaskTeam } from '../core/models';
+import { environment } from '@env/environment';
 import { SettingsService } from '../core/settings.service';
 
 /**
@@ -110,7 +111,8 @@ export class TasksSideNav {
   private router = inject(Router);
 
   brandName = this.svc.brandName;
-  logoUrl   = this.svc.brandLogoUrl;
+  // Fall back to the bundled BRS icon when no brand logo is configured.
+  logoUrl   = computed(() => this.svc.brandLogoUrl() || `${environment.basePath}/icon.png`);
   initials  = this.svc.brandInitials;
   logoFailed = false;
 

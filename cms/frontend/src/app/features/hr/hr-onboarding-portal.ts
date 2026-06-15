@@ -848,7 +848,12 @@ export class HrOnboardingPortal {
     return s.document_types.filter(t => (t.kind ?? 'upload') === 'upload');
   }
   signedTypes(s: HrOnboardingPortalSnapshot): HrDocumentType[] {
-    return s.document_types.filter(t => t.kind === 'signed');
+    // 'signed' policies always show; 'contract' kinds only when the HR admin
+    // flagged "Add to onboarding" (095) and they target employees.
+    return s.document_types.filter(t =>
+      t.kind === 'signed' ||
+      (t.kind === 'contract' && (t.audience ?? 'employee') === 'employee' && !!t.add_to_onboarding)
+    );
   }
   extraUploads(s: HrOnboardingPortalSnapshot): HrDocument[] {
     const typedIds = new Set(s.document_types.map(t => t.id).filter(x => !!x));

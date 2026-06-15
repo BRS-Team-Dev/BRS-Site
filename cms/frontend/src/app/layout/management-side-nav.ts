@@ -1,6 +1,7 @@
-import { Component, inject } from '@angular/core';
+import { Component, computed, inject } from '@angular/core';
 import { RouterLink, RouterLinkActive } from '@angular/router';
 import { SettingsService } from '../core/settings.service';
+import { environment } from '@env/environment';
 
 @Component({
   selector: 'app-management-side-nav',
@@ -107,7 +108,8 @@ import { SettingsService } from '../core/settings.service';
 export class ManagementSideNav {
   private svc = inject(SettingsService);
   brandName = this.svc.brandName;
-  logoUrl = this.svc.brandLogoUrl;
+  // Fall back to the bundled BRS icon when no brand logo is configured.
+  logoUrl = computed(() => this.svc.brandLogoUrl() || `${environment.basePath}/icon.png`);
   initials = this.svc.brandInitials;
   logoFailed = false;
 

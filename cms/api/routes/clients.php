@@ -15,6 +15,23 @@ use BRS\Json;
  *   DELETE /api/clients/:id
  */
 
+/*
+ * Recruitment-service glue now lives in the shared lib BRS\Recruitment so
+ * routes/recruitment.php can use it too (the API loads one route file per
+ * request). These thin wrappers keep the existing call sites in this file
+ * working. attach now returns bool (true = newly attached) so the caller can
+ * spawn a recruitment role exactly once.
+ */
+function getRecruitmentServiceOfferingId(\PDO $pdo): ?int {
+    return \BRS\Recruitment::offeringId($pdo);
+}
+function attachRecruitmentService(\PDO $pdo, int $clientId): bool {
+    return \BRS\Recruitment::attachToClient($pdo, $clientId);
+}
+function detachRecruitmentService(\PDO $pdo, int $clientId): void {
+    \BRS\Recruitment::detachFromClient($pdo, $clientId);
+}
+
 return function (string $method, array $segs): void {
     Auth::require();
     $pdo = Db::pdo();
@@ -23,8 +40,31 @@ return function (string $method, array $segs): void {
         if ($method === 'GET') {
             // Hard upper bound so the unbounded list can't blow up the
             // payload as the company grows. Real pagination is a follow-up.
-            $rows = $pdo->query('SELECT * FROM clients ORDER BY id DESC LIMIT 1000')->fetchAll();
-            Json::send(['clients' => $rows]);
+            // Optional `?is_recruitment=1` — the Recruitment system uses
+            // this to fetch only its clients. Source of truth is whether
+            // the "Recruitment" service offering is attached on
+            // `client_service_offerings`, NOT the legacy
+            // `clients.is_recruitment_client` flag column. The flag stays
+            // in sync as a side effect of POST/PUT but isn't queried here.
+            if (isset($_GET['is_recruitment'])) {
+                $sid = getRecruitmentServiceOfferingId($pdo);
+                if (!$sid) Json::send(['clients' => []]);
+                $want = !empty($_GET['is_recruitment']);
+                $sql  = $want
+                    ? 'SELECT c.* FROM clients c
+                        WHERE EXISTS (SELECT 1 FROM client_service_offerings cso
+                                       WHERE cso.client_id = c.id AND cso.service_offering_id = ?)
+                        ORDER BY c.id DESC LIMIT 1000'
+                    : 'SELECT c.* FROM clients c
+                        WHERE NOT EXISTS (SELECT 1 FROM client_service_offerings cso
+                                           WHERE cso.client_id = c.id AND cso.service_offering_id = ?)
+                        ORDER BY c.id DESC LIMIT 1000';
+                $stmt = $pdo->prepare($sql);
+                $stmt->execute([$sid]);
+                Json::send(['clients' => $stmt->fetchAll()]);
+            }
+            $stmt = $pdo->query('SELECT * FROM clients ORDER BY id DESC LIMIT 1000');
+            Json::send(['clients' => $stmt->fetchAll()]);
         }
         if ($method === 'POST') {
             $body = Json::readBody();
@@ -33,7 +73,7 @@ return function (string $method, array $segs): void {
             $email = trim((string)($body['email'] ?? ''));
             if ($email !== '' && !filter_var($email, FILTER_VALIDATE_EMAIL)) Json::fail('Invalid email', 400);
 
-            $ins = $pdo->prepare('INSERT INTO clients (name, email, phone, address, company, url, notes) VALUES (?,?,?,?,?,?,?)');
+            $ins = $pdo->prepare('INSERT INTO clients (name, email, phone, address, company, url, notes, is_recruitment_client) VALUES (?,?,?,?,?,?,?,?)');
             $ins->execute([
                 $name,
                 $email !== '' ? $email : null,
@@ -42,8 +82,24 @@ return function (string $method, array $segs): void {
                 trim((string)($body['company'] ?? '')) ?: null,
                 trim((string)($body['url']     ?? '')) ?: null,
                 $body['notes'] ?? null,
+                !empty($body['is_recruitment_client']) ? 1 : 0,
             ]);
-            Json::send(['id' => (int)$pdo->lastInsertId()], 201);
+            $newId = (int)$pdo->lastInsertId();
+            // Replay every audience='client' contract template as a pending
+            // client_documents row so the new client matches the existing
+            // cohort. Helper lives in lib/Contracts.php (autoloaded).
+            \BRS\Contracts::fanOutToNewEntity($pdo, 'client', $newId);
+            // If created from the Recruitment Clients page, the flag is
+            // already saved on the row — also attach the Recruitment
+            // service offering so the cross-cut driving the
+            // Recruitment client list stays consistent.
+            if (!empty($body['is_recruitment_client'])) {
+                // Newly a recruitment client → spawn a blank role (which mirrors
+                // itself as a Recruitment service row) so they appear on both
+                // sides immediately.
+                \BRS\Recruitment::ensureRecruitmentClient($pdo, $newId);
+            }
+            Json::send(['id' => $newId], 201);
         }
         Json::fail('Method not allowed', 405);
     }
@@ -273,8 +329,39 @@ return function (string $method, array $segs): void {
     // client can have multiple instances of the same service (e.g. multiple websites).
     if (($segs[2] ?? '') === 'services' && $method === 'POST') {
         $body = Json::readBody();
+
+        // Catalogue service: attach a `service_offerings` row directly to this
+        // client (no onboarding / project). Pricing is snapshot at attach time.
+        if (!empty($body['service_offering_id'])) {
+            $soId = (int)$body['service_offering_id'];
+            $so = $pdo->prepare('SELECT * FROM service_offerings WHERE id = ?');
+            $so->execute([$soId]);
+            $svc = $so->fetch();
+            if (!$svc) Json::fail('Service not found', 404);
+
+            // Recruitment is special: each "add" spawns a new recruitment role
+            // (1:1 with a service row). The role's mirror service row is created
+            // by createDefaultRole, so we don't insert a plain link here.
+            if ($soId === \BRS\Recruitment::offeringId($pdo)) {
+                $roleId = \BRS\Recruitment::createDefaultRole($pdo, $id);
+                Json::send(['ok' => true, 'recruitment' => true, 'role_id' => $roleId], 201);
+            }
+
+            $payType = in_array($svc['payment_type'], ['one_off', 'recurring'], true) ? $svc['payment_type'] : 'one_off';
+            $cadence = $payType === 'recurring' ? $svc['repeat_duration'] : null;
+            $ins = $pdo->prepare('INSERT INTO client_service_offerings
+                (client_id, service_offering_id, name, price, payment_type, repeat_duration)
+                VALUES (?,?,?,?,?,?)');
+            $ins->execute([
+                $id, $soId, $svc['name'],
+                $svc['price'] !== null && $svc['price'] !== '' ? (float)$svc['price'] : null,
+                $payType, $cadence,
+            ]);
+            Json::send(['ok' => true, 'service_link_id' => (int)$pdo->lastInsertId()], 201);
+        }
+
         $formId = !empty($body['form_id']) ? (int)$body['form_id'] : 0;
-        if ($formId <= 0) Json::fail('form_id required', 400);
+        if ($formId <= 0) Json::fail('form_id or service_offering_id required', 400);
 
         $email = trim((string)($client['email'] ?? ''));
         if ($email === '' || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
@@ -330,6 +417,52 @@ return function (string $method, array $segs): void {
         ], 201);
     }
 
+    // DELETE /api/clients/:id/services/offering/:linkId — detach a catalogue
+    // service from this client.
+    if (($segs[2] ?? '') === 'services' && ($segs[3] ?? '') === 'offering' && $method === 'DELETE') {
+        $linkId = isset($segs[4]) ? (int)$segs[4] : 0;
+        if ($linkId <= 0) Json::fail('Invalid id', 400);
+        // Capture the offering id BEFORE the delete so we can tell whether
+        // the user just cut the client's last Recruitment link.
+        $look = $pdo->prepare('SELECT role_id, service_offering_id FROM client_service_offerings WHERE id = ? AND client_id = ?');
+        $look->execute([$linkId, $id]);
+        $row = $look->fetch();
+        if (!$row) Json::fail('Service link not found', 404);
+        $roleId       = $row['role_id'] ?? null;
+        $offeringId   = $row['service_offering_id'] !== null ? (int)$row['service_offering_id'] : null;
+
+        // If this row mirrors a recruitment role, delete the role too (1:1) —
+        // the row then cascades away via fk_cso_role. Otherwise just drop the row.
+        if ($roleId) {
+            $pdo->prepare('DELETE FROM recruitment_roles WHERE id = ?')->execute([(int)$roleId]);
+        } else {
+            $pdo->prepare('DELETE FROM client_service_offerings WHERE id = ? AND client_id = ?')
+                ->execute([$linkId, $id]);
+        }
+
+        // If the row we just removed pointed at the Recruitment service AND
+        // the client has no Recruitment links left, the client has effectively
+        // left Recruitment via the CRM — run the same detach + cleanup that
+        // the Recruitment Clients ✕ button uses, so uncompleted roles and
+        // in-flight pipeline data get cleared rather than orphaned.
+        $recruitSid = \BRS\Recruitment::offeringId($pdo);
+        if ($recruitSid && $offeringId === $recruitSid) {
+            $chk = $pdo->prepare(
+                'SELECT 1 FROM client_service_offerings
+                 WHERE client_id = ? AND service_offering_id = ? LIMIT 1'
+            );
+            $chk->execute([$id, $recruitSid]);
+            if (!$chk->fetchColumn()) {
+                \BRS\Recruitment::detachFromClient($pdo, $id);
+                // Keep the legacy flag column in sync with the link state.
+                $pdo->prepare('UPDATE clients SET is_recruitment_client = 0 WHERE id = ?')
+                    ->execute([$id]);
+            }
+        }
+
+        Json::send(['ok' => true]);
+    }
+
     // /api/clients/:id/services — onboarding-form services this client is signed up for.
     // Matches by email between `clients.email` and `onboarding_clients.client_email`,
     // restricted to forms attached to the Services sidenav group (sidenav_parent_key='services').
@@ -358,39 +491,44 @@ return function (string $method, array $segs): void {
         };
 
         $email = trim((string)($client['email'] ?? ''));
-        if ($email === '') Json::send(['services' => [], 'totals' => $emptyTotals]);
 
-        // Only qualified onboardings count as actual "services" — an unqualified
-        // entry is still mid-onboarding and isn't a paying contract yet.
-        $stmt = $pdo->prepare("
-            SELECT oc.id            AS onboarding_client_id,
-                   oc.client_email,
-                   oc.client_name,
-                   oc.started_at,
-                   oc.submitted_at,
-                   oc.qualified_at,
-                   f.id              AS form_id,
-                   f.slug            AS form_slug,
-                   f.title           AS form_title,
-                   f.has_price,
-                   f.price,
-                   f.payment_type,
-                   f.repeat_duration,
-                   f.contract_length_months,
-                   f.is_indefinite,
-                   tp.id             AS project_id,
-                   tp.status         AS project_status
-            FROM onboarding_clients oc
-            JOIN forms f ON f.id = oc.form_id
-            LEFT JOIN task_projects tp ON tp.onboarding_client_id = oc.id
-            WHERE LOWER(oc.client_email) = LOWER(?)
-              AND f.sidenav_placement = 'child'
-              AND f.sidenav_parent_key = 'services'
-              AND oc.qualified_at IS NOT NULL
-            ORDER BY oc.qualified_at DESC, oc.id DESC
-        ");
-        $stmt->execute([$email]);
-        $rows = $stmt->fetchAll();
+        // Onboarding-based services match this client by email; only qualified
+        // onboardings count (an unqualified entry is still mid-onboarding).
+        // Skip this query when the client has no email — but DON'T early-return,
+        // because catalogue services (below) attach by client_id and must still
+        // load for emailless clients.
+        $rows = [];
+        if ($email !== '') {
+            $stmt = $pdo->prepare("
+                SELECT oc.id            AS onboarding_client_id,
+                       oc.client_email,
+                       oc.client_name,
+                       oc.started_at,
+                       oc.submitted_at,
+                       oc.qualified_at,
+                       f.id              AS form_id,
+                       f.slug            AS form_slug,
+                       f.title           AS form_title,
+                       f.has_price,
+                       f.price,
+                       f.payment_type,
+                       f.repeat_duration,
+                       f.contract_length_months,
+                       f.is_indefinite,
+                       tp.id             AS project_id,
+                       tp.status         AS project_status
+                FROM onboarding_clients oc
+                JOIN forms f ON f.id = oc.form_id
+                LEFT JOIN task_projects tp ON tp.onboarding_client_id = oc.id
+                WHERE LOWER(oc.client_email) = LOWER(?)
+                  AND f.sidenav_placement = 'child'
+                  AND f.sidenav_parent_key = 'services'
+                  AND oc.qualified_at IS NOT NULL
+                ORDER BY oc.qualified_at DESC, oc.id DESC
+            ");
+            $stmt->execute([$email]);
+            $rows = $stmt->fetchAll();
+        }
 
         // Per-service compute
         $services = [];
@@ -455,6 +593,10 @@ return function (string $method, array $segs): void {
             }
 
             $services[] = [
+                'kind'                   => 'onboarding',
+                'row_key'                => 'ob:' . (int)$r['onboarding_client_id'],
+                'service_link_id'        => null,
+                'name'                   => $r['form_title'],
                 'onboarding_client_id'   => (int)$r['onboarding_client_id'],
                 'form_id'                => (int)$r['form_id'],
                 'form_slug'              => $r['form_slug'],
@@ -476,6 +618,104 @@ return function (string $method, array $segs): void {
                 'status'                 => $status,
                 'project_id'             => $r['project_id'] !== null ? (int)$r['project_id'] : null,
                 'project_status'         => $r['project_status'] ?? null,
+            ];
+
+            if ($totalValue !== null) $sumTotal += $totalValue;
+            $sumToDate += $toDate;
+            $sumIncoming += $incoming;
+            $sumMonthly += $monthly;
+        }
+
+        // Catalogue services attached directly to this client (migration 089).
+        // No onboarding/project. Recurring catalogue services have no contract
+        // length, so they're treated as indefinite/ongoing; one-off is a single
+        // charge at started_at. Recruitment rows are 1:1 with a recruitment role
+        // (joined here) and take their contract value from that role's commission.
+        $recruitmentOfferingId = \BRS\Recruitment::offeringId($pdo);
+        $cat = $pdo->prepare(
+            'SELECT cso.*, r.title AS role_title, r.commission_value AS role_commission,
+                    r.commission_paid_part AS role_paid_part, r.commission_paid_full AS role_paid_full,
+                    r.commission_part_amount AS role_part_amount
+             FROM client_service_offerings cso
+             LEFT JOIN recruitment_roles r ON r.id = cso.role_id
+             WHERE cso.client_id = ? ORDER BY cso.started_at DESC, cso.id DESC'
+        );
+        $cat->execute([$id]);
+        foreach ($cat->fetchAll() as $r) {
+            $price = $r['price'] !== null ? (float)$r['price'] : 0.0;
+            $hasPrice = $price > 0;
+            $paymentType = (string)$r['payment_type'];
+            $rd = $r['repeat_duration'];
+            $startStr = $r['started_at'] ?: null;
+            $start = $startStr ? new \DateTimeImmutable($startStr) : null;
+
+            $totalValue = null; $toDate = 0.0; $incoming = 0.0; $monthly = 0.0; $indef = 0;
+            $isRecruitment = $recruitmentOfferingId !== null && (int)$r['service_offering_id'] === $recruitmentOfferingId;
+
+            if ($isRecruitment) {
+                // Contract value = this role's agency commission (live). to_date
+                // reflects commission already received: full → the whole fee;
+                // part → the part amount (defaulting to half when unspecified).
+                // incoming = what's still outstanding.
+                $commission = $r['role_commission'] !== null ? (float)$r['role_commission'] : 0.0;
+                if ((int)($r['role_paid_full'] ?? 0) === 1) {
+                    $toDate = $commission;
+                } elseif ((int)($r['role_paid_part'] ?? 0) === 1) {
+                    $toDate = $r['role_part_amount'] !== null ? min((float)$r['role_part_amount'], $commission) : $commission / 2.0;
+                } else {
+                    $toDate = 0.0;
+                }
+                $totalValue = $commission;
+                $incoming = max(0.0, $commission - $toDate);
+                $price = $commission; // pill reads price; keep it == contract value
+                $hasPrice = true;     // show the value column even though snapshot price is null
+                $paymentType = 'one_off';
+            } elseif ($hasPrice) {
+                if ($paymentType === 'one_off') {
+                    $totalValue = $price;
+                    $toDate = $start && $start <= $now ? $price : 0.0;
+                    $incoming = $totalValue - $toDate;
+                } else {
+                    // recurring → indefinite (catalogue has no contract length)
+                    $indef = 1;
+                    $hasIndefinite = true;
+                    $monthly = $price * $periodsPerMonth($rd);
+                    $totalValue = null;
+                    $toDate = $start ? $monthly * max(0.0, $monthsBetween($start, $now)) : 0.0;
+                }
+            }
+
+            // Recruitment rows display the role's title (e.g. "Site Manager"),
+            // so each opening reads as its own service. Fall back to the
+            // snapshot name for non-recruitment catalogue services.
+            $displayName = $isRecruitment ? (trim((string)($r['role_title'] ?? '')) ?: 'Recruitment') : $r['name'];
+
+            $services[] = [
+                'kind'                   => 'catalog',
+                'row_key'                => 'cs:' . (int)$r['id'],
+                'service_link_id'        => (int)$r['id'],
+                'name'                   => $displayName,
+                'onboarding_client_id'   => null,
+                'form_id'                => null,
+                'form_slug'              => null,
+                'form_title'             => $displayName,
+                'qualified_at'           => $r['started_at'],
+                'submitted_at'           => null,
+                'started_at'             => $r['started_at'],
+                'has_price'              => $hasPrice ? 1 : 0,
+                'price'                  => $hasPrice ? $price : null,
+                'payment_type'           => $paymentType,
+                'repeat_duration'        => $rd,
+                'contract_length_months' => null,
+                'is_indefinite'          => $indef,
+                'contract_end'           => null,
+                'total_value'            => $totalValue,
+                'to_date'                => round($toDate, 2),
+                'incoming'               => round($incoming, 2),
+                'monthly_value'          => round($monthly, 2),
+                'status'                 => 'active',
+                'project_id'             => null,
+                'project_status'         => null,
             ];
 
             if ($totalValue !== null) $sumTotal += $totalValue;
@@ -597,7 +837,11 @@ return function (string $method, array $segs): void {
         $email = trim((string)($body['email'] ?? $client['email'] ?? ''));
         if ($email !== '' && !filter_var($email, FILTER_VALIDATE_EMAIL)) Json::fail('Invalid email', 400);
 
-        $upd = $pdo->prepare('UPDATE clients SET name=?, email=?, phone=?, address=?, company=?, url=?, notes=? WHERE id = ?');
+        $newIsRecruit = array_key_exists('is_recruitment_client', $body)
+            ? (!empty($body['is_recruitment_client']) ? 1 : 0)
+            : (int)($client['is_recruitment_client'] ?? 0);
+
+        $upd = $pdo->prepare('UPDATE clients SET name=?, email=?, phone=?, address=?, company=?, url=?, notes=?, is_recruitment_client=? WHERE id = ?');
         $upd->execute([
             $name,
             $email !== '' ? $email : null,
@@ -606,8 +850,22 @@ return function (string $method, array $segs): void {
             trim((string)($body['company'] ?? $client['company'] ?? '')) ?: null,
             trim((string)($body['url']     ?? $client['url']     ?? '')) ?: null,
             $body['notes'] ?? $client['notes'],
+            $newIsRecruit,
             $id,
         ]);
+
+        // Sync the Recruitment service link to match the caller's intent.
+        // Both helpers are idempotent (attach is a no-op if already linked;
+        // detach is just a DELETE), so we don't need to compare old vs new
+        // — that earlier diff was actually a bug: a request to "set to 0"
+        // skipped detach when the flag was already 0 while the link still
+        // existed (an out-of-sync state). Now: if the caller said
+        // `is_recruitment_client=N`, we make the link match N.
+        if (array_key_exists('is_recruitment_client', $body)) {
+            if ($newIsRecruit) \BRS\Recruitment::ensureRecruitmentClient($pdo, $id);
+            else               detachRecruitmentService($pdo, $id);
+        }
+
         Json::send(['ok' => true]);
     }
 

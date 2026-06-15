@@ -1,6 +1,7 @@
-import { Component, inject } from '@angular/core';
+import { Component, computed, inject } from '@angular/core';
 import { RouterLink, RouterLinkActive } from '@angular/router';
 import { SettingsService } from '../core/settings.service';
+import { environment } from '@env/environment';
 
 @Component({
   selector: 'app-hr-side-nav',
@@ -33,9 +34,8 @@ import { SettingsService } from '../core/settings.service';
         <a routerLink="/hr/time-off" routerLinkActive="active">
           <span class="icon">⌛</span> Time off
         </a>
-        <a routerLink="/hr/documents" routerLinkActive="active">
-          <span class="icon">📄</span> Documents
-        </a>
+        <!-- Documents moved to Operations (June 2026). Component and
+             tables still live here; only the navigation home changed. -->
         <div class="divider"></div>
         <a routerLink="/hr/reviews" routerLinkActive="active">
           <span class="icon">✎</span> Reviews
@@ -106,7 +106,8 @@ import { SettingsService } from '../core/settings.service';
 export class HrSideNav {
   private svc = inject(SettingsService);
   brandName = this.svc.brandName;
-  logoUrl = this.svc.brandLogoUrl;
+  // Fall back to the bundled BRS icon when no brand logo is configured.
+  logoUrl = computed(() => this.svc.brandLogoUrl() || `${environment.basePath}/icon.png`);
   initials = this.svc.brandInitials;
   logoFailed = false;
 

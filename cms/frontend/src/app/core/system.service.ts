@@ -2,7 +2,7 @@ import { Injectable, computed, inject, signal } from '@angular/core';
 import { NavigationEnd, Router } from '@angular/router';
 import { filter } from 'rxjs';
 
-export type SystemKey = 'cms' | 'hr' | 'management' | 'tasks' | 'accounting' | 'crm' | 'me' | 'support';
+export type SystemKey = 'cms' | 'hr' | 'management' | 'operations' | 'recruitment' | 'tasks' | 'accounting' | 'crm' | 'me' | 'support';
 
 export interface SystemDef {
   key: SystemKey;
@@ -20,6 +20,8 @@ const SYSTEMS: SystemDef[] = [
   { key: 'cms',        label: 'CRM',        home: '/admin/clients' },
   { key: 'hr',         label: 'HR',         home: '/hr/dashboard' },
   { key: 'management', label: 'Management', home: '/management/dashboard' },
+  { key: 'operations', label: 'Operations', home: '/operations/dashboard' },
+  { key: 'recruitment', label: 'Recruitment', home: '/recruitment/dashboard' },
   { key: 'tasks',      label: 'Tasks',      home: '/tasks/taskboard' },
   { key: 'accounting', label: 'Accounting', home: '/accounting/dashboard' },
   { key: 'crm',        label: 'CMS',        home: '/crm',     placeholder: true },
@@ -40,6 +42,8 @@ export class SystemService {
   readonly current = computed<SystemKey>(() => {
     const u = this.url();
     if (u.startsWith('/management')) return 'management';
+    if (u.startsWith('/operations'))  return 'operations';
+    if (u.startsWith('/recruitment')) return 'recruitment';
     if (u.startsWith('/hr'))         return 'hr';
     if (u.startsWith('/me'))         return 'me';
     if (u.startsWith('/tasks'))      return 'tasks';
