@@ -78,22 +78,46 @@ jobs:
         working-directory: cms/frontend
         run: npx ng build --configuration=${{ steps.vars.outputs.ng_config }}
 
+      # --- Lint migrations before packaging --------------------------
+      # The post-pull cron will hit migrate.php on every server pull, so a
+      # malformed filename or stray CRLF would brick the deploy loop. Catch
+      # those here, in CI, instead of on the server.
+      - name: Lint migrations
+        run: |
+          set -e
+          for f in cms/db/migrations/*.sql; do
+            base=$(basename "$f")
+            if ! [[ "$base" =~ ^[0-9]{3}_[a-z0-9_]+\.sql$ ]]; then
+              echo "::error file=$f::filename doesn't match NNN_description.sql"; exit 1
+            fi
+            if grep -lP '\r$' "$f" > /dev/null 2>&1; then
+              echo "::error file=$f::file contains CRLF line endings"; exit 1
+            fi
+          done
+          echo "All $(ls cms/db/migrations/*.sql | wc -l) migration files OK"
+
       # --- Assemble the server-shaped artifact tree under _artifact/ ---
       # Mirrors what the server's rsync expects:
-      #   api/  (with vendor/)
-      #   db/
+      #   api/    (with vendor/)
+      #   db/     (schema + migrations + migrate.php runner)
+      #   deploy/ (post-pull.sh — invoked by the server cron after git pull)
       #   index.php
       #   .htaccess.deploy → renamed to .htaccess at deploy time on the server
-      #   dist/  (flattened from cms/frontend/dist/builtrightstudio/browser/)
+      #   dist/   (flattened from cms/frontend/dist/builtrightstudio/browser/)
       - name: Assemble artifact
         run: |
           set -e
           ART=_artifact
           rm -rf "$ART" && mkdir -p "$ART"
-          cp -a cms/api "$ART/"
-          cp -a cms/db  "$ART/"
+          cp -a cms/api    "$ART/"
+          cp -a cms/db     "$ART/"
+          cp -a cms/deploy "$ART/"
           cp -a cms/index.php "$ART/"
           cp -a cms/.htaccess.deploy "$ART/"
+          # Defensive: the artifact is force-pushed cross-platform; restore
+          # the exec bit on shell hooks so the server cron can invoke them
+          # without chmod-ing first.
+          chmod +x "$ART/deploy/"*.sh 2>/dev/null || true
           mkdir -p "$ART/dist"
           cp -a cms/frontend/dist/builtrightstudio/browser/. "$ART/dist/"
           ls -la "$ART"

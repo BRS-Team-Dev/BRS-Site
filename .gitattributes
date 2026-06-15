@@ -1,0 +1,9 @@
+# Shell scripts MUST keep LF line endings — Hostinger's bash chokes on
+# CRLF (treats \r as part of the command, fails with cryptic
+# "command not found" / "bad interpreter" errors). Git on Windows would
+# otherwise normalise to CRLF on checkout per core.autocrlf.
+*.sh         text eol=lf
+cms/deploy/* text eol=lf
+
+# Migration runner and PHP CLI scripts also stay LF for safety.
+cms/db/migrate.php text eol=lf
