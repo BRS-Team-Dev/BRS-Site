@@ -157,7 +157,7 @@ const ALLOWED_STATUSES: LeadStatus[] = ['new', 'contacted', 'qualified', 'conver
 
       <div class="card">
         <h2>Preview</h2>
-        <p class="muted small">First {{ previewRows().length }} of {{ validLeadCount() }} valid leads. Rows missing a name will be skipped.</p>
+        <p class="muted small">First {{ previewRows().length }} of {{ validLeadCount() }} valid leads. Rows are kept if they have either a contact name or a company; company-only rows use the company as the lead name.</p>
         <div class="table-wrap">
           <table class="data">
             <thead><tr>
@@ -427,8 +427,16 @@ export class LeadgenAdmin {
     const out: Partial<Lead>[] = [];
     for (const row of rows) {
       const get = (idx: number) => idx < 0 ? '' : String(row[idx] ?? '').trim();
-      const name = get(mapping.name);
-      if (!name) continue;
+      const personName = get(mapping.name);
+      const company    = get(mapping.company);
+      // Accept any row that has SOMETHING to identify the lead — a person
+      // name OR a company name. Lists of newly-established providers
+      // typically only have the business name at this stage; dropping
+      // them because there's no human contact yet loses 90%+ of the
+      // dataset. When no person is supplied we use the company as the
+      // lead's display name so the row is still saveable + searchable.
+      if (!personName && !company) continue;
+      const name = personName || company;
       const email = get(mapping.email);
       const rawStatus = get(mapping.status).toLowerCase();
       const status = (ALLOWED_STATUSES as string[]).includes(rawStatus)
@@ -438,7 +446,7 @@ export class LeadgenAdmin {
         name,
         email:   email || undefined,
         phone:   get(mapping.phone)   || undefined,
-        company: get(mapping.company) || undefined,
+        company: company || undefined,
         address: get(mapping.address) || undefined,
         url:     get(mapping.url)     || undefined,
         status,
