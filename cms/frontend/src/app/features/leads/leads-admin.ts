@@ -495,24 +495,53 @@ type LeadSortKey = 'name' | 'email' | 'phone' | 'company' | 'status';
     /* Inline status dropdown in the list cell. Pills/colour are carried
        over so the row still reads at a glance. */
     .status-inline {
-      /* Right padding has to clear the native <select> chevron the browser
-         renders inside the control. Without it the dropdown arrow crashes
-         into the pill border. */
+      /* Strip the native chevron — Chromium/Webkit/Firefox each render
+         the default arrow anchored to the right edge of the control's
+         paint box, so padding-right alone will not move it. With
+         appearance: none we hide it and paint a custom one via
+         background-image. The actual chevron URL is set per
+         [data-status] below because data-URL SVGs resolve currentColor
+         against their own (blank) host document, not the parent CSS,
+         so we hard-code the stroke hex per status to keep the arrow
+         on-brand with the pill text. */
+      -webkit-appearance: none;
+              appearance: none;
+      background-repeat: no-repeat;
+      background-position: right 10px center;
       padding: 3px 26px 3px 12px;
       border-radius: 999px;
       border: 1px solid var(--line);
-      background: var(--bg-2);
+      background-color: var(--bg-2);
       color: var(--fg);
       font-size: 12px;
       font-weight: 600;
       cursor: pointer;
       min-width: auto; width: auto;
     }
+    /* Edge/IE legacy: hide the expand pseudo so the native arrow doesn't
+       slip back in even after appearance: none. */
+    .status-inline::-ms-expand { display: none; }
     .status-inline:hover { border-color: var(--primary); }
-    .status-inline[data-status="new"]       { color: var(--primary); border-color: var(--primary); }
-    .status-inline[data-status="prospect"]  { color: #60a5fa; border-color: #60a5fa; background: rgba(96, 165, 250, 0.08); }
-    .status-inline[data-status="dead"]      { color: var(--danger); border-color: var(--danger); background: rgba(239, 68, 68, 0.08); }
-    .status-inline[data-status="converted"] { color: var(--success); border-color: var(--success); background: rgba(86, 201, 138, 0.08); }
+
+    /* Per-status chevron + text/border colour. The stroke hex in each
+       data: SVG matches the pill colour one-for-one so the arrow always
+       reads as part of the pill rather than a stray native control. */
+    .status-inline[data-status="new"] {
+      color: var(--primary); border-color: var(--primary);
+      background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6' fill='none'><path d='M1 1l4 4 4-4' stroke='%23d4a93a' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/></svg>");
+    }
+    .status-inline[data-status="prospect"] {
+      color: #60a5fa; border-color: #60a5fa; background-color: rgba(96, 165, 250, 0.08);
+      background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6' fill='none'><path d='M1 1l4 4 4-4' stroke='%2360a5fa' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/></svg>");
+    }
+    .status-inline[data-status="dead"] {
+      color: var(--danger); border-color: var(--danger); background-color: rgba(239, 68, 68, 0.08);
+      background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6' fill='none'><path d='M1 1l4 4 4-4' stroke='%23ef4444' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/></svg>");
+    }
+    .status-inline[data-status="converted"] {
+      color: var(--success); border-color: var(--success); background-color: rgba(86, 201, 138, 0.08);
+      background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6' fill='none'><path d='M1 1l4 4 4-4' stroke='%2356c98a' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/></svg>");
+    }
 
     /* Promote icon on the list — keeps the row's actions consistent
        with the existing eye/pencil/cross set. */
