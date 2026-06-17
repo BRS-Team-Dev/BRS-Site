@@ -47,6 +47,7 @@ type TabKey = 'info' | 'contacts' | 'services' | 'accounts' | 'contracts' | 'not
                   <td class="actions">
                     <button class="ghost icon-btn" (click)="view(c, $event)" title="View" aria-label="View">👁</button>
                     <button class="ghost icon-btn" (click)="edit(c, $event)" title="Edit" aria-label="Edit">✎</button>
+                    <button class="ghost icon-btn relegate" (click)="relegate(c, $event)" title="Send back to leads" aria-label="Send back to leads">↓</button>
                     <button class="ghost icon-btn danger" (click)="del(c, $event)" title="Delete" aria-label="Delete">✕</button>
                   </td>
                 </tr>
@@ -63,6 +64,7 @@ type TabKey = 'info' | 'contacts' | 'services' | 'accounts' | 'contracts' | 'not
         <h1>{{ current()?.name || 'Client' }}</h1>
         <span class="spacer"></span>
         <button class="ghost" (click)="goEdit()" title="Edit">✎ Edit</button>
+        <button class="ghost" (click)="relegateCurrent()" title="Send back to leads">↓ Send to leads</button>
         <button class="danger" (click)="delCurrent()">Delete</button>
       </div>
 
@@ -893,6 +895,10 @@ type TabKey = 'info' | 'contacts' | 'services' | 'accounts' | 'contracts' | 'not
     }
     .icon-btn:hover { color: var(--primary); border-color: var(--primary); }
     .icon-btn.danger:hover { color: var(--danger); border-color: var(--danger); background: rgba(255,100,100,0.08); }
+    /* Send-back-to-leads action. Distinct hue from the danger ✕ so the
+       two buttons don't look interchangeable at a glance. */
+    .icon-btn.relegate { color: #60a5fa; }
+    .icon-btn.relegate:hover { color: #60a5fa; border-color: #60a5fa; background: rgba(96, 165, 250, 0.10); }
   `],
 })
 export class ClientsAdmin {
@@ -1178,6 +1184,29 @@ export class ClientsAdmin {
     if (!c.id) return;
     if (!confirm(`Delete "${c.name}"?`)) return;
     this.api.deleteClient(c.id).subscribe(() => this.router.navigateByUrl('/admin/clients'));
+  }
+
+  /** Demote a client back into the leads pipeline. Mirrors `del` for the
+   *  list row — the underlying endpoint copies the basic fields into a
+   *  new leads row, then deletes the client (FK cascades sub-tables). */
+  relegate(c: Client, e: Event) {
+    e.stopPropagation();
+    if (!c.id) return;
+    if (!confirm(`Send "${c.name}" back to leads? Their contacts, accounts and services on this client will be discarded.`)) return;
+    this.api.relegateClientToLead(c.id).subscribe({
+      next: r => this.router.navigate(['/admin/leads', r.lead_id]),
+      error: err => alert(err?.error?.error || 'Failed to relegate'),
+    });
+  }
+  /** Same action triggered from the client-detail toolbar. */
+  relegateCurrent() {
+    const c = this.current() ?? this.draft;
+    if (!c.id) return;
+    if (!confirm(`Send "${c.name}" back to leads? Their contacts, accounts and services on this client will be discarded.`)) return;
+    this.api.relegateClientToLead(c.id).subscribe({
+      next: r => this.router.navigate(['/admin/leads', r.lead_id]),
+      error: err => alert(err?.error?.error || 'Failed to relegate'),
+    });
   }
 
   save() {

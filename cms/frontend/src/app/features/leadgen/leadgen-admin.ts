@@ -35,7 +35,7 @@ const FIELD_PATTERNS: Record<LeadField, RegExp[]> = {
 
 const HEADER_KEYWORDS = ['name', 'email', 'phone', 'company', 'address', 'status', 'source', 'url', 'website', 'agency', 'provider', 'profile'];
 
-const ALLOWED_STATUSES: LeadStatus[] = ['new', 'contacted', 'qualified', 'converted', 'rejected'];
+const ALLOWED_STATUSES: LeadStatus[] = ['new', 'prospect', 'dead', 'converted'];
 
 /**
  * Lead Gen — bulk-import lists into the Leads table.

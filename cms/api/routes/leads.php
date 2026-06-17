@@ -21,7 +21,12 @@ return function (string $method, array $segs): void {
     Auth::require();
     $pdo = Db::pdo();
 
-    $allowedStatuses = ['new', 'contacted', 'qualified', 'converted', 'rejected'];
+    // Statuses surfaced through the API. `converted` is system-set by
+    // /api/leads/:id/promote (and reset to 'new' by the inverse
+    // /api/clients/:id/relegate-to-lead). The other three are the user-
+    // pickable values surfaced in the leads-admin dropdown. Migration 096
+    // narrowed the ENUM to exactly this set.
+    $allowedStatuses = ['new', 'prospect', 'dead', 'converted'];
 
     if (!isset($segs[1])) {
         if ($method === 'GET') {
@@ -155,6 +160,142 @@ return function (string $method, array $segs): void {
     $lead = $stmt->fetch();
     if (!$lead) Json::fail('Lead not found', 404);
 
+    // /api/leads/:id/contacts[/:cid][/primary]
+    //
+    // Mirrors the client_contacts sub-route on clients.php so a lead can
+    // already track multiple people pre-promotion. Same shape: list +
+    // POST on the collection; PUT/DELETE on items; POST /primary to flip
+    // which contact carries is_primary=1.
+    if (($segs[2] ?? '') === 'contacts') {
+        $cid = isset($segs[3]) ? (int)$segs[3] : null;
+
+        $loadAll = function () use ($pdo, $id) {
+            $rows = $pdo->prepare('SELECT * FROM lead_contacts WHERE lead_id = ? ORDER BY sort_order, id');
+            $rows->execute([$id]);
+            $contacts = $rows->fetchAll();
+            if (!$contacts) return [];
+            $ids   = array_map(fn($c) => (int)$c['id'], $contacts);
+            $place = implode(',', array_fill(0, count($ids), '?'));
+            $nums  = $pdo->prepare("SELECT * FROM lead_contact_numbers WHERE contact_id IN ($place) ORDER BY sort_order, id");
+            $nums->execute($ids);
+            $byContact = [];
+            foreach ($nums->fetchAll() as $n) { $byContact[(int)$n['contact_id']][] = $n; }
+            foreach ($contacts as &$c) { $c['numbers'] = $byContact[(int)$c['id']] ?? []; }
+            unset($c);
+            return $contacts;
+        };
+
+        $writeNumbers = function (int $contactId, array $numbers) use ($pdo) {
+            $pdo->prepare('DELETE FROM lead_contact_numbers WHERE contact_id = ?')->execute([$contactId]);
+            $ins = $pdo->prepare('INSERT INTO lead_contact_numbers (contact_id, number, label, sort_order) VALUES (?,?,?,?)');
+            $sort = 0;
+            foreach ($numbers as $n) {
+                if (!is_array($n)) continue;
+                $num = trim((string)($n['number'] ?? ''));
+                if ($num === '') continue;
+                $ins->execute([$contactId, $num, trim((string)($n['label'] ?? '')) ?: null, $sort++]);
+            }
+        };
+
+        $setPrimary = function (int $leadId, int $contactId) use ($pdo) {
+            $pdo->beginTransaction();
+            try {
+                $pdo->prepare('UPDATE lead_contacts SET is_primary = 0 WHERE lead_id = ? AND id <> ?')
+                    ->execute([$leadId, $contactId]);
+                $pdo->prepare('UPDATE lead_contacts SET is_primary = 1 WHERE lead_id = ? AND id = ?')
+                    ->execute([$leadId, $contactId]);
+                $pdo->commit();
+            } catch (\Throwable $e) { $pdo->rollBack(); throw $e; }
+        };
+
+        $hasPrimary = function (int $leadId) use ($pdo): bool {
+            $stmt = $pdo->prepare('SELECT 1 FROM lead_contacts WHERE lead_id = ? AND is_primary = 1 LIMIT 1');
+            $stmt->execute([$leadId]);
+            return (bool)$stmt->fetchColumn();
+        };
+
+        if ($cid === null) {
+            if ($method === 'GET')  Json::send(['contacts' => $loadAll()]);
+
+            if ($method === 'POST') {
+                $body  = Json::readBody();
+                $first = trim((string)($body['first_name'] ?? ''));
+                if ($first === '') Json::fail('First name is required', 400);
+                $email = trim((string)($body['email'] ?? ''));
+                if ($email !== '' && !filter_var($email, FILTER_VALIDATE_EMAIL)) Json::fail('Invalid email', 400);
+
+                $wantPrimary = !empty($body['is_primary']) || !$hasPrimary($id);
+
+                $ins = $pdo->prepare('INSERT INTO lead_contacts
+                    (lead_id, first_name, last_name, position, email, verified, is_primary, sort_order)
+                    VALUES (?,?,?,?,?,?,?,?)');
+                $ins->execute([
+                    $id,
+                    $first,
+                    trim((string)($body['last_name'] ?? '')) ?: null,
+                    trim((string)($body['position']  ?? '')) ?: null,
+                    $email !== '' ? $email : null,
+                    !empty($body['verified']) ? 1 : 0,
+                    $wantPrimary ? 1 : 0,
+                    (int)($body['sort_order'] ?? 0),
+                ]);
+                $newId = (int)$pdo->lastInsertId();
+                if (is_array($body['numbers'] ?? null)) $writeNumbers($newId, $body['numbers']);
+                if ($wantPrimary) $setPrimary($id, $newId);
+                Json::send(['id' => $newId], 201);
+            }
+            Json::fail('Method not allowed', 405);
+        }
+
+        $cstmt = $pdo->prepare('SELECT * FROM lead_contacts WHERE id = ? AND lead_id = ?');
+        $cstmt->execute([$cid, $id]);
+        $contact = $cstmt->fetch();
+        if (!$contact) Json::fail('Contact not found', 404);
+
+        if (($segs[4] ?? '') === 'primary' && $method === 'POST') {
+            $setPrimary($id, $cid);
+            Json::send(['ok' => true]);
+        }
+
+        if ($method === 'PUT') {
+            $body  = Json::readBody();
+            $first = trim((string)($body['first_name'] ?? $contact['first_name']));
+            if ($first === '') Json::fail('First name is required', 400);
+            $email = trim((string)($body['email'] ?? $contact['email'] ?? ''));
+            if ($email !== '' && !filter_var($email, FILTER_VALIDATE_EMAIL)) Json::fail('Invalid email', 400);
+
+            $upd = $pdo->prepare('UPDATE lead_contacts
+                SET first_name=?, last_name=?, position=?, email=?, verified=?, sort_order=?
+                WHERE id = ?');
+            $upd->execute([
+                $first,
+                trim((string)($body['last_name'] ?? $contact['last_name'] ?? '')) ?: null,
+                trim((string)($body['position']  ?? $contact['position']  ?? '')) ?: null,
+                $email !== '' ? $email : null,
+                !empty($body['verified']) ? 1 : 0,
+                (int)($body['sort_order'] ?? $contact['sort_order']),
+                $cid,
+            ]);
+            if (isset($body['numbers']) && is_array($body['numbers'])) $writeNumbers($cid, $body['numbers']);
+            if (!empty($body['is_primary']) && (int)$contact['is_primary'] !== 1) $setPrimary($id, $cid);
+            Json::send(['ok' => true]);
+        }
+
+        if ($method === 'DELETE') {
+            $wasPrimary = (int)($contact['is_primary'] ?? 0) === 1;
+            $pdo->prepare('DELETE FROM lead_contacts WHERE id = ?')->execute([$cid]);
+            if ($wasPrimary) {
+                $next = $pdo->prepare('SELECT id FROM lead_contacts WHERE lead_id = ? ORDER BY id LIMIT 1');
+                $next->execute([$id]);
+                $row = $next->fetch();
+                if ($row) $setPrimary($id, (int)$row['id']);
+            }
+            Json::send(['ok' => true]);
+        }
+
+        Json::fail('Method not allowed', 405);
+    }
+
     // /api/leads/:id/info[/:iid]
     if (($segs[2] ?? '') === 'info') {
         $iid = isset($segs[3]) ? (int)$segs[3] : null;
@@ -269,23 +410,83 @@ return function (string $method, array $segs): void {
             ]);
             $newClientId = (int)$pdo->lastInsertId();
 
-            // Leads don't have a contacts table — when promoting, materialise
-            // the lead's own name/email/phone as the new client's primary
-            // contact so the basic-info card renders correctly out of the box.
-            $leadName = trim((string)($lead['name'] ?? ''));
-            $space    = strpos($leadName, ' ');
-            $firstName = $space === false ? ($leadName ?: 'Primary') : substr($leadName, 0, $space);
-            $lastName  = $space === false ? null : (trim(substr($leadName, $space + 1)) ?: null);
-            $insContact = $pdo->prepare('INSERT INTO client_contacts
-                (client_id, first_name, last_name, email, is_primary, sort_order)
-                VALUES (?,?,?,?,1,0)');
-            $insContact->execute([$newClientId, $firstName, $lastName, $lead['email'] ?: null]);
-            $newContactId = (int)$pdo->lastInsertId();
+            // ── Carry the lead's contacts forward ──────────────────
+            // Migration 097 added lead_contacts. Each row maps 1:1 to a
+            // client_contacts row + its lead_contact_numbers map 1:1 to
+            // client_contact_numbers. is_primary + sort_order preserved
+            // verbatim so the post-promotion client renders identically.
+            $lcStmt = $pdo->prepare('SELECT * FROM lead_contacts WHERE lead_id = ? ORDER BY sort_order, id');
+            $lcStmt->execute([$id]);
+            $leadContacts = $lcStmt->fetchAll();
 
-            if (!empty($lead['phone'])) {
-                $pdo->prepare('INSERT INTO client_contact_numbers (contact_id, number, label, sort_order) VALUES (?,?,?,0)')
-                    ->execute([$newContactId, (string)$lead['phone'], 'mobile']);
+            $insContact = $pdo->prepare('INSERT INTO client_contacts
+                (client_id, first_name, last_name, position, email, verified, is_primary, sort_order)
+                VALUES (?,?,?,?,?,?,?,?)');
+            $insNum = $pdo->prepare('INSERT INTO client_contact_numbers
+                (contact_id, number, label, sort_order) VALUES (?,?,?,?)');
+            $numLookup = $pdo->prepare('SELECT * FROM lead_contact_numbers WHERE contact_id = ? ORDER BY sort_order, id');
+
+            $sawPrimary = false;
+            foreach ($leadContacts as $lc) {
+                $insContact->execute([
+                    $newClientId,
+                    $lc['first_name'],
+                    $lc['last_name'],
+                    $lc['position'],
+                    $lc['email'],
+                    (int)$lc['verified'],
+                    (int)$lc['is_primary'],
+                    (int)$lc['sort_order'],
+                ]);
+                $newContactId = (int)$pdo->lastInsertId();
+                if ((int)$lc['is_primary'] === 1) $sawPrimary = true;
+                $numLookup->execute([$lc['id']]);
+                foreach ($numLookup->fetchAll() as $n) {
+                    $insNum->execute([$newContactId, $n['number'], $n['label'], (int)$n['sort_order']]);
+                }
             }
+
+            // Legacy fallback: leads created before migration 097 only
+            // carry their headline name/email/phone — no lead_contacts
+            // rows. Synthesise a primary contact from those so the basic-
+            // info card on the new client still renders.
+            if (!$leadContacts) {
+                $leadName  = trim((string)($lead['name'] ?? ''));
+                $space     = strpos($leadName, ' ');
+                $firstName = $space === false ? ($leadName ?: 'Primary') : substr($leadName, 0, $space);
+                $lastName  = $space === false ? null : (trim(substr($leadName, $space + 1)) ?: null);
+                $insContact->execute([
+                    $newClientId, $firstName, $lastName, null,
+                    $lead['email'] ?: null, 0, 1, 0,
+                ]);
+                $newContactId = (int)$pdo->lastInsertId();
+                if (!empty($lead['phone'])) {
+                    $insNum->execute([$newContactId, (string)$lead['phone'], 'mobile', 0]);
+                }
+                $sawPrimary = true;
+            }
+
+            // Failsafe — if no copied row was flagged primary (would only
+            // happen on bad data), promote the earliest-inserted contact
+            // so the basic-info card still has a row to read from.
+            if (!$sawPrimary) {
+                $first = $pdo->prepare('SELECT id FROM client_contacts WHERE client_id = ? ORDER BY id LIMIT 1');
+                $first->execute([$newClientId]);
+                $firstId = (int)($first->fetchColumn() ?: 0);
+                if ($firstId) {
+                    $pdo->prepare('UPDATE client_contacts SET is_primary = 1 WHERE id = ?')->execute([$firstId]);
+                }
+            }
+
+            // ── Carry the lead's notes forward ─────────────────────
+            // lead_notes → client_notes. Same schema (title/body/
+            // sort_order); we preserve created_at so the timeline on the
+            // client matches the timeline that was on the lead.
+            $pdo->prepare(
+                'INSERT INTO client_notes (client_id, title, body, sort_order, created_at, updated_at)
+                 SELECT ?, title, body, sort_order, created_at, updated_at
+                 FROM lead_notes WHERE lead_id = ?'
+            )->execute([$newClientId, $id]);
 
             $pdo->prepare('DELETE FROM leads WHERE id = ?')->execute([$id]);
 

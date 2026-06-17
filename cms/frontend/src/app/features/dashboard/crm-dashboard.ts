@@ -275,7 +275,7 @@ export class CrmDashboard {
   private api = inject(Api);
   data = signal<CrmDashboardOverview | null>(null);
 
-  readonly leadStatusOrder = ['new','contacted','qualified','converted','rejected'] as const;
+  readonly leadStatusOrder = ['new','prospect','dead','converted'] as const;
   readonly serviceStatusOrder = ['new','ongoing','testing','blocked','complete','none'] as const;
 
   ngOnInit() {
@@ -295,19 +295,18 @@ export class CrmDashboard {
   totalServices(d: CrmDashboardOverview): number {
     return Object.values(d.services_by_status).reduce((a, b) => a + b, 0);
   }
-  /** Active leads = anything not yet converted or rejected. */
+  /** Active leads = still in the pipeline (not converted, not dead). */
   activeLeads(d: CrmDashboardOverview): number {
     const s = d.leads_by_status;
-    return s.new + s.contacted + s.qualified;
+    return (s.new ?? 0) + (s.prospect ?? 0);
   }
 
   leadStatusLabel(s: string | null | undefined): string {
     switch (s) {
       case 'new':       return 'New';
-      case 'contacted': return 'Contacted';
-      case 'qualified': return 'Qualified';
+      case 'prospect':  return 'Prospect';
+      case 'dead':      return 'Dead';
       case 'converted': return 'Converted';
-      case 'rejected':  return 'Rejected';
       default:          return s || '—';
     }
   }

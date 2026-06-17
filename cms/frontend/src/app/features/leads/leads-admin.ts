@@ -2,19 +2,21 @@ import { Component, computed, inject, signal } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { Api } from '../../core/api';
-import { Lead, LeadInfo, LeadNote, LeadStatus } from '../../core/models';
+import { ClientContact, Lead, LeadInfo, LeadNote, LeadStatus } from '../../core/models';
 import { EntityContracts } from '../../shared/entity-contracts';
 
 type Mode = 'list' | 'view' | 'edit';
-type LeadTabKey = 'info' | 'contracts' | 'notes';
+type LeadTabKey = 'info' | 'contacts' | 'contracts' | 'notes';
 
 const STATUS_LABELS: Record<LeadStatus, string> = {
   new:       'New',
-  contacted: 'Contacted',
-  qualified: 'Qualified',
+  prospect:  'Prospect',
+  dead:      'Dead',
   converted: 'Converted',
-  rejected:  'Rejected',
 };
+
+/** Columns the user can sort the list by. Tied to fields on `Lead`. */
+type LeadSortKey = 'name' | 'email' | 'phone' | 'company' | 'status';
 
 /**
  * Leads section — potential clients before promotion.
@@ -52,11 +54,18 @@ const STATUS_LABELS: Record<LeadStatus, string> = {
         <div class="table-wrap">
           <table class="data">
             <thead><tr>
-              <th>Name</th>
-              <th>Email</th>
-              <th>Phone</th>
-              <th>Company</th>
-              <th>Status</th>
+              @for (c of sortColumns; track c.key) {
+                <th class="sortable"
+                    [class.active]="sortBy() === c.key"
+                    (click)="toggleSort(c.key)"
+                    [attr.aria-sort]="sortBy() === c.key ? (sortDir() === 'asc' ? 'ascending' : 'descending') : 'none'">
+                  <span>{{ c.label }}</span>
+                  <span class="sort-mark">
+                    @if (sortBy() === c.key) { {{ sortDir() === 'asc' ? '▲' : '▼' }} }
+                    @else { <span class="muted small">↕</span> }
+                  </span>
+                </th>
+              }
               <th></th>
             </tr></thead>
             <tbody>
@@ -66,14 +75,27 @@ const STATUS_LABELS: Record<LeadStatus, string> = {
                   <td>{{ l.email || '—' }}</td>
                   <td>{{ l.phone || '—' }}</td>
                   <td>{{ l.company || '—' }}</td>
-                  <td>
-                    <span class="status-pill" [attr.data-status]="l.status || 'new'">
-                      {{ statusLabel(l.status || 'new') }}
-                    </span>
+                  <td (click)="$event.stopPropagation()">
+                    <select class="status-inline"
+                            [attr.data-status]="l.status || 'new'"
+                            [ngModel]="l.status || 'new'"
+                            (ngModelChange)="changeStatus(l, $event)"
+                            [name]="'st_' + l.id"
+                            [title]="'Change status'">
+                      @for (s of statusOptions; track s) {
+                        <option [value]="s">{{ statusLabel(s) }}</option>
+                      }
+                      @if (l.status === 'converted') {
+                        <option value="converted" disabled>Converted</option>
+                      }
+                    </select>
                   </td>
                   <td class="actions">
                     <button class="ghost icon-btn" (click)="view(l, $event)" title="View" aria-label="View">👁</button>
                     <button class="ghost icon-btn" (click)="edit(l, $event)" title="Edit" aria-label="Edit">✎</button>
+                    @if (l.status !== 'converted' && !l.promoted_client_id) {
+                      <button class="ghost icon-btn promote" (click)="promoteRow(l, $event)" title="Promote to client" aria-label="Promote to client">↑</button>
+                    }
                     <button class="ghost icon-btn danger" (click)="del(l, $event)" title="Delete" aria-label="Delete">✕</button>
                   </td>
                 </tr>
@@ -193,6 +215,94 @@ const STATUS_LABELS: Record<LeadStatus, string> = {
                             <button class="ghost icon-btn" (click)="editInfo(i)" title="Edit">✎</button>
                             <button class="ghost icon-btn danger" (click)="deleteInfo(i)" title="Delete">✕</button>
                           </div>
+                        </div>
+                      }
+                    </div>
+                  }
+                }
+                @case ('contacts') {
+                  <div class="tab-head">
+                    <h3>Contacts</h3>
+                    <span class="spacer"></span>
+                    <button class="primary" (click)="toggleContactForm()">
+                      {{ contactFormOpen() ? '× Cancel' : '+ Add contact' }}
+                    </button>
+                  </div>
+
+                  @if (contactFormOpen()) {
+                    <div class="contact-form">
+                      <div class="row two-col">
+                        <div>
+                          <label>First name <span class="req">★</span></label>
+                          <input [(ngModel)]="contactDraft.first_name" name="lcd_first" placeholder="Jane" />
+                        </div>
+                        <div>
+                          <label>Last name</label>
+                          <input [(ngModel)]="contactDraft.last_name" name="lcd_last" placeholder="Doe" />
+                        </div>
+                      </div>
+                      <label>Position</label>
+                      <input [(ngModel)]="contactDraft.position" name="lcd_pos" placeholder="CEO" />
+                      <label>Email</label>
+                      <input type="email" [(ngModel)]="contactDraft.email" name="lcd_email" placeholder="jane@example.com" />
+
+                      <label>Numbers</label>
+                      @for (n of contactNumbers(); track $index; let i = $index) {
+                        <div class="number-row">
+                          <input [(ngModel)]="n.number" [name]="'lnum_' + i" placeholder="+44 7700 900123" />
+                          <input [(ngModel)]="n.label" [name]="'llbl_' + i" placeholder="mobile / office" class="num-label" />
+                          <button class="ghost icon-btn danger" (click)="removeNumber(i)" title="Remove">✕</button>
+                        </div>
+                      }
+                      <button class="ghost" (click)="addNumber()">+ Add number</button>
+
+                      <div class="checkbox-row" style="margin-top: 12px;">
+                        <input type="checkbox" id="lverified" [(ngModel)]="contactDraft.verified" name="lcd_verified" />
+                        <label for="lverified">Verified</label>
+                      </div>
+
+                      @if (contactError()) { <div class="error-msg">{{ contactError() }}</div> }
+                      <div class="row" style="margin-top: 16px; gap: 8px;">
+                        <button class="primary" (click)="saveContact()" [disabled]="contactSaving()">
+                          {{ contactSaving() ? 'Saving…' : (contactDraft.id ? 'Update' : 'Save contact') }}
+                        </button>
+                        <button class="ghost" (click)="closeContactForm()">Done</button>
+                      </div>
+                    </div>
+                  }
+
+                  @if (contacts().length === 0 && !contactFormOpen()) {
+                    <p class="muted">No contacts yet.</p>
+                  } @else if (contacts().length > 0) {
+                    <div class="contact-list">
+                      @for (ct of contacts(); track ct.id) {
+                        <div class="contact-card" [class.expanded]="expandedContact() === ct.id" [class.primary]="!!ct.is_primary">
+                          <div class="contact-head" (click)="toggleContact(ct)">
+                            <span class="caret">›</span>
+                            <div class="contact-name">
+                              <strong>{{ ct.first_name }} {{ ct.last_name }}</strong>
+                              @if (ct.position) { <span class="position">{{ ct.position }}</span> }
+                            </div>
+                            @if (ct.is_primary) {
+                              <span class="badge primary">Primary</span>
+                            } @else {
+                              <button class="ghost small make-primary" (click)="makePrimary(ct); $event.stopPropagation()" title="Set as primary contact">
+                                Set as primary
+                              </button>
+                            }
+                            @if (ct.verified) { <span class="badge success">Verified</span> }
+                            <span class="spacer"></span>
+                            <button class="ghost icon-btn" (click)="editContact(ct); $event.stopPropagation()" title="Edit">✎</button>
+                            <button class="ghost icon-btn danger" (click)="deleteContact(ct); $event.stopPropagation()" title="Delete">✕</button>
+                          </div>
+                          @if (expandedContact() === ct.id) {
+                            <div class="contact-body">
+                              @if (ct.email) { <div class="muted small"><span class="ic">✉</span> <a [href]="'mailto:' + ct.email">{{ ct.email }}</a></div> }
+                              @for (n of ct.numbers; track n.id) {
+                                <div class="muted small"><span class="ic">☏</span> <a [href]="'tel:' + n.number">{{ n.number }}</a> @if (n.label) { <span>— {{ n.label }}</span> }</div>
+                              }
+                            </div>
+                          }
                         </div>
                       }
                     </div>
@@ -370,10 +480,116 @@ const STATUS_LABELS: Record<LeadStatus, string> = {
       background: var(--bg-3); color: var(--muted);
     }
     .status-pill[data-status="new"]       { color: var(--primary); border-color: var(--primary); }
-    .status-pill[data-status="contacted"] { color: #60a5fa; border-color: #60a5fa; }
-    .status-pill[data-status="qualified"] { color: var(--primary); border-color: var(--primary); background: rgba(212, 169, 58, 0.1); }
+    .status-pill[data-status="prospect"]  { color: #60a5fa; border-color: #60a5fa; background: rgba(96, 165, 250, 0.1); }
+    .status-pill[data-status="dead"]      { color: var(--danger); border-color: var(--danger); background: rgba(239, 68, 68, 0.10); }
     .status-pill[data-status="converted"] { color: var(--success); border-color: var(--success); background: rgba(86, 201, 138, 0.1); }
-    .status-pill[data-status="rejected"]  { color: var(--danger); border-color: var(--danger); }
+
+    /* Sortable table headers — used on the leads list. Clicking toggles
+       through asc → desc → unsorted; an indicator arrow shows the
+       current direction. */
+    th.sortable { cursor: pointer; user-select: none; white-space: nowrap; }
+    th.sortable:hover { color: var(--primary); }
+    th.sortable.active { color: var(--primary); }
+    th.sortable .sort-mark { margin-left: 6px; font-size: 11px; opacity: 0.8; }
+
+    /* Inline status dropdown in the list cell. Pills/colour are carried
+       over so the row still reads at a glance. */
+    .status-inline {
+      /* Right padding has to clear the native <select> chevron the browser
+         renders inside the control. Without it the dropdown arrow crashes
+         into the pill border. */
+      padding: 3px 26px 3px 12px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      background: var(--bg-2);
+      color: var(--fg);
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      min-width: auto; width: auto;
+    }
+    .status-inline:hover { border-color: var(--primary); }
+    .status-inline[data-status="new"]       { color: var(--primary); border-color: var(--primary); }
+    .status-inline[data-status="prospect"]  { color: #60a5fa; border-color: #60a5fa; background: rgba(96, 165, 250, 0.08); }
+    .status-inline[data-status="dead"]      { color: var(--danger); border-color: var(--danger); background: rgba(239, 68, 68, 0.08); }
+    .status-inline[data-status="converted"] { color: var(--success); border-color: var(--success); background: rgba(86, 201, 138, 0.08); }
+
+    /* Promote icon on the list — keeps the row's actions consistent
+       with the existing eye/pencil/cross set. */
+    .icon-btn.promote { color: var(--success); }
+    .icon-btn.promote:hover { background: rgba(86, 201, 138, 0.15); }
+
+    /* Contacts tab — mirrors the contact UI on clients-admin so the
+       lead detail looks identical, just scoped to lead data. Component
+       styles are encapsulated, so the rules have to live here too
+       instead of being pulled in from clients-admin. */
+    .contact-form {
+      padding: 16px;
+      background: var(--bg-3);
+      border: 1px solid var(--line);
+      border-radius: var(--radius-sm);
+      margin-bottom: 16px;
+    }
+    .contact-form label { margin-top: 12px; display: block; }
+    .contact-form .req { color: var(--primary); margin-left: 4px; }
+    .contact-form .row.two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .number-row {
+      display: grid;
+      grid-template-columns: 1fr 140px 32px;
+      gap: 8px;
+      margin-top: 8px;
+      align-items: center;
+    }
+    .number-row .num-label { font-size: 13px; }
+
+    .contact-list { display: flex; flex-direction: column; gap: 12px; }
+    .contact-card {
+      background: var(--bg-3);
+      border: 1px solid var(--line);
+      border-radius: var(--radius-sm);
+      overflow: hidden;
+      transition: border-color 0.15s;
+    }
+    .contact-card:hover { border-color: var(--primary); }
+    .contact-card.primary { border-color: var(--primary); border-left-width: 3px; }
+    .make-primary { color: var(--primary); }
+    .contact-head {
+      display: flex; align-items: center; gap: 8px;
+      padding: 12px 14px;
+      cursor: pointer;
+      user-select: none;
+    }
+    .contact-head .caret {
+      color: var(--muted);
+      transition: transform 0.2s;
+      flex-shrink: 0;
+    }
+    .contact-card.expanded .contact-head .caret { transform: rotate(90deg); }
+    .contact-head .spacer { flex: 1; }
+    .contact-name { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+    .contact-name strong { font-size: 14px; line-height: 1.2; }
+    .contact-name .position {
+      color: var(--primary);
+      font-size: 12px;
+      font-style: italic;
+      letter-spacing: 0.2px;
+      line-height: 1.2;
+    }
+    .contact-body {
+      padding: 0 14px 14px 14px;
+      border-top: 1px solid var(--line);
+      padding-top: 12px;
+      display: flex; flex-direction: column; gap: 4px;
+    }
+    .contact-body .ic {
+      display: inline-block;
+      color: var(--primary);
+      width: 18px;
+      text-align: center;
+      margin-right: 4px;
+    }
+    .contact-card a { color: var(--fg); text-decoration: none; }
+    .contact-card a:hover { color: var(--primary); }
 
     /* ----- Tabbed detail card (mirrors clients-admin) ------------------ */
     .detail-card { padding: 0; overflow: hidden; }
@@ -483,8 +699,30 @@ export class LeadsAdmin {
   private router = inject(Router);
   private route = inject(ActivatedRoute);
 
-  readonly statusOptions: LeadStatus[] = ['new', 'contacted', 'qualified', 'converted', 'rejected'];
+  // Only the user-pickable statuses appear in the dropdown. `converted`
+  // is set by the promote endpoint and cleared by the relegate endpoint;
+  // it isn't selectable directly.
+  readonly statusOptions: LeadStatus[] = ['new', 'prospect', 'dead'];
   statusLabel(s: LeadStatus): string { return STATUS_LABELS[s] ?? s; }
+
+  // Sort state for the list table. Defaults to created-order (no key).
+  readonly sortColumns: { key: LeadSortKey; label: string }[] = [
+    { key: 'name',    label: 'Name' },
+    { key: 'email',   label: 'Email' },
+    { key: 'phone',   label: 'Phone' },
+    { key: 'company', label: 'Company' },
+    { key: 'status',  label: 'Status' },
+  ];
+  sortBy  = signal<LeadSortKey | null>(null);
+  sortDir = signal<'asc' | 'desc'>('asc');
+
+  /** Click handler for the sortable headers. First click sets the key
+   *  to asc, second click flips to desc, third click clears the sort. */
+  toggleSort(key: LeadSortKey) {
+    if (this.sortBy() !== key) { this.sortBy.set(key); this.sortDir.set('asc'); return; }
+    if (this.sortDir() === 'asc') { this.sortDir.set('desc'); return; }
+    this.sortBy.set(null);
+  }
 
   mode = signal<Mode>('list');
   isNew = signal(false);
@@ -501,11 +739,23 @@ export class LeadsAdmin {
 
   // Tabs on the right-side detail card.
   readonly tabs: { key: LeadTabKey; label: string }[] = [
-    { key: 'info',  label: 'Info' },
+    { key: 'info',     label: 'Info' },
+    { key: 'contacts', label: 'Contacts' },
     { key: 'contracts', label: 'Contracts' },
-    { key: 'notes', label: 'Notes' },
+    { key: 'notes',    label: 'Notes' },
   ];
   activeTab = signal<LeadTabKey>('info');
+
+  // Contacts tab state — mirrors clients-admin's contact UI exactly so
+  // promote-to-client carries a contact list the client form already
+  // understands.
+  contacts = signal<ClientContact[]>([]);
+  contactFormOpen = signal(false);
+  contactSaving = signal(false);
+  contactError = signal<string | null>(null);
+  contactDraft: ClientContact = { first_name: '', last_name: '', position: '', email: '', verified: false, numbers: [] };
+  contactNumbers = signal<Array<{ number: string; label?: string | null }>>([]);
+  expandedContact = signal<number | null>(null);
 
   // Notes tab state — mirrors clients-admin.
   notes = signal<LeadNote[]>([]);
@@ -523,9 +773,24 @@ export class LeadsAdmin {
   infoDraft: LeadInfo = { name: '', value: '' };
 
   visible = computed(() => {
-    const list = this.leads();
-    if (!this.filterStatus) return list;
-    return list.filter(l => (l.status || 'new') === this.filterStatus);
+    let list = this.leads();
+    if (this.filterStatus) list = list.filter(l => (l.status || 'new') === this.filterStatus);
+    const key = this.sortBy();
+    if (!key) return list;
+    const dir = this.sortDir() === 'asc' ? 1 : -1;
+    // Stable, case-insensitive sort. Empty values sort to the end
+    // regardless of direction so they don't crowd the top when sorting
+    // by sparse columns like email/phone.
+    return [...list].sort((a, b) => {
+      const av = String((a as any)[key] ?? '').trim().toLowerCase();
+      const bv = String((b as any)[key] ?? '').trim().toLowerCase();
+      if (av === '' && bv === '') return 0;
+      if (av === '') return 1;
+      if (bv === '') return -1;
+      if (av < bv) return -1 * dir;
+      if (av > bv) return  1 * dir;
+      return 0;
+    });
   });
 
   constructor() {
@@ -588,8 +853,11 @@ export class LeadsAdmin {
           this.activeTab.set('info');
           this.closeNoteForm();
           this.closeInfoForm();
+          this.closeContactForm();
+          this.expandedContact.set(null);
           this.loadNotes(id);
           this.loadInfoEntries(id);
+          this.loadContacts(id);
         }
       },
       error: () => {
@@ -685,6 +953,35 @@ export class LeadsAdmin {
     });
   }
 
+  /** Inline status change from the list — fires a PUT immediately on
+   *  the row's existing payload, keeps the local list in sync without a
+   *  reload. */
+  changeStatus(l: Lead, next: LeadStatus) {
+    if (!l.id || (l.status || 'new') === next) return;
+    const prev = l.status;
+    // Optimistic update so the dropdown reflects the change instantly.
+    this.leads.update(list => list.map(x => x.id === l.id ? { ...x, status: next } : x));
+    this.api.updateLead(l.id, { ...l, status: next }).subscribe({
+      error: e => {
+        // Roll back on failure.
+        this.leads.update(list => list.map(x => x.id === l.id ? { ...x, status: prev } : x));
+        alert(e?.error?.error || 'Failed to update status');
+      },
+    });
+  }
+
+  /** Promote-to-client direct from the list row (skips opening the lead).
+   *  Mirrors the existing `promote()` on the detail view. */
+  promoteRow(l: Lead, ev?: Event) {
+    ev?.stopPropagation();
+    if (!l.id) return;
+    if (!confirm(`Promote "${l.name}" to a client? Their fields will be copied into the Clients section.`)) return;
+    this.api.promoteLead(l.id).subscribe({
+      next: r => this.router.navigate(['/admin/clients', r.client_id]),
+      error: e => alert(e?.error?.error || 'Failed to promote lead'),
+    });
+  }
+
   promote() {
     const c = this.current();
     if (!c?.id) return;
@@ -709,6 +1006,98 @@ export class LeadsAdmin {
     if (c?.promoted_client_id) {
       this.router.navigate(['/admin/clients', c.promoted_client_id]);
     }
+  }
+
+  // ----- Contacts -----
+  /** Refresh the list of contacts for the active lead. Called after every
+   *  mutation so the visible list always matches what the backend holds. */
+  private loadContacts(leadId: number) {
+    this.api.listLeadContacts(leadId).subscribe({
+      next: r => this.contacts.set(r.contacts),
+      error: () => this.contacts.set([]),
+    });
+  }
+
+  toggleContact(c: ClientContact) {
+    if (!c.id) return;
+    this.expandedContact.set(this.expandedContact() === c.id ? null : c.id);
+  }
+
+  toggleContactForm() {
+    if (this.contactFormOpen()) this.closeContactForm();
+    else this.openContactForm();
+  }
+  openContactForm() {
+    this.contactDraft = { first_name: '', last_name: '', position: '', email: '', verified: false, numbers: [] };
+    this.contactNumbers.set([]);
+    this.contactError.set(null);
+    this.contactFormOpen.set(true);
+  }
+  closeContactForm() {
+    this.contactFormOpen.set(false);
+    this.contactError.set(null);
+  }
+
+  addNumber() { this.contactNumbers.update(list => [...list, { number: '', label: '' }]); }
+  removeNumber(i: number) { this.contactNumbers.update(list => list.filter((_, idx) => idx !== i)); }
+
+  editContact(c: ClientContact) {
+    this.contactDraft = { ...c };
+    this.contactNumbers.set((c.numbers || []).map(n => ({ number: n.number, label: n.label ?? '' })));
+    this.contactError.set(null);
+    this.contactFormOpen.set(true);
+  }
+
+  saveContact() {
+    const leadId = this.current()?.id;
+    if (!leadId) return;
+    const first = (this.contactDraft.first_name || '').trim();
+    if (!first) { this.contactError.set('First name is required'); return; }
+    const email = (this.contactDraft.email || '').trim();
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      this.contactError.set('Invalid email');
+      return;
+    }
+    this.contactError.set(null);
+    this.contactSaving.set(true);
+
+    const payload: ClientContact = {
+      ...this.contactDraft,
+      first_name: first,
+      email: email || null,
+      // Strip blank rows before they hit the API — the server already
+      // ignores them but the round-trip is cleaner this way.
+      numbers: this.contactNumbers().filter(n => (n.number || '').trim() !== ''),
+    };
+
+    const after = () => {
+      this.contactSaving.set(false);
+      this.closeContactForm();
+      this.loadContacts(leadId);
+    };
+    const onError = (e: any) => {
+      this.contactSaving.set(false);
+      this.contactError.set(e?.error?.error || 'Failed to save contact');
+    };
+
+    if (this.contactDraft.id) {
+      this.api.updateLeadContact(leadId, this.contactDraft.id, payload).subscribe({ next: after, error: onError });
+    } else {
+      this.api.createLeadContact(leadId, payload).subscribe({ next: after, error: onError });
+    }
+  }
+
+  deleteContact(c: ClientContact) {
+    const leadId = this.current()?.id;
+    if (!leadId || !c.id) return;
+    if (!confirm(`Delete contact "${c.first_name} ${c.last_name || ''}"?`)) return;
+    this.api.deleteLeadContact(leadId, c.id).subscribe(() => this.loadContacts(leadId));
+  }
+
+  makePrimary(c: ClientContact) {
+    const leadId = this.current()?.id;
+    if (!leadId || !c.id) return;
+    this.api.setPrimaryLeadContact(leadId, c.id).subscribe(() => this.loadContacts(leadId));
   }
 
   // ----- Notes -----

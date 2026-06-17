@@ -828,6 +828,123 @@ return function (string $method, array $segs): void {
         Json::fail('Method not allowed', 405);
     }
 
+    // POST /api/clients/:id/relegate-to-lead → demote this client back to a
+    // lead row, then delete the client. The inverse of /api/leads/:id/promote.
+    //
+    // Carries forward: every client_contacts row (with its
+    // client_contact_numbers), every client_notes row, plus the basic
+    // top-level fields (name/email/phone/address/company/url/notes).
+    // Status on the resulting lead is reset to 'new' so it lands fresh
+    // in the pipeline. Other client-only data (accounts, services,
+    // service offerings) is dropped via the FK cascades the existing
+    // DELETE handler relies on.
+    if (($segs[2] ?? '') === 'relegate-to-lead') {
+        if ($method !== 'POST') Json::fail('Method not allowed', 405);
+
+        $pdo->beginTransaction();
+        try {
+            // Primary contact lookup — used to back-fill the lead's
+            // headline name/email/phone if the client row itself is bare
+            // (typical for bulk-imported / form-promoted clients).
+            $primary = $pdo->prepare(
+                'SELECT first_name, last_name, email
+                   FROM client_contacts
+                  WHERE client_id = ? AND is_primary = 1
+                  ORDER BY id LIMIT 1'
+            );
+            $primary->execute([$id]);
+            $pc = $primary->fetch() ?: null;
+
+            $displayName = trim((string)$client['name']);
+            if ($displayName === '' && $pc) {
+                $displayName = trim(($pc['first_name'] ?? '') . ' ' . ($pc['last_name'] ?? ''));
+            }
+            if ($displayName === '') $displayName = 'Unnamed lead';
+
+            $primaryEmail = $client['email'] ?: ($pc['email'] ?? null);
+
+            $phone = null;
+            if ($pc) {
+                $pn = $pdo->prepare(
+                    'SELECT n.number FROM client_contact_numbers n
+                     JOIN client_contacts c ON c.id = n.contact_id
+                     WHERE c.client_id = ? AND c.is_primary = 1
+                     ORDER BY n.sort_order, n.id LIMIT 1'
+                );
+                $pn->execute([$id]);
+                $phone = $pn->fetchColumn() ?: null;
+            }
+
+            $insLead = $pdo->prepare('INSERT INTO leads
+                (name, email, phone, address, company, url, notes, status, source)
+                VALUES (?,?,?,?,?,?,?, ?, ?)');
+            $insLead->execute([
+                $displayName,
+                $primaryEmail ?: null,
+                $phone,
+                $client['address'] ?? null,
+                $client['company'] ?? null,
+                $client['url']     ?? null,
+                $client['notes']   ?? null,
+                'new',
+                'relegated_from_client',
+            ]);
+            $newLeadId = (int)$pdo->lastInsertId();
+
+            // ── Carry contacts forward ────────────────────────────
+            $cStmt = $pdo->prepare('SELECT * FROM client_contacts WHERE client_id = ? ORDER BY sort_order, id');
+            $cStmt->execute([$id]);
+            $clientContacts = $cStmt->fetchAll();
+
+            $insLeadContact = $pdo->prepare('INSERT INTO lead_contacts
+                (lead_id, first_name, last_name, position, email, verified, is_primary, sort_order)
+                VALUES (?,?,?,?,?,?,?,?)');
+            $insLeadNum = $pdo->prepare('INSERT INTO lead_contact_numbers
+                (contact_id, number, label, sort_order) VALUES (?,?,?,?)');
+            $numLookup = $pdo->prepare('SELECT * FROM client_contact_numbers WHERE contact_id = ? ORDER BY sort_order, id');
+
+            foreach ($clientContacts as $cc) {
+                $insLeadContact->execute([
+                    $newLeadId,
+                    $cc['first_name'],
+                    $cc['last_name'],
+                    $cc['position'],
+                    $cc['email'],
+                    (int)$cc['verified'],
+                    (int)($cc['is_primary'] ?? 0),
+                    (int)$cc['sort_order'],
+                ]);
+                $newContactId = (int)$pdo->lastInsertId();
+                $numLookup->execute([$cc['id']]);
+                foreach ($numLookup->fetchAll() as $n) {
+                    $insLeadNum->execute([$newContactId, $n['number'], $n['label'], (int)$n['sort_order']]);
+                }
+            }
+
+            // ── Carry notes forward ───────────────────────────────
+            // client_notes → lead_notes; preserve created_at + updated_at
+            // so the timeline survives the round trip.
+            $pdo->prepare(
+                'INSERT INTO lead_notes (lead_id, title, body, sort_order, created_at, updated_at)
+                 SELECT ?, title, body, sort_order, created_at, updated_at
+                 FROM client_notes WHERE client_id = ?'
+            )->execute([$newLeadId, $id]);
+
+            // Drop the client row last. FK cascades wipe its sub-tables
+            // (client_contacts, client_contact_numbers, client_notes,
+            // client_accounts, client_info, client_service_offerings,
+            // …) — same semantics as the existing DELETE handler.
+            $pdo->prepare('DELETE FROM clients WHERE id = ?')->execute([$id]);
+
+            $pdo->commit();
+        } catch (\Throwable $e) {
+            $pdo->rollBack();
+            throw $e;
+        }
+
+        Json::send(['ok' => true, 'lead_id' => $newLeadId], 201);
+    }
+
     if ($method === 'GET') Json::send(['client' => $client]);
 
     if ($method === 'PUT') {

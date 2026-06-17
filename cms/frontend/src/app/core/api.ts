@@ -190,6 +190,15 @@ export class Api {
   deleteClient(id: number): Observable<{ ok: boolean }> {
     return this.http.delete<{ ok: boolean }>(`${BASE}/clients/${id}`);
   }
+  /** Demote a client back to a lead. Inverse of `promoteLead`. Creates
+   *  a fresh `leads` row with the client's name/email/phone/etc and
+   *  deletes the client (cascading sub-tables — same semantics as the
+   *  existing DELETE handler). */
+  relegateClientToLead(id: number): Observable<{ ok: boolean; lead_id: number }> {
+    return this.http.post<{ ok: boolean; lead_id: number }>(
+      `${BASE}/clients/${id}/relegate-to-lead`, {}
+    );
+  }
   listClientContacts(clientId: number): Observable<{ contacts: ClientContact[] }> {
     return this.http.get<{ contacts: ClientContact[] }>(`${BASE}/clients/${clientId}/contacts`);
   }
@@ -206,6 +215,25 @@ export class Api {
    *  contact for the same client in a transaction so the invariant holds. */
   setPrimaryClientContact(clientId: number, contactId: number): Observable<{ ok: boolean }> {
     return this.http.post<{ ok: boolean }>(`${BASE}/clients/${clientId}/contacts/${contactId}/primary`, {});
+  }
+
+  // ── Lead contacts (mirror of the client_contacts endpoints) ───────
+  // Same shape as ClientContact so the lead Contacts tab can reuse the
+  // existing ClientContact UI patterns without a parallel interface.
+  listLeadContacts(leadId: number): Observable<{ contacts: ClientContact[] }> {
+    return this.http.get<{ contacts: ClientContact[] }>(`${BASE}/leads/${leadId}/contacts`);
+  }
+  createLeadContact(leadId: number, payload: ClientContact): Observable<{ id: number }> {
+    return this.http.post<{ id: number }>(`${BASE}/leads/${leadId}/contacts`, payload);
+  }
+  updateLeadContact(leadId: number, contactId: number, payload: ClientContact): Observable<{ ok: boolean }> {
+    return this.http.put<{ ok: boolean }>(`${BASE}/leads/${leadId}/contacts/${contactId}`, payload);
+  }
+  deleteLeadContact(leadId: number, contactId: number): Observable<{ ok: boolean }> {
+    return this.http.delete<{ ok: boolean }>(`${BASE}/leads/${leadId}/contacts/${contactId}`);
+  }
+  setPrimaryLeadContact(leadId: number, contactId: number): Observable<{ ok: boolean }> {
+    return this.http.post<{ ok: boolean }>(`${BASE}/leads/${leadId}/contacts/${contactId}/primary`, {});
   }
   listClientAccounts(clientId: number): Observable<{ accounts: ClientAccount[] }> {
     return this.http.get<{ accounts: ClientAccount[] }>(`${BASE}/clients/${clientId}/accounts`);

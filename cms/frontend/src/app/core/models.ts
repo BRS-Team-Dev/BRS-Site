@@ -119,7 +119,13 @@ export interface Client {
   updated_at?: string;
 }
 
-export type LeadStatus = 'new' | 'contacted' | 'qualified' | 'converted' | 'rejected';
+/**
+ * Simplified lead pipeline (migration 096). `converted` is system-set
+ * only — applied by /api/leads/:id/promote and reset to 'new' by
+ * /api/clients/:id/relegate-to-lead. The other three are the user-
+ * pickable values exposed in the leads-admin dropdown.
+ */
+export type LeadStatus = 'new' | 'prospect' | 'dead' | 'converted';
 
 export interface Lead {
   id?: number;

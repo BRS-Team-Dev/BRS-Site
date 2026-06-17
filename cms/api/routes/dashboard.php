@@ -43,8 +43,9 @@ return function (string $method, array $segs): void {
         // not a single submissions table — so skip the cross-form count here. Each
         // form's individual submission count can still be fetched via /api/forms.
 
-        // ── Lead breakdown by status (matches LeadStatus union on the frontend)
-        $leadStatuses = ['new','contacted','qualified','converted','rejected'];
+        // ── Lead breakdown by status (matches LeadStatus union on the frontend
+        //    after migration 096 simplified the pipeline)
+        $leadStatuses = ['new','prospect','dead','converted'];
         $stmt = $pdo->query('SELECT status, COUNT(*) c FROM leads GROUP BY status');
         $leadsByStatusRaw = [];
         foreach ($stmt->fetchAll() as $r) $leadsByStatusRaw[(string)$r['status']] = (int)$r['c'];
