@@ -105,6 +105,15 @@ try {
         case 'public-recruitment-onboarding':
             (require __DIR__ . '/routes/public_recruitment_onboarding.php')($method, $segs);
             break;
+        case 'public-recruitment-apply':
+            (require __DIR__ . '/routes/public_recruitment_apply.php')($method, $segs);
+            break;
+        case 'public-recruitment-client':
+            (require __DIR__ . '/routes/public_recruitment_client.php')($method, $segs);
+            break;
+        case 'public-recruitment-contact':
+            (require __DIR__ . '/routes/public_recruitment_contact.php')($method, $segs);
+            break;
         case 'public-survey':
             (require __DIR__ . '/routes/public_survey.php')($method, $segs);
             break;
