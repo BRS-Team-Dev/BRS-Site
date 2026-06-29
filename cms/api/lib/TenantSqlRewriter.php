@@ -107,18 +107,26 @@ final class TenantSqlRewriter
     private static function detectMainTable(string $sql, string $op): ?array
     {
         // Table-and-alias regex: name (group 1), optional alias (group 2).
-        // Alias must not be a SQL keyword that would terminate the FROM.
-        // We accept any short identifier — the route code never uses a
-        // keyword as a table alias.
         $tableAlias = '`?([a-z0-9_]+)`?(?:\s+(?:as\s+)?`?([a-z][a-z0-9_]*)`?)?';
+
+        // Find the OUTERMOST occurrence of the operation's anchor (FROM,
+        // UPDATE, etc.) — preg_match would otherwise grab the first FROM
+        // anywhere in the string, including inside a subquery like
+        // `(SELECT … FROM form_fields ff …)` — which would lead the
+        // rewriter to qualify the WHERE clause against an inner alias
+        // that's not visible at the outer level.
+        $outerOffset = self::findOutermostAnchor($sql, $op);
+        if ($outerOffset === null) return null;
+        $tail = substr($sql, $outerOffset);
+
         $pattern = match ($op) {
-            'SELECT'          => '/\bfrom\s+' . $tableAlias . '/i',
+            'SELECT'          => '/^\bfrom\s+' . $tableAlias . '/i',
             'UPDATE'          => '/^\s*update\s+' . $tableAlias . '/i',
-            'DELETE'          => '/\bdelete\s+from\s+' . $tableAlias . '/i',
-            'INSERT','REPLACE'=> '/\b(?:insert|replace)\s+(?:ignore\s+)?into\s+`?([a-z0-9_]+)`?/i',
+            'DELETE'          => '/^\bdelete\s+from\s+' . $tableAlias . '/i',
+            'INSERT','REPLACE'=> '/^\b(?:insert|replace)\s+(?:ignore\s+)?into\s+`?([a-z0-9_]+)`?/i',
             default           => null,
         };
-        if (!$pattern || !preg_match($pattern, $sql, $m)) return null;
+        if (!$pattern || !preg_match($pattern, $tail, $m)) return null;
 
         $alias = $m[2] ?? '';
         // Suppress aliases that are actually keywords introducing the
@@ -223,5 +231,61 @@ final class TenantSqlRewriter
         // shortcut. Single-quoted string literals could theoretically
         // contain a '?' but they don't in this codebase.
         return substr_count($sql, '?');
+    }
+
+    /** Locate the byte offset of the outermost FROM / UPDATE / DELETE
+     *  FROM / INSERT INTO anchor for the given operation — i.e. the one
+     *  at parenthesis depth 0. Returns null if no anchor is found.
+     *
+     *  Critical for SELECTs whose column list contains a subquery: a
+     *  bare preg_match would grab `FROM` from inside the subquery and
+     *  the rewriter would qualify the WHERE against the wrong alias. */
+    private static function findOutermostAnchor(string $sql, string $op): ?int
+    {
+        // Anchor token(s) to look for at depth 0.
+        $anchors = match ($op) {
+            'SELECT'            => ['/\bfrom\b/i'],
+            'UPDATE'            => ['/\bupdate\b/i'],
+            'DELETE'            => ['/\bdelete\s+from\b/i'],
+            'INSERT', 'REPLACE' => ['/\b(?:insert|replace)\s+(?:ignore\s+)?into\b/i'],
+            default             => [],
+        };
+        if (!$anchors) return null;
+
+        $depth = 0;
+        $len   = strlen($sql);
+        $inSingle = false;
+        $inDouble = false;
+        $inBacktick = false;
+        for ($i = 0; $i < $len; $i++) {
+            $c = $sql[$i];
+            // String-literal awareness so a `(` inside a string can't
+            // skew depth.
+            if (!$inDouble && !$inBacktick && $c === "'") {
+                if (!$inSingle) { $inSingle = true; continue; }
+                // Escaped single quote inside single-quoted string?
+                if ($i + 1 < $len && $sql[$i + 1] === "'") { $i++; continue; }
+                $inSingle = false; continue;
+            }
+            if (!$inSingle && !$inBacktick && $c === '"') {
+                $inDouble = !$inDouble; continue;
+            }
+            if (!$inSingle && !$inDouble && $c === '`') {
+                $inBacktick = !$inBacktick; continue;
+            }
+            if ($inSingle || $inDouble || $inBacktick) continue;
+
+            if ($c === '(') { $depth++; continue; }
+            if ($c === ')') { if ($depth > 0) $depth--; continue; }
+
+            // Only consider anchors at depth 0
+            if ($depth !== 0) continue;
+            foreach ($anchors as $anchorRe) {
+                if (preg_match($anchorRe, $sql, $m, PREG_OFFSET_CAPTURE, $i) && $m[0][1] === $i) {
+                    return $i;
+                }
+            }
+        }
+        return null;
     }
 }
