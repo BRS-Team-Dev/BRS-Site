@@ -147,18 +147,20 @@ final class TenantSqlRewriter
      *  to add one) and append `AND <table>.tenant_id = ?`. */
     private static function scopeWhere(string $sql, string $table): array
     {
-        // Find boundary keywords that mark the END of the WHERE clause —
-        // GROUP BY / HAVING / ORDER BY / LIMIT / OFFSET / FOR UPDATE /
-        // INTO OUTFILE. The injection point sits just before whichever
-        // appears first; if none appears, it's at end-of-string.
-        $endRe = '/\b(group\s+by|having|order\s+by|limit\s+|offset\s+|for\s+update|for\s+share|into\s+outfile)\b/i';
-        $endPos = strlen($sql);
-        if (preg_match($endRe, $sql, $m, PREG_OFFSET_CAPTURE)) {
-            $endPos = $m[0][1];
-        }
+        // Find the OUTERMOST boundary keyword that marks the END of the
+        // WHERE clause — GROUP BY / HAVING / ORDER BY / LIMIT / OFFSET /
+        // FOR UPDATE / INTO OUTFILE. Depth-aware so a subquery's
+        // GROUP/ORDER doesn't get picked.
+        $boundaryRe = '/\b(group\s+by|having|order\s+by|limit\s+|offset\s+|for\s+update|for\s+share|into\s+outfile)\b/i';
+        $endPos = self::findOutermostByRegex($sql, $boundaryRe);
+        if ($endPos === null) $endPos = strlen($sql);
 
-        // Does a WHERE clause exist already?
-        $hasWhere = preg_match('/\bwhere\b/i', substr($sql, 0, $endPos));
+        // Does a TOP-LEVEL WHERE clause exist already? Same depth check —
+        // we must ignore WHEREs that sit inside subqueries, otherwise we
+        // append "AND …" with no real outer WHERE to attach to and MySQL
+        // bails with a syntax error.
+        $whereAtZero = self::findOutermostByRegex(substr($sql, 0, $endPos), '/\bwhere\b/i');
+        $hasWhere = $whereAtZero !== null;
 
         $tenantClause = $hasWhere
             ? " AND `{$table}`.`tenant_id` = ?"
@@ -242,16 +244,27 @@ final class TenantSqlRewriter
      *  the rewriter would qualify the WHERE against the wrong alias. */
     private static function findOutermostAnchor(string $sql, string $op): ?int
     {
-        // Anchor token(s) to look for at depth 0.
         $anchors = match ($op) {
-            'SELECT'            => ['/\bfrom\b/i'],
-            'UPDATE'            => ['/\bupdate\b/i'],
-            'DELETE'            => ['/\bdelete\s+from\b/i'],
-            'INSERT', 'REPLACE' => ['/\b(?:insert|replace)\s+(?:ignore\s+)?into\b/i'],
-            default             => [],
+            'SELECT'            => '/\bfrom\b/i',
+            'UPDATE'            => '/\bupdate\b/i',
+            'DELETE'            => '/\bdelete\s+from\b/i',
+            'INSERT', 'REPLACE' => '/\b(?:insert|replace)\s+(?:ignore\s+)?into\b/i',
+            default             => null,
         };
-        if (!$anchors) return null;
+        if ($anchors === null) return null;
+        return self::findOutermostByRegex($sql, $anchors);
+    }
 
+    /** Generic depth-0 finder used by both the anchor lookup AND the
+     *  scopeWhere boundary / has-WHERE detection. Walks the string
+     *  tracking paren depth + string-literal state, returns the byte
+     *  offset of the first match the regex would have made at depth 0.
+     *
+     *  This is what makes the rewriter robust against subqueries —
+     *  every regex-driven SQL inspection MUST go through this so it
+     *  ignores tokens inside `(SELECT … FROM … WHERE …)` etc. */
+    private static function findOutermostByRegex(string $sql, string $regex): ?int
+    {
         $depth = 0;
         $len   = strlen($sql);
         $inSingle = false;
@@ -259,11 +272,8 @@ final class TenantSqlRewriter
         $inBacktick = false;
         for ($i = 0; $i < $len; $i++) {
             $c = $sql[$i];
-            // String-literal awareness so a `(` inside a string can't
-            // skew depth.
             if (!$inDouble && !$inBacktick && $c === "'") {
                 if (!$inSingle) { $inSingle = true; continue; }
-                // Escaped single quote inside single-quoted string?
                 if ($i + 1 < $len && $sql[$i + 1] === "'") { $i++; continue; }
                 $inSingle = false; continue;
             }
@@ -278,12 +288,9 @@ final class TenantSqlRewriter
             if ($c === '(') { $depth++; continue; }
             if ($c === ')') { if ($depth > 0) $depth--; continue; }
 
-            // Only consider anchors at depth 0
             if ($depth !== 0) continue;
-            foreach ($anchors as $anchorRe) {
-                if (preg_match($anchorRe, $sql, $m, PREG_OFFSET_CAPTURE, $i) && $m[0][1] === $i) {
-                    return $i;
-                }
+            if (preg_match($regex, $sql, $m, PREG_OFFSET_CAPTURE, $i) && $m[0][1] === $i) {
+                return $i;
             }
         }
         return null;
