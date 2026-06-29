@@ -3,7 +3,7 @@ import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import {
   AdminSection, AdminUser, AdminUserRecord, AppSettings,
-  Client, ClientAccount, ClientContact, ClientInfo, ClientNote, ClientService, ClientServicesTotals, CrmDashboardOverview, Invoice, InvoiceLine, Lead, LeadInfo, LeadNote, ServicePoolEntry,
+  Client, ClientAccount, ClientContact, ClientInfo, ClientNote, ClientService, ClientServicesTotals, CrmDashboardOverview, Invoice, InvoiceLine, Lead, LeadIndustrySummary, LeadInfo, LeadNote, ServicePoolEntry,
   FormDef, FormField, FormSection,
   HrCertification, HrChangeRequest, HrComplianceNote, HrComplianceTask, HrCourse, HrCourseAssignment,
   HrEmployeeNote,
@@ -305,6 +305,12 @@ export class Api {
   // leads — potential clients funnel; promote() copies fields into a clients row
   listLeads(): Observable<{ leads: Lead[] }> {
     return this.http.get<{ leads: Lead[] }>(`${BASE}/leads`);
+  }
+  /** Distinct industries currently in use across the leads table, with
+   *  per-industry counts. Drives the dynamic Leads sub-menu on the
+   *  sidenav + the industry filter dropdown on the list view. */
+  listLeadIndustries(): Observable<{ industries: LeadIndustrySummary[] }> {
+    return this.http.get<{ industries: LeadIndustrySummary[] }>(`${BASE}/leads/industries`);
   }
   getLead(id: number): Observable<{ lead: Lead }> {
     return this.http.get<{ lead: Lead }>(`${BASE}/leads/${id}`);

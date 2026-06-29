@@ -140,8 +140,37 @@ export interface Lead {
   source?: string | null;
   promoted_client_id?: number | null;
   promoted_at?: string | null;
+  /** Free-text sector the lead operates in (Healthcare, Construction, etc.).
+   *  Powers the dynamic Leads sub-menu in the sidenav — see
+   *  Api.listLeadIndustries(). Backfilled to "Healthcare" by migration 098. */
+  industry?: string | null;
+  /** FK to a service_offerings row (the CRM Services catalogue). Drives
+   *  the per-row Service column + Service filter on the list view. */
+  service_offering_id?: number | null;
+  /** Joined display column from the API — read-only on the frontend. */
+  service_name?: string | null;
+  /** NULL until the lead has been reached out to; the list view renders
+   *  this as a yes/no badge driven off non-null. */
+  contacted_at?: string | null;
+  /** Admin user id who created the lead, or null for purely automated
+   *  inserts. NULL'd by ON DELETE SET NULL when the admin is removed. */
+  added_by_user_id?: number | null;
+  /** True when the row was inserted by an automated process (bulk
+   *  import, AI-generate, etc.). The list view shows "System" when this
+   *  is set. */
+  added_by_system?: 0 | 1 | boolean;
+  /** Joined display name of the adding admin, or null for system rows. */
+  added_by_name?: string | null;
   created_at?: string;
   updated_at?: string;
+}
+
+/** Distinct industry value with its lead count. Returned by
+ *  GET /api/leads/industries. Powers the sidenav sub-menu + the industry
+ *  filter dropdown on the leads list. */
+export interface LeadIndustrySummary {
+  name: string;
+  lead_count: number;
 }
 
 export interface LeadNote {
