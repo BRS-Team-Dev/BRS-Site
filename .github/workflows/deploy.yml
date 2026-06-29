@@ -121,6 +121,7 @@ jobs:
           cp -a cms/api    "$ART/"
           cp -a cms/db     "$ART/"
           cp -a cms/deploy "$ART/"
+          cp -a cms/scripts "$ART/"
           cp -a cms/index.php "$ART/"
           cp -a cms/.htaccess.deploy "$ART/"
           # Defensive: the artifact is force-pushed cross-platform; restore

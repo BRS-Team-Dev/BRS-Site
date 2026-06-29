@@ -59,8 +59,8 @@ final class TenantSqlRewriter
         $op = strtoupper($m[1]);
 
         // Detect the main (driving) table for the operation.
-        $table = self::detectMainTable($sql, $op);
-        if ($table === null || in_array(strtolower($table), self::GLOBAL_TABLES, true)) {
+        $info = self::detectMainTable($sql, $op);
+        if ($info === null || in_array(strtolower($info['table']), self::GLOBAL_TABLES, true)) {
             return ['sql' => $sql, 'inject_at' => self::NO_INJECTION];
         }
 
@@ -71,9 +71,15 @@ final class TenantSqlRewriter
             return ['sql' => $sql, 'inject_at' => self::NO_INJECTION];
         }
 
+        // The column-qualifier MySQL accepts must use the alias when
+        // one is present (otherwise SELECT with a `FROM leads l` aliased
+        // FROM clause errors with "Unknown column leads.tenant_id").
+        // Backticks are safe even for plain identifiers.
+        $qualifier = $info['alias'] !== '' ? $info['alias'] : $info['table'];
+
         return match ($op) {
-            'SELECT', 'UPDATE', 'DELETE' => self::scopeWhere($sql, $table),
-            'INSERT', 'REPLACE'          => self::scopeInsert($sql, $table),
+            'SELECT', 'UPDATE', 'DELETE' => self::scopeWhere($sql, $qualifier),
+            'INSERT', 'REPLACE'          => self::scopeInsert($sql, $info['table']),
             default                       => ['sql' => $sql, 'inject_at' => self::NO_INJECTION],
         };
     }
@@ -82,27 +88,51 @@ final class TenantSqlRewriter
     // Implementation
     // ──────────────────────────────────────────────────────────────────
 
-    /** Find the operation's main table. Naïve regex sufficient for the
-     *  codebase's patterns:
-     *    SELECT … FROM `table`             (first FROM hit)
-     *    UPDATE `table` SET …
-     *    DELETE FROM `table` WHERE …
-     *    INSERT INTO `table` (cols) …
+    /** Find the operation's main table AND its alias (if any).
      *
-     *  Backticks optional, schema-qualified names rejected (we never
-     *  query cross-database). Returns null on no match — caller treats
-     *  as a no-rewrite case. */
-    private static function detectMainTable(string $sql, string $op): ?string
+     *  Returned shape: `['table' => 'leads', 'alias' => 'l']` — alias is
+     *  empty when the table is referenced without one. The scoping
+     *  clause uses the alias to qualify `tenant_id` so that aliased FROM
+     *  clauses (`FROM leads l`) and JOIN aliases don't trip MySQL with
+     *  "Unknown column leads.tenant_id".
+     *
+     *  Patterns recognised (backticks optional, AS optional):
+     *    SELECT … FROM `table` `alias`?  (first FROM hit)
+     *    UPDATE `table` `alias`? SET …
+     *    DELETE FROM `table` `alias`? WHERE …
+     *    INSERT INTO `table` (cols) …    (no alias — INSERT has no alias)
+     *
+     *  Returns null when the SQL doesn't match — caller treats as
+     *  no-rewrite. */
+    private static function detectMainTable(string $sql, string $op): ?array
     {
+        // Table-and-alias regex: name (group 1), optional alias (group 2).
+        // Alias must not be a SQL keyword that would terminate the FROM.
+        // We accept any short identifier — the route code never uses a
+        // keyword as a table alias.
+        $tableAlias = '`?([a-z0-9_]+)`?(?:\s+(?:as\s+)?`?([a-z][a-z0-9_]*)`?)?';
         $pattern = match ($op) {
-            'SELECT'          => '/\bfrom\s+`?([a-z0-9_]+)`?/i',
-            'UPDATE'          => '/^\s*update\s+`?([a-z0-9_]+)`?/i',
-            'DELETE'          => '/\bdelete\s+from\s+`?([a-z0-9_]+)`?/i',
+            'SELECT'          => '/\bfrom\s+' . $tableAlias . '/i',
+            'UPDATE'          => '/^\s*update\s+' . $tableAlias . '/i',
+            'DELETE'          => '/\bdelete\s+from\s+' . $tableAlias . '/i',
             'INSERT','REPLACE'=> '/\b(?:insert|replace)\s+(?:ignore\s+)?into\s+`?([a-z0-9_]+)`?/i',
             default           => null,
         };
         if (!$pattern || !preg_match($pattern, $sql, $m)) return null;
-        return $m[1];
+
+        $alias = $m[2] ?? '';
+        // Suppress aliases that are actually keywords introducing the
+        // next clause — most commonly SET (for UPDATE) and WHERE/JOIN
+        // (for SELECT/DELETE). The regex's optional alias group will
+        // gladly eat 'set' in `UPDATE leads SET name = ?`.
+        $reservedAfterTable = ['set','where','join','inner','left','right','outer','cross','order','group','having','limit','for','straight_join','use','force','ignore','on','using','natural'];
+        if ($alias !== '' && in_array(strtolower($alias), $reservedAfterTable, true)) {
+            $alias = '';
+        }
+        return [
+            'table' => $m[1],
+            'alias' => $alias,
+        ];
     }
 
     /** For SELECT/UPDATE/DELETE: locate the WHERE clause (or the position
