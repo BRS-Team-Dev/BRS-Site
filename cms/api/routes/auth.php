@@ -17,7 +17,16 @@ return function (string $method, array $segs): void {
         $user = Auth::login($email, $pass);
         if (!$user) Json::fail('Invalid credentials', 401);
 
-        $token = Auth::issueToken($user['id'], $user['email']);
+        // Bake tenant_id + super into the JWT so every authenticated
+        // request after this can read them without re-querying the
+        // registry. Auth::login() resolved the tenant via the email
+        // domain; we just pass that through.
+        $token = Auth::issueToken(
+            (int)$user['id'],
+            $user['email'],
+            (int)$user['tenant_id'],
+            !empty($user['super'])
+        );
         Json::send(['token' => $token, 'user' => $user]);
     }
 
