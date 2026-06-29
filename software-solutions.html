@@ -846,7 +846,7 @@
             form.classList.add('is-submitting');
 
             var fd = new FormData(form);
-            fetch('/cc/api/public/tenant-signup', { method: 'POST', body: fd })
+            fetch('/cc/api/public-tenant-signup', { method: 'POST', body: fd })
               .then(function (r) { return r.json().then(function (j) { return { code: r.status, body: j }; }); })
               .then(function (res) {
                 if (res.code === 201 && res.body && res.body.token) {
