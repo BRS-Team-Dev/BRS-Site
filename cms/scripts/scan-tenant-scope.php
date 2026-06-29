@@ -98,41 +98,57 @@ function scanFile(string $file, array &$findings, array $globalTables): void
     $src = file_get_contents($file);
     if ($src === false) return;
 
-    // Skip files that don't initiate DB access themselves. Two cases:
-    //   1. Files using only Db::tpdo() — every query goes through the
-    //      runtime wrapper which auto-scopes via TenantSqlRewriter.
-    //   2. Files that don't call Db::pdo() OR Db::tpdo() at all — these
-    //      are lib helpers (Contracts.php, Recruitment.php, etc.) that
-    //      receive a $pdo from the caller and inherit the caller's
-    //      scope choice. Their type hints (TenantPdo|PDO union or just
-    //      TenantPdo) enforce the contract at the language level.
-    // The scanner only adds value for raw Db::pdo() callers (auth.php
-    // pre-context queries, public_* routes that lack a tenant identity).
-    $usesPdo = preg_match('/\bDb::pdo\(\)/', $src) === 1;
-    if (!$usesPdo) return;
+    // Skip files that don't initiate DB access themselves.
+    //   - Lib helpers receive $pdo from the caller; their type hints
+    //     enforce the contract.
+    //   - Files using Db::pdo() OR Db::tpdo() get inspected per-call
+    //     (see below — variable-aware mode).
+    $usesPdo  = preg_match('/\bDb::pdo\(\)/', $src) === 1;
+    $usesTpdo = strpos($src, 'Db::tpdo()') !== false;
+    if (!$usesPdo && !$usesTpdo) return;
 
-    // Strip /* … */ block comments (including docblocks) before scanning
-    // so the scanner doesn't trip on SQL inside example code in
-    // class-level comments. Single-line // comments are kept — they're
-    // sometimes used to disable a query temporarily during refactoring.
+    // Strip /* … */ block comments before scanning so SQL inside
+    // docblock examples doesn't trip the parser.
     $src = preg_replace('/\/\*.*?\*\//s', '', $src);
     $lines = explode("\n", $src);
 
-    // Walk each line; when we see a $pdo->prepare/query/exec(...), find
-    // the SQL string argument that follows (possibly spans multiple
-    // lines until matching '`)`'). Keep it simple — regex grabs the
-    // first string literal after the opening paren.
+    // Build a per-variable map of how the receiver was assigned. The
+    // scanner tracks the LATEST assignment seen above a call site so
+    // mixed-use files work: $pdo = Db::tpdo() / $rawPdo = Db::pdo()
+    // give different treatment to calls on $pdo vs $rawPdo.
     //
-    // We tolerate any variable name preceding `->prepare/query/exec` —
-    // the codebase consistently uses $pdo but defensive scanning helps.
-    $callRe = '/\b\$?(?:[A-Za-z_][A-Za-z0-9_]*->|::)(prepare|query|exec)\s*\(/';
+    // Map shape: var-name → 'tpdo' | 'pdo' | 'unknown'.
+    // The unknown bucket covers $pdo coming in as a parameter (lib helpers,
+    // closures with `use ($pdo)`) — caller is responsible there.
+    $varScope = [];
+    foreach ($lines as $line) {
+        if (preg_match('/\$([A-Za-z_][A-Za-z0-9_]*)\s*=\s*Db::tpdo\(\)/', $line, $m)) {
+            $varScope[$m[1]] = 'tpdo';
+        } elseif (preg_match('/\$([A-Za-z_][A-Za-z0-9_]*)\s*=\s*Db::pdo\(\)/', $line, $m)) {
+            $varScope[$m[1]] = 'pdo';
+        }
+    }
+    // Files using ONLY Db::tpdo() at the top can skip the per-call walk
+    // entirely — every query is auto-scoped by the wrapper.
+    if (!$usesPdo) return;
+
+    // Walk each line; when we see a $var->prepare/query/exec(...), look
+    // at $var's scope marker to decide whether to inspect. tpdo-scoped
+    // calls are skipped (TenantPdo handles them); pdo-scoped or
+    // unknown-receiver calls get full SQL analysis.
+    $callRe = '/\$([A-Za-z_][A-Za-z0-9_]*)->(prepare|query|exec)\s*\(/';
 
     foreach ($lines as $i => $line) {
         if (!preg_match_all($callRe, $line, $m, PREG_OFFSET_CAPTURE)) continue;
 
-        foreach ($m[1] as $callMatch) {
+        $recvNames = $m[1];
+        foreach ($m[2] as $idx => $callMatch) {
             $verb     = $callMatch[0];
             $callPos  = $callMatch[1];
+            $recvName = $recvNames[$idx][0];
+            // Skip when the receiver is tracked as a tenant-aware
+            // wrapper — TenantPdo rewrites the SQL at runtime.
+            if (($varScope[$recvName] ?? null) === 'tpdo') continue;
             // Grab everything from this position to a closing paren or
             // semicolon over the next ~30 lines (covers multi-line
             // string concatenation queries).
@@ -141,10 +157,21 @@ function scanFile(string $file, array &$findings, array $globalTables): void
             $sql      = extractSqlArg($window, $offset);
             if ($sql === null) continue;
 
-            // Skip explicitly-annotated calls. We look at the line ABOVE
-            // for the @global-scope marker.
-            $aboveLine = $i > 0 ? $lines[$i - 1] : '';
-            if (strpos($aboveLine, '@global-scope') !== false) continue;
+            // Skip explicitly-annotated calls. Look back up to 5 lines
+            // for an @global-scope marker — covers the common pattern
+            // where the comment sits above the assignment ($rawPdo =
+            // Db::pdo()) which sits above the prepare() call.
+            $annotated = false;
+            for ($k = 1; $k <= 5 && $i - $k >= 0; $k++) {
+                if (strpos($lines[$i - $k], '@global-scope') !== false) {
+                    $annotated = true; break;
+                }
+                // Stop scanning back if we cross a blank line — that
+                // signals the annotation, if it were there, belonged to
+                // a different block.
+                if (trim($lines[$i - $k]) === '') break;
+            }
+            if ($annotated) continue;
 
             $issues = analyseSql($sql, $verb, $globalTables);
             foreach ($issues as $issue) {

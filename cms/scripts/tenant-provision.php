@@ -80,15 +80,20 @@ if (strlen($tempPass) < 8) {
     fwrite(STDERR, "Temp password must be ≥8 chars.\n"); exit(2);
 }
 
+// 64-char hex (random_bytes(32)→bin2hex) used as the public_api_key.
+// Long enough to be safe to embed in JS without enumeration risk;
+// indexed via the UNIQUE constraint added in migration 109.
+$publicApiKey = bin2hex(random_bytes(32));
+
 $pdo = Db::pdo();
 $pdo->beginTransaction();
 try {
     // 1) Tenant row
     $ins = $pdo->prepare(
-        'INSERT INTO tenants (slug, brand_name, status, created_at)
-         VALUES (?, ?, "active", NOW())'
+        'INSERT INTO tenants (slug, brand_name, status, public_api_key, created_at)
+         VALUES (?, ?, "active", ?, NOW())'
     );
-    $ins->execute([$slug, $brand]);
+    $ins->execute([$slug, $brand, $publicApiKey]);
     $tenantId = (int)$pdo->lastInsertId();
 
     // 2) Domain → tenant mapping
@@ -116,6 +121,7 @@ try {
 if (function_exists('apcu_delete')) {
     apcu_delete('brs.tenant.domains');
     apcu_delete('brs.tenant.killset');
+    apcu_delete('brs.tenant.apikeys');
 }
 
 // ── Summary ─────────────────────────────────────────────────────────
@@ -137,5 +143,11 @@ echo "
                   change it via /me → password)
 
   Login URL     : (base)/cc/login
+
+  Public API key: $publicApiKey
+                  (embed in their marketing site forms; sent as
+                  `X-Tenant-Key: <key>` header so public form
+                  submissions, jobs board reads, and newsletter
+                  unsubscribes route to this tenant)
 ─────────────────────────────────────────────────────────────────────
 ";

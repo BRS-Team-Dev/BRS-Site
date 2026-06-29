@@ -28,6 +28,8 @@ import {
   RecruitmentOnboardingPortalSnapshot,
   RecruitmentPlacement, RecruitmentRole, RecruitmentSkill,
   ServiceOffering,
+  SuperAuditEntry,
+  TenantSummary,
 } from './models';
 import { AiModel, CustomAiModel } from './ai-models';
 import { environment } from '@env/environment';
@@ -50,6 +52,34 @@ export class Api {
   }
   me(): Observable<{ user: AdminUser }> {
     return this.http.get<{ user: AdminUser }>(`${BASE}/auth/me`);
+  }
+  /** Super-admin: hand the current session's identity to another tenant.
+   *  Returns a NEW JWT scoped to the target tenant. */
+  impersonate(tenantId: number): Observable<{
+    token: string; tenant_id: number; tenant_slug: string; brand_name: string;
+    impersonating: { from: number };
+  }> {
+    return this.http.post<{
+      token: string; tenant_id: number; tenant_slug: string; brand_name: string;
+      impersonating: { from: number };
+    }>(`${BASE}/auth/impersonate`, { tenant_id: tenantId });
+  }
+
+  // ── Super-admin (cross-tenant) ────────────────────────────────────
+  listAllTenants(): Observable<{ tenants: TenantSummary[] }> {
+    return this.http.get<{ tenants: TenantSummary[] }>(`${BASE}/super-admin/tenants`);
+  }
+  suspendTenant(id: number): Observable<{ ok: boolean; tenant_id: number; status: string }> {
+    return this.http.post<{ ok: boolean; tenant_id: number; status: string }>(`${BASE}/super-admin/tenants/${id}/suspend`, {});
+  }
+  activateTenant(id: number): Observable<{ ok: boolean; tenant_id: number; status: string }> {
+    return this.http.post<{ ok: boolean; tenant_id: number; status: string }>(`${BASE}/super-admin/tenants/${id}/activate`, {});
+  }
+  softDeleteTenant(id: number): Observable<{ ok: boolean; tenant_id: number; status: string }> {
+    return this.http.post<{ ok: boolean; tenant_id: number; status: string }>(`${BASE}/super-admin/tenants/${id}/soft-delete`, {});
+  }
+  listSuperAuditLog(limit = 100): Observable<{ entries: SuperAuditEntry[] }> {
+    return this.http.get<{ entries: SuperAuditEntry[] }>(`${BASE}/super-admin/audit?limit=${limit}`);
   }
   changePassword(current_password: string, new_password: string): Observable<{ ok: boolean }> {
     return this.http.post<{ ok: boolean }>(`${BASE}/auth/change-password`, { current_password, new_password });

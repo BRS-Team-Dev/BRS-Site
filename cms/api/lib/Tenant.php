@@ -56,14 +56,71 @@ final class Tenant
     /** Bootstrap context for public (no-auth) endpoints — onboarding
      *  portals, form intake, surveys, public jobs board, etc. These
      *  routes don't carry a JWT, so they can't derive a tenant from
-     *  claims. Until tenant-detection-from-host lands in Phase 5, all
-     *  public routes operate against the BRS tenant (id = 1).
+     *  claims.
      *
-     *  Call this at the very top of any public route file BEFORE the
-     *  first Db::tpdo() use. */
-    public static function setForPublic(int $tenantId = 1): void
+     *  Resolution order:
+     *    1. X-Tenant-Key header — each tenant's marketing site embeds
+     *       its public_api_key (migration 109) and sends it on every
+     *       public request. Matching key → that tenant.
+     *    2. Explicit $tenantId arg — bypasses the header, used by tests
+     *       and a few legacy callers.
+     *    3. Fallback: tenant 1 (BRS). Keeps the existing single-tenant
+     *       marketing site working unchanged until each tenant ships
+     *       their own key.
+     *
+     *  Suspended / soft-deleted tenants found via header are rejected
+     *  silently (falls through to default) so a paused tenant doesn't
+     *  see their forms go to BRS instead — the route hits the kill-set
+     *  later when Db::tpdo() needs Tenant::id(). For now we simply
+     *  refuse via {@see \BRS\Tenants::resolveByApiKey()}.
+     */
+    public static function setForPublic(?int $tenantId = null): void
     {
         if (self::$tenantId !== null) return;
+
+        if ($tenantId === null) {
+            $key = self::headerCaseInsensitive('X-Tenant-Key') ?? '';
+            if ($key !== '') {
+                $resolved = \BRS\Tenants::resolveByApiKey($key);
+                if ($resolved !== null) $tenantId = $resolved;
+            }
+        }
+
+        self::$tenantId = $tenantId ?? 1;
+        self::$userId   = null;
+        self::$email    = null;
+        self::$super    = false;
+    }
+
+    /** Lower-case-fold the header lookup since Apache normalises one
+     *  way and PHP-FPM another, and we don't want a header that the
+     *  client sent to silently fail because of casing. */
+    private static function headerCaseInsensitive(string $name): ?string
+    {
+        $serverKey = 'HTTP_' . strtoupper(str_replace('-', '_', $name));
+        if (isset($_SERVER[$serverKey])) return (string)$_SERVER[$serverKey];
+        if (function_exists('apache_request_headers')) {
+            $h = apache_request_headers();
+            foreach ($h as $k => $v) {
+                if (strcasecmp($k, $name) === 0) return (string)$v;
+            }
+        }
+        return null;
+    }
+
+    /** Re-target the request to a specific tenant derived from a URL
+     *  token. Used by no-auth flows where the URL itself implies the
+     *  tenant — e.g. newsletter unsubscribe (token → recipient row →
+     *  recipient.tenant_id), HR onboarding portal (token → employee →
+     *  employee.tenant_id), recruitment candidate portal, etc.
+     *
+     *  The caller is expected to have already resolved the tenant_id
+     *  via a deliberately-global query (annotated @global-scope) and
+     *  is just telling the framework "everything from here is this
+     *  tenant's data". Unlike set(), this WILL replace an existing
+     *  context — that's the whole point. */
+    public static function overrideTo(int $tenantId): void
+    {
         self::$tenantId = $tenantId;
         self::$userId   = null;
         self::$email    = null;

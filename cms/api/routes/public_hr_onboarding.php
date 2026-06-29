@@ -22,18 +22,22 @@ require_once __DIR__ . '/../lib/hr_course.php';
 use BRS\Tenant;
 
 return function (string $method, array $segs): void {
-    // Public routes have no JWT — bootstrap the tenant context.
-    // Hardcoded to BRS (tenant 1) until per-tenant public routing
-    // lands in Phase 5 (subdomain detection / per-tenant API key).
-    Tenant::setForPublic();
-    $pdo = Db::tpdo();
+    // Onboarding tokens are globally unique (128-bit random) so the
+    // look-up doesn't need tenant context. Once the row is found we
+    // know which tenant it belongs to — pin context to that tenant so
+    // every subsequent write through Db::tpdo() auto-scopes correctly.
     $token = (string)($segs[1] ?? '');
     if ($token === '' || strlen($token) < 16) Json::fail('token required', 400);
 
-    $row = $pdo->prepare('SELECT * FROM hr_employees WHERE onboarding_token = ?');
+    // @global-scope: URL-token lookup; tenant derived from the row
+    $rawPdo = Db::pdo();
+    $row = $rawPdo->prepare('SELECT * FROM hr_employees WHERE onboarding_token = ? LIMIT 1');
     $row->execute([$token]);
     $emp = $row->fetch();
     if (!$emp) Json::fail('Invalid or expired link', 404);
+
+    Tenant::overrideTo((int)$emp['tenant_id']);
+    $pdo = Db::tpdo();
 
     $eid = (int)$emp['id'];
     $sub = (string)($segs[2] ?? '');

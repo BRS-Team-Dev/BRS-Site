@@ -55,11 +55,27 @@ return function (string $method, array $segs): void {
                . '<body style="font-family:sans-serif;padding:40px;text-align:center"><h2>Missing token</h2></body>';
             return;
         }
-        $pdo  = Db::tpdo();
-        $stmt = $pdo->prepare('SELECT email FROM newsletter_recipients WHERE unsubscribe_token = ?');
+        // Resolve the unsubscribe token to the recipient row globally —
+        // the token is unique across all tenants by design (high-entropy
+        // hex; URL routes hit before tenant context could possibly be
+        // established). From the row we read the owning tenant_id and
+        // re-target Tenant context to it so the subsequent INSERT into
+        // newsletter_suppressions + UPDATE on newsletter_recipients
+        // both auto-scope to the correct tenant via TenantPdo.
+        // @global-scope: URL-token lookup; tenant derived from the row
+        $rawPdo = Db::pdo();
+        $stmt = $rawPdo->prepare(
+            'SELECT email, tenant_id FROM newsletter_recipients
+              WHERE unsubscribe_token = ? LIMIT 1'
+        );
         $stmt->execute([$token]);
-        $email = $stmt->fetchColumn();
+        $rcp = $stmt->fetch();
+        $email = $rcp['email'] ?? null;
         if ($email) {
+            // Pin context to the recipient's tenant; subsequent
+            // Db::tpdo() writes scope to (int)$rcp['tenant_id'].
+            Tenant::overrideTo((int)$rcp['tenant_id']);
+            $pdo = Db::tpdo();
             $pdo->prepare(
                 'INSERT INTO newsletter_suppressions (email, reason)
                  VALUES (?, "user_unsubscribe")

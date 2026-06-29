@@ -5,6 +5,8 @@ use BRS\Auth;
 use BRS\Db;
 use BRS\Json;
 use BRS\Mailer;
+use BRS\Tenant;
+use BRS\Tenants;
 
 return function (string $method, array $segs): void {
     // /api/auth/login
@@ -28,6 +30,63 @@ return function (string $method, array $segs): void {
             !empty($user['super'])
         );
         Json::send(['token' => $token, 'user' => $user]);
+    }
+
+    // /api/auth/impersonate { tenant_id }
+    //
+    // Super-admin only. Issues a NEW JWT with the target tenant_id
+    // baked in so the calling user can operate inside that tenant for
+    // the duration of the new token's TTL. The original tenant id is
+    // preserved in the `impersonating.from` claim so the frontend can
+    // surface a "Switch back" action.
+    //
+    // Writes a row to super_action_log for the compliance trail. Refuses
+    // to impersonate a suspended / soft-deleted tenant (would also
+    // trigger the kill-set check on every subsequent request, but we
+    // catch it here so the caller sees a clear 403 immediately).
+    if ($method === 'POST' && ($segs[1] ?? '') === 'impersonate') {
+        Auth::require();
+        if (!Tenant::isSuper()) Json::fail('Forbidden', 403);
+
+        $body          = Json::readBody();
+        $targetTenant  = (int)($body['tenant_id'] ?? 0);
+        if ($targetTenant <= 0) Json::fail('tenant_id required', 400);
+
+        // @global-scope: registry lookup — global table
+        $row = Tenants::get($targetTenant);
+        if (!$row)                              Json::fail('Tenant not found', 404);
+        if ($row['status'] !== 'active')        Json::fail('Tenant not active', 403);
+
+        // Detect "switching back" — if the body explicitly returns to
+        // the impersonator's home tenant, we still write an audit row.
+        $fromTenant = Tenant::id();
+
+        // Look up Bobby's row in the TARGET tenant's admin_users — usually
+        // doesn't exist there, so we mint the JWT against his BRS user id.
+        // Routes don't need a target-tenant admin_users row; they only
+        // need (sub, tenant_id, email, super).
+        $token = Auth::issueToken(
+            (int)(Tenant::userId() ?? 0),
+            (string)(Tenant::email() ?? ''),
+            $targetTenant,
+            true               // super stays true through impersonation
+        );
+
+        Tenants::logSuperAction(
+            (string)(Tenant::email() ?? ''),
+            'impersonate',
+            $targetTenant,
+            $fromTenant,
+            json_encode(['target_slug' => $row['slug']])
+        );
+
+        Json::send([
+            'token'        => $token,
+            'tenant_id'    => $targetTenant,
+            'tenant_slug'  => $row['slug'],
+            'brand_name'   => $row['brand_name'],
+            'impersonating' => ['from' => $fromTenant],
+        ]);
     }
 
     // /api/auth/me

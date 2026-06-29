@@ -2061,3 +2061,29 @@ export const FIELD_TYPES: { value: FieldType; label: string }[] = [
 ];
 
 export const HAS_OPTIONS: FieldType[] = ['select', 'radio', 'checkbox', 'style_cards'];
+
+// ──────────────────────────────────────────────────────────────────
+// Multi-tenant (super-admin) types
+// ──────────────────────────────────────────────────────────────────
+
+/** Row returned by GET /api/super-admin/tenants. */
+export interface TenantSummary {
+  id: number;
+  slug: string;
+  brand_name: string;
+  status: 'provisioning' | 'active' | 'suspended' | 'deleted';
+  created_at: string;
+  deleted_at: string | null;
+}
+
+/** Row returned by GET /api/super-admin/audit. */
+export interface SuperAuditEntry {
+  id: number;
+  super_email: string;
+  action: string;
+  target_tenant: number | null;
+  from_tenant: number | null;
+  ip: string | null;
+  created_at: string;
+  detail: string | null;
+}

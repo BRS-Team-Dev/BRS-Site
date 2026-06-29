@@ -32,6 +32,7 @@ final class Tenants
     private const CACHE_KEY_KILLSET = 'brs.tenant.killset';
     private const CACHE_KEY_SUPER   = 'brs.super.admins';
     private const CACHE_KEY_DOMAINS = 'brs.tenant.domains';
+    private const CACHE_KEY_APIKEYS = 'brs.tenant.apikeys';
 
     /** Resolve an email's domain to a tenant_id, or null if no match.
      *  Used at login. Hits APCu first, falls through to a single registry
@@ -45,6 +46,24 @@ final class Tenants
 
         $domains = self::loadDomainMap();
         return $domains[$domain] ?? null;
+    }
+
+    /** Resolve a public API key to a tenant_id. Used by public-route
+     *  dispatching — each tenant's marketing site embeds its key and
+     *  sends it as `X-Tenant-Key: …` on every form submission / public
+     *  read. Returns null for missing / invalid / suspended tenants.
+     *
+     *  APCu-cached for 1h via the same row cache used by {@see self::get}.
+     *  The lookup table is small (one row per tenant) so loading the
+     *  whole map at once is fine.
+     */
+    public static function resolveByApiKey(string $apiKey): ?int
+    {
+        if ($apiKey === '' || strlen($apiKey) !== 64) return null;
+        $map = self::loadApiKeyMap();
+        $tid = $map[$apiKey] ?? null;
+        if ($tid === null || self::isKilled($tid)) return null;
+        return $tid;
     }
 
     /** Returns the full tenant row (slug, brand_name, status, …) for a
@@ -164,6 +183,11 @@ final class Tenants
         if (function_exists('apcu_delete')) apcu_delete(self::CACHE_KEY_DOMAINS);
     }
 
+    public static function flushApiKeys(): void
+    {
+        if (function_exists('apcu_delete')) apcu_delete(self::CACHE_KEY_APIKEYS);
+    }
+
     // ──────────────────────────────────────────────────────────────────
     // Internals
     // ──────────────────────────────────────────────────────────────────
@@ -192,6 +216,25 @@ final class Tenants
         foreach ($rows as $r) { $map[strtolower($r['domain'])] = (int)$r['tenant_id']; }
         if (function_exists('apcu_store')) {
             apcu_store(self::CACHE_KEY_DOMAINS, $map, self::ROW_TTL_SECONDS);
+        }
+        return $map;
+    }
+
+    /** Public API key → tenant_id lookup. Cached 1h in APCu. */
+    private static function loadApiKeyMap(): array
+    {
+        if (function_exists('apcu_fetch')) {
+            $hit = apcu_fetch(self::CACHE_KEY_APIKEYS, $ok);
+            if ($ok && is_array($hit)) return $hit;
+        }
+        $rows = Db::pdo()->query(
+            "SELECT public_api_key, id FROM tenants
+              WHERE public_api_key IS NOT NULL AND status = 'active'"
+        )->fetchAll();
+        $map = [];
+        foreach ($rows as $r) { $map[(string)$r['public_api_key']] = (int)$r['id']; }
+        if (function_exists('apcu_store')) {
+            apcu_store(self::CACHE_KEY_APIKEYS, $map, self::ROW_TTL_SECONDS);
         }
         return $map;
     }
