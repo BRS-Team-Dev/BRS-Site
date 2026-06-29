@@ -1,0 +1,1 @@
+import{H as n,ca as o}from"./chunk-7IJ5RP56.js";var s=class t{_state=o(null);state=this._state.asReadonly();open(a,e={},i=""){this._state.set({component:a,inputs:e,title:i})}close(){this._state.set(null)}static \u0275fac=function(e){return new(e||t)};static \u0275prov=n({token:t,factory:t.\u0275fac,providedIn:"root"})};export{s as a};
