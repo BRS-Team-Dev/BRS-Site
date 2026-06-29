@@ -52,4 +52,15 @@ return [
     'base_url'    => rtrim($env['BASE_URL'] ?? '', '/'),
     'storage_dir' => __DIR__ . '/../storage',
     'upload_max_mb_default' => (int)($env['UPLOAD_MAX_MB'] ?? 10),
+    // Multi-tenant mode (Phase 2+).
+    //   off (default): Auth::login() accepts any email matching admin_users
+    //                  globally, tokens carry tenant_id=1 (BRS) automatically.
+    //   on:            Auth::login() routes by email domain via the registry
+    //                  tables, rejects emails whose domain isn't mapped to a
+    //                  tenant, and the kill-set check enforces suspension on
+    //                  every authenticated request.
+    // Routes and migrations work in both modes — the schema gained the
+    // tenant_id columns in Phase 1; turning the flag on is what makes
+    // login start using them as the source of truth.
+    'multi_tenant' => filter_var($env['MULTI_TENANT'] ?? 'false', FILTER_VALIDATE_BOOLEAN),
 ];
