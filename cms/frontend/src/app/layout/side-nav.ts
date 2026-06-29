@@ -2,7 +2,7 @@ import { Component, computed, inject, signal } from '@angular/core';
 import { NavigationEnd, Router, RouterLink, RouterLinkActive } from '@angular/router';
 import { filter } from 'rxjs';
 import { Api } from '../core/api';
-import { AdminSection, FormDef, ServiceOffering } from '../core/models';
+import { AdminSection, FormDef, LeadIndustrySummary, ServiceOffering } from '../core/models';
 import { SettingsService } from '../core/settings.service';
 import { environment } from '@env/environment';
 
@@ -46,10 +46,19 @@ import { environment } from '@env/environment';
         <div class="nav-group">
           <a routerLink="/admin/leads" [class.active]="isLeadsActive()">
             <span class="icon">◇</span> Leads
-            @if (childrenOfBuiltin('leads').length > 0) { <span class="caret">›</span> }
+            @if (leadIndustries().length > 0 || childrenOfBuiltin('leads').length > 0) { <span class="caret">›</span> }
           </a>
-          @if (childrenOfBuiltin('leads').length > 0) {
+          @if (leadIndustries().length > 0 || childrenOfBuiltin('leads').length > 0) {
             <div class="children">
+              @for (ind of leadIndustries(); track ind.name) {
+                <a [routerLink]="['/admin/leads']"
+                   [queryParams]="{ industry: ind.name }"
+                   queryParamsHandling="merge"
+                   [class.active]="isLeadIndustryActive(ind.name)">
+                  <span class="icon">◌</span> {{ ind.name }}
+                  <span class="count">{{ ind.lead_count }}</span>
+                </a>
+              }
               @for (c of childrenOfBuiltin('leads'); track c.id) {
                 <a [routerLink]="childLinkPath(c)" [class.active]="isChildLinkActive(c)">
                   <span class="icon">◌</span> {{ c.main_section_label || c.title }}
@@ -235,6 +244,19 @@ import { environment } from '@env/environment';
       border-left: 1px solid var(--line);
     }
     .children a { font-size: 13px; padding: 8px 12px; }
+    /* Compact count chip on sub-items that aggregate rows (e.g. each
+       Leads → industry shows how many leads fall under it). */
+    .children a .count {
+      margin-left: auto;
+      padding: 1px 6px;
+      border-radius: 999px;
+      background: var(--bg-3);
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 600;
+      line-height: 1.5;
+    }
+    .children a.active .count { background: rgba(212, 169, 58, 0.16); color: var(--primary); }
 
     .nav-group:has(.active) > .children,
     .nav-group:hover > .children { display: flex; }
@@ -253,6 +275,11 @@ export class SideNav {
   standardForms = signal<FormDef[]>([]);
   serviceOfferings = signal<ServiceOffering[]>([]);
   adminSections = signal<AdminSection[]>([]);
+  /** Distinct industry values currently held by at least one lead.
+   *  Populated from /api/leads/industries; each becomes a sub-menu
+   *  entry under the Leads group that deep-links to
+   *  /admin/leads?industry=<name>. */
+  leadIndustries = signal<LeadIndustrySummary[]>([]);
   currentUrl = signal<string>(this.router.url);
   topAdminSections = computed(() =>
     this.adminSections().filter(s => (s.sidenav_placement ?? 'top') === 'top')
@@ -272,6 +299,16 @@ export class SideNav {
   isLeadsActive = (): boolean => {
     const url = this.currentUrl();
     return url === '/admin/leads' || url.startsWith('/admin/leads/') || url.startsWith('/admin/leads?');
+  };
+  /** An industry sub-link is active when the current URL is the leads
+   *  list AND its `industry` query param matches this entry. Encoded
+   *  match so names with spaces ("Care Homes") survive the round trip. */
+  isLeadIndustryActive = (name: string): boolean => {
+    const url = this.currentUrl();
+    if (!url.startsWith('/admin/leads')) return false;
+    const q = url.split('?')[1] ?? '';
+    const params = new URLSearchParams(q);
+    return (params.get('industry') ?? '') === name;
   };
   isLeadgenActive = (): boolean => {
     const url = this.currentUrl();
@@ -351,6 +388,7 @@ export class SideNav {
     this.loadStandardForms();
     this.loadServiceOfferings();
     this.loadSections();
+    this.loadLeadIndustries();
     this.router.events.pipe(filter(e => e instanceof NavigationEnd)).subscribe(e => {
       const url = (e as NavigationEnd).urlAfterRedirects;
       this.currentUrl.set(url);
@@ -363,6 +401,10 @@ export class SideNav {
       if (url === '/admin/forms'      || url.startsWith('/admin/forms?'))      this.loadStandardForms();
       if (url === '/admin/services'   || url.startsWith('/admin/services?'))   this.loadServiceOfferings();
       if (url === '/admin/sections'   || url.startsWith('/admin/sections?'))   this.loadSections();
+      // Refresh the industry list whenever the user lands on the leads
+      // root — covers add / delete / bulk-import / industry-edit cases
+      // that would change the distinct set of values.
+      if (url === '/admin/leads'      || url.startsWith('/admin/leads?'))      this.loadLeadIndustries();
     });
   }
 
@@ -388,6 +430,12 @@ export class SideNav {
     this.api.listSections().subscribe({
       next: r => this.adminSections.set(r.sections),
       error: () => {/* silent */},
+    });
+  }
+  private loadLeadIndustries() {
+    this.api.listLeadIndustries().subscribe({
+      next: r => this.leadIndustries.set(r.industries),
+      error: () => {/* silent — likely not authed yet */},
     });
   }
 }

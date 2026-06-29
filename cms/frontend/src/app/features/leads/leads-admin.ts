@@ -1,8 +1,9 @@
 import { Component, computed, inject, signal } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
+import { DatePipe } from '@angular/common';
 import { Api } from '../../core/api';
-import { ClientContact, Lead, LeadInfo, LeadNote, LeadStatus } from '../../core/models';
+import { ClientContact, Lead, LeadIndustrySummary, LeadInfo, LeadNote, LeadStatus, ServiceOffering } from '../../core/models';
 import { EntityContracts } from '../../shared/entity-contracts';
 
 type Mode = 'list' | 'view' | 'edit';
@@ -16,7 +17,9 @@ const STATUS_LABELS: Record<LeadStatus, string> = {
 };
 
 /** Columns the user can sort the list by. Tied to fields on `Lead`. */
-type LeadSortKey = 'name' | 'email' | 'phone' | 'company' | 'status';
+type LeadSortKey =
+  | 'name' | 'email' | 'phone' | 'company'
+  | 'industry' | 'service_name' | 'contacted_at' | 'added_by' | 'status';
 
 /**
  * Leads section — potential clients before promotion.
@@ -30,27 +33,57 @@ type LeadSortKey = 'name' | 'email' | 'phone' | 'company' | 'status';
  */
 @Component({
   selector: 'app-leads-admin',
-  imports: [RouterLink, FormsModule, EntityContracts],
+  imports: [RouterLink, FormsModule, EntityContracts, DatePipe],
   template: `
     @if (mode() === 'list') {
       <div class="toolbar">
         <h1>Leads</h1>
         <span class="spacer"></span>
-        <select [(ngModel)]="filterStatus" name="status_filter" class="status-filter">
+        <input class="search" type="search" placeholder="Search name / email / phone / company / industry / service / source / added by…"
+               [ngModel]="searchTerm()" (ngModelChange)="searchTerm.set($event)" name="search" />
+        <select [ngModel]="filterIndustry()" (ngModelChange)="filterIndustry.set($event)" name="ind_filter" class="status-filter">
+          <option value="">All industries</option>
+          @for (i of industryOptions(); track i.name) {
+            <option [value]="i.name">{{ i.name }} ({{ i.lead_count }})</option>
+          }
+        </select>
+        <select [ngModel]="filterServiceId()" (ngModelChange)="filterServiceId.set($event)" name="svc_filter" class="status-filter">
+          <option [ngValue]="''">All services</option>
+          @for (s of serviceOptions(); track s.id) {
+            <option [ngValue]="s.id">{{ s.name }}</option>
+          }
+        </select>
+        <select [ngModel]="filterContacted()" (ngModelChange)="filterContacted.set($event)" name="ctd_filter" class="status-filter">
+          <option value="">All contacts</option>
+          <option value="yes">Contacted</option>
+          <option value="no">Not contacted</option>
+        </select>
+        <select [ngModel]="filterStatus()" (ngModelChange)="filterStatus.set($event)" name="status_filter" class="status-filter">
           <option value="">All statuses</option>
           @for (s of statusOptions; track s) {
             <option [value]="s">{{ statusLabel(s) }}</option>
           }
         </select>
+        @if (anyFilterActive()) {
+          <button class="ghost" type="button" (click)="clearFilters()" title="Clear all filters">✕ Clear</button>
+        }
         <button class="primary" routerLink="/admin/leads/new">+ New lead</button>
       </div>
 
       @if (visible().length === 0) {
         <div class="empty">
-          <p class="muted">No leads yet.</p>
-          <button class="primary" routerLink="/admin/leads/new">Add your first lead</button>
+          @if (anyFilterActive()) {
+            <p class="muted">No leads match these filters.</p>
+            <button class="ghost" (click)="clearFilters()">Clear filters</button>
+          } @else {
+            <p class="muted">No leads yet.</p>
+            <button class="primary" routerLink="/admin/leads/new">Add your first lead</button>
+          }
         </div>
       } @else {
+        <p class="muted small list-count">
+          {{ visible().length }} of {{ leads().length }} lead{{ leads().length === 1 ? '' : 's' }}
+        </p>
         <div class="table-wrap">
           <table class="data">
             <thead><tr>
@@ -75,6 +108,26 @@ type LeadSortKey = 'name' | 'email' | 'phone' | 'company' | 'status';
                   <td>{{ l.email || '—' }}</td>
                   <td>{{ l.phone || '—' }}</td>
                   <td>{{ l.company || '—' }}</td>
+                  <td>{{ l.industry || '—' }}</td>
+                  <td>{{ l.service_name || '—' }}</td>
+                  <td (click)="$event.stopPropagation()">
+                    <button class="contacted-pill" type="button"
+                            [class.yes]="!!l.contacted_at"
+                            (click)="toggleContacted(l)"
+                            [title]="l.contacted_at ? ('Contacted ' + (l.contacted_at | date:'short')) : 'Mark as contacted'">
+                      {{ l.contacted_at ? 'Yes' : 'No' }}
+                    </button>
+                  </td>
+                  <td>
+                    @if (l.added_by_system) {
+                      <span class="muted">System</span>
+                      @if (l.added_by_name) { <span class="muted small"> · {{ l.added_by_name }}</span> }
+                    } @else if (l.added_by_name) {
+                      {{ l.added_by_name }}
+                    } @else {
+                      <span class="muted">—</span>
+                    }
+                  </td>
                   <td (click)="$event.stopPropagation()">
                     <select class="status-inline"
                             [attr.data-status]="l.status || 'new'"
@@ -147,6 +200,27 @@ type LeadSortKey = 'name' | 'email' | 'phone' | 'company' | 'status';
               <div>
                 @if (l.url) {
                   <a [href]="l.url" target="_blank" rel="noopener">{{ l.url }}</a>
+                } @else { — }
+              </div>
+            </div>
+            <div class="kv"><label>Industry</label><div>{{ l.industry || '—' }}</div></div>
+            <div class="kv"><label>Service</label><div>{{ l.service_name || '—' }}</div></div>
+            <div class="kv">
+              <label>Contacted</label>
+              <div>
+                @if (l.contacted_at) {
+                  <span class="status-pill" data-status="prospect">Yes · {{ l.contacted_at | date:'short' }}</span>
+                } @else { — }
+              </div>
+            </div>
+            <div class="kv">
+              <label>Added by</label>
+              <div>
+                @if (l.added_by_system) {
+                  <span class="muted">System</span>
+                  @if (l.added_by_name) { · {{ l.added_by_name }} }
+                } @else if (l.added_by_name) {
+                  {{ l.added_by_name }}
                 } @else { — }
               </div>
             </div>
@@ -433,8 +507,37 @@ type LeadSortKey = 'name' | 'email' | 'phone' | 'company' | 'status';
               </div>
             </div>
 
+            <div class="row two-col">
+              <div>
+                <label>Industry / sector</label>
+                <input list="ld_industries" [(ngModel)]="draft.industry" name="ld_industry"
+                       placeholder="Healthcare, Construction, …" />
+                <datalist id="ld_industries">
+                  @for (i of industryOptions(); track i.name) {
+                    <option [value]="i.name"></option>
+                  }
+                </datalist>
+              </div>
+              <div>
+                <label>Service we're pitching</label>
+                <select [(ngModel)]="draft.service_offering_id" name="ld_service">
+                  <option [ngValue]="null">— none —</option>
+                  @for (s of serviceOptions(); track s.id) {
+                    <option [ngValue]="s.id">{{ s.name }}</option>
+                  }
+                </select>
+              </div>
+            </div>
+
             <label>Source</label>
             <input [(ngModel)]="draft.source" name="ld_source" placeholder="referral, website, event…" />
+
+            <label class="check">
+              <input type="checkbox" name="ld_contacted"
+                     [checked]="!!draft.contacted_at"
+                     (change)="setDraftContacted($any($event.target).checked)" />
+              Already contacted
+            </label>
 
             <label>Notes</label>
             <textarea [(ngModel)]="draft.notes" name="ld_notes" rows="6" placeholder="Anything worth knowing about this lead."></textarea>
@@ -447,6 +550,43 @@ type LeadSortKey = 'name' | 'email' | 'phone' | 'company' | 'status';
     /* Toolbar select needs a capped width — global rule sets selects to
        width:100% which would otherwise blow up the toolbar. */
     .status-filter { width: auto; min-width: 160px; }
+    /* Search box sits to the left of the filter selects. flex:1 lets it
+       eat the remaining toolbar room when the filters collapse on a
+       narrow viewport. */
+    .toolbar .search {
+      flex: 1 1 220px; max-width: 360px; min-width: 180px;
+      padding: 6px 10px;
+      background: var(--bg-2);
+      border: 1px solid var(--line);
+      border-radius: var(--radius-sm);
+      color: var(--fg); font-size: 13px;
+    }
+    .toolbar .search:focus { outline: 0; border-color: var(--primary); }
+    .list-count { margin: 4px 0 8px; }
+
+    /* Inline contacted indicator on the list. Click toggles between
+       Yes (today's timestamp) and No (null). Colour-coded same way
+       as the status pills so the column scans at a glance. */
+    .contacted-pill {
+      padding: 3px 12px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      background: var(--bg-2);
+      color: var(--muted);
+      font-size: 12px; font-weight: 600;
+      cursor: pointer;
+      transition: border-color 0.15s, color 0.15s, background 0.15s;
+    }
+    .contacted-pill:hover { border-color: var(--primary); color: var(--primary); }
+    .contacted-pill.yes {
+      color: var(--success); border-color: var(--success);
+      background: rgba(86, 201, 138, 0.10);
+    }
+
+    /* Edit-form contacted-checkbox label — sits inline with the box,
+       matches the existing .check pattern other admin pages use. */
+    label.check { display: inline-flex; align-items: center; gap: 8px; margin: 12px 0; cursor: pointer; }
+    label.check input { width: auto; }
 
     .actions { display: flex; gap: 4px; justify-content: flex-end; }
 
@@ -736,11 +876,15 @@ export class LeadsAdmin {
 
   // Sort state for the list table. Defaults to created-order (no key).
   readonly sortColumns: { key: LeadSortKey; label: string }[] = [
-    { key: 'name',    label: 'Name' },
-    { key: 'email',   label: 'Email' },
-    { key: 'phone',   label: 'Phone' },
-    { key: 'company', label: 'Company' },
-    { key: 'status',  label: 'Status' },
+    { key: 'name',         label: 'Name' },
+    { key: 'email',        label: 'Email' },
+    { key: 'phone',        label: 'Phone' },
+    { key: 'company',      label: 'Company' },
+    { key: 'industry',     label: 'Industry' },
+    { key: 'service_name', label: 'Service' },
+    { key: 'contacted_at', label: 'Contacted' },
+    { key: 'added_by',     label: 'Added by' },
+    { key: 'status',       label: 'Status' },
   ];
   sortBy  = signal<LeadSortKey | null>(null);
   sortDir = signal<'asc' | 'desc'>('asc');
@@ -762,7 +906,27 @@ export class LeadsAdmin {
 
   leads = signal<Lead[]>([]);
   current = signal<Lead | null>(null);
-  filterStatus = '';
+
+  // ── Filter + search state ────────────────────────────────────────
+  // Each filter is a signal so the toolbar's [ngModel]/(ngModelChange)
+  // binding stays reactive in zoneless mode. `visible()` (below)
+  // recomputes whenever any of them changes.
+  filterStatus    = signal<string>('');
+  filterIndustry  = signal<string>('');
+  filterServiceId = signal<number | ''>('');
+  filterContacted = signal<'' | 'yes' | 'no'>('');
+  searchTerm      = signal<string>('');
+
+  /** Distinct industries pulled from /api/leads/industries — duplicated
+   *  here so the filter dropdown can show counts without re-walking the
+   *  full leads list every render. */
+  industryOptions = signal<LeadIndustrySummary[]>([]);
+
+  /** Active service offerings the user can pick from. Sourced from
+   *  /api/services so the dropdown automatically adopts new entries
+   *  added in the CRM Services page. */
+  serviceOptions  = signal<ServiceOffering[]>([]);
+
   formReady = signal(false);
   draft: Lead = this.blankDraft();
 
@@ -801,18 +965,71 @@ export class LeadsAdmin {
   infoError = signal<string | null>(null);
   infoDraft: LeadInfo = { name: '', value: '' };
 
+  /** True when any filter or search box is set — drives the visibility
+   *  of the "Clear" button and the empty-state copy. */
+  anyFilterActive = computed(() =>
+    !!this.filterStatus() || !!this.filterIndustry() ||
+    this.filterServiceId() !== '' || !!this.filterContacted() ||
+    !!this.searchTerm().trim()
+  );
+
+  clearFilters() {
+    this.filterStatus.set('');
+    this.filterIndustry.set('');
+    this.filterServiceId.set('');
+    this.filterContacted.set('');
+    this.searchTerm.set('');
+    // Strip the query params so the URL no longer deep-links to a
+    // filtered view — keeps the leads-side-nav "Leads" parent active
+    // instead of one of the industry children.
+    this.router.navigate(['/admin/leads'], { queryParams: {} });
+  }
+
   visible = computed(() => {
     let list = this.leads();
-    if (this.filterStatus) list = list.filter(l => (l.status || 'new') === this.filterStatus);
+    if (this.filterStatus()) list = list.filter(l => (l.status || 'new') === this.filterStatus());
+    if (this.filterIndustry()) list = list.filter(l => (l.industry || '') === this.filterIndustry());
+    const svc = this.filterServiceId();
+    if (svc !== '') list = list.filter(l => l.service_offering_id === svc);
+    if (this.filterContacted() === 'yes') list = list.filter(l => !!l.contacted_at);
+    else if (this.filterContacted() === 'no') list = list.filter(l => !l.contacted_at);
+    const q = this.searchTerm().trim().toLowerCase();
+    if (q) {
+      list = list.filter(l => {
+        const hay = [
+          l.name, l.email, l.phone, l.company, l.industry,
+          l.service_name, l.source, l.added_by_name,
+          l.added_by_system ? 'system' : '',
+          l.notes,
+        ].filter(Boolean).join(' ').toLowerCase();
+        return hay.includes(q);
+      });
+    }
     const key = this.sortBy();
     if (!key) return list;
     const dir = this.sortDir() === 'asc' ? 1 : -1;
     // Stable, case-insensitive sort. Empty values sort to the end
     // regardless of direction so they don't crowd the top when sorting
     // by sparse columns like email/phone.
+    // Per-key value extractor — most keys are direct columns, but a few
+    // need synthesising (added_by reads "System" or the joined name;
+    // contacted_at is a timestamp string we sort lexicographically since
+    // ISO format sorts correctly that way).
+    const extract = (l: Lead): string => {
+      switch (key) {
+        case 'added_by':
+          return (l.added_by_system ? 'system' : (l.added_by_name || '')).toLowerCase();
+        case 'service_name':
+          return (l.service_name || '').toLowerCase();
+        case 'contacted_at':
+          return (l.contacted_at || '');
+        default:
+          return String((l as any)[key] ?? '').trim().toLowerCase();
+      }
+    };
     return [...list].sort((a, b) => {
-      const av = String((a as any)[key] ?? '').trim().toLowerCase();
-      const bv = String((b as any)[key] ?? '').trim().toLowerCase();
+      const av = extract(a);
+      const bv = extract(b);
       if (av === '' && bv === '') return 0;
       if (av === '') return 1;
       if (bv === '') return -1;
@@ -827,10 +1044,61 @@ export class LeadsAdmin {
     // to new subscribers immediately, so a separate `detectMode()` call here
     // would fire `listLeads`/`getLead` twice on first paint.
     this.route.url.subscribe(() => this.detectMode());
+
+    // Sidenav sub-items pass ?industry=… / ?service=… on the link. Keep
+    // the in-page filter dropdowns in sync with the URL so the toolbar
+    // reflects what's actually being displayed.
+    this.route.queryParamMap.subscribe(q => {
+      this.filterIndustry.set(q.get('industry') ?? '');
+      const svc = q.get('service');
+      this.filterServiceId.set(svc ? +svc : '');
+      const ctd = q.get('contacted');
+      this.filterContacted.set(ctd === 'yes' || ctd === 'no' ? ctd : '');
+    });
+
+    // Auxiliary lookups for the filter dropdowns. Failures are swallowed
+    // — both endpoints already return empty arrays on auth issues.
+    this.api.listLeadIndustries().subscribe({
+      next: r => this.industryOptions.set(r.industries),
+      error: () => this.industryOptions.set([]),
+    });
+    this.api.listServiceOfferings().subscribe({
+      next: r => this.serviceOptions.set((r.services || []).filter(s => s.is_active !== 0)),
+      error: () => this.serviceOptions.set([]),
+    });
+  }
+
+  /** Inline toggle on the list — flips contacted_at between NOW and null
+   *  and PUTs the change. Optimistic update with rollback on failure,
+   *  same pattern as the status dropdown. */
+  toggleContacted(l: Lead) {
+    if (!l.id) return;
+    const wasContacted = !!l.contacted_at;
+    const nextTs = wasContacted ? null : new Date().toISOString().slice(0, 19).replace('T', ' ');
+    this.leads.update(list => list.map(x => x.id === l.id ? { ...x, contacted_at: nextTs } : x));
+    this.api.updateLead(l.id, { ...l, contacted: !wasContacted } as any).subscribe({
+      error: e => {
+        this.leads.update(list => list.map(x => x.id === l.id ? { ...x, contacted_at: l.contacted_at } : x));
+        alert(e?.error?.error || 'Failed to update contacted status');
+      },
+    });
   }
 
   private blankDraft(): Lead {
-    return { name: '', email: '', phone: '', address: '', company: '', url: '', notes: '', status: 'new', source: '' };
+    return {
+      name: '', email: '', phone: '', address: '', company: '', url: '',
+      notes: '', status: 'new', source: '',
+      industry: '', service_offering_id: null, contacted_at: null,
+    };
+  }
+
+  /** Flip the edit-form contacted checkbox between NOW and null. Lives
+   *  on the class because Angular template expressions can't do `new
+   *  Date()` directly. */
+  setDraftContacted(on: boolean) {
+    this.draft.contacted_at = on
+      ? new Date().toISOString().slice(0, 19).replace('T', ' ')
+      : null;
   }
 
   private detectMode() {
@@ -935,6 +1203,9 @@ export class LeadsAdmin {
       notes: this.draft.notes ?? null,
       status: this.draft.status || 'new',
       source: (this.draft.source || '').trim() || null,
+      industry: (this.draft.industry || '').trim() || null,
+      service_offering_id: this.draft.service_offering_id ?? null,
+      contacted_at: this.draft.contacted_at ?? null,
     };
 
     const onError = (e: any) => {

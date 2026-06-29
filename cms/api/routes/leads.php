@@ -18,8 +18,12 @@ use BRS\Json;
  */
 
 return function (string $method, array $segs): void {
-    Auth::require();
+    $claims = Auth::require();
     $pdo = Db::pdo();
+    // JWT 'sub' is the admin_users.id of the calling user. Used to stamp
+    // `added_by_user_id` on UI-driven lead creates so the list view can
+    // show who added each row.
+    $currentUserId = isset($claims['sub']) ? (int)$claims['sub'] : null;
 
     // Statuses surfaced through the API. `converted` is system-set by
     // /api/leads/:id/promote (and reset to 'new' by the inverse
@@ -28,12 +32,22 @@ return function (string $method, array $segs): void {
     // narrowed the ENUM to exactly this set.
     $allowedStatuses = ['new', 'prospect', 'dead', 'converted'];
 
+    // Shared SELECT for both list + single endpoints. Joins service_offerings
+    // and admin_users so the frontend can render the human-readable labels
+    // without two extra round-trips per row.
+    $leadSelect = 'SELECT l.*,
+                          so.name         AS service_name,
+                          au.display_name AS added_by_name
+                     FROM leads l
+                LEFT JOIN service_offerings so ON so.id = l.service_offering_id
+                LEFT JOIN admin_users      au ON au.id = l.added_by_user_id';
+
     if (!isset($segs[1])) {
         if ($method === 'GET') {
             // Hard upper bound — see clients.php for rationale. Real
             // pagination is a follow-up when the lead funnel actually
             // exceeds this cap.
-            $rows = $pdo->query('SELECT * FROM leads ORDER BY id DESC LIMIT 1000')->fetchAll();
+            $rows = $pdo->query($leadSelect . ' ORDER BY l.id DESC LIMIT 1000')->fetchAll();
             Json::send(['leads' => $rows]);
         }
         if ($method === 'POST') {
@@ -46,9 +60,32 @@ return function (string $method, array $segs): void {
             $status = (string)($body['status'] ?? 'new');
             if (!in_array($status, $allowedStatuses, true)) $status = 'new';
 
+            // service_offering_id must reference a real row when set. Null
+            // is fine (lead may be sector-only with no service decided yet).
+            $serviceId = null;
+            if (!empty($body['service_offering_id'])) {
+                $serviceId = (int)$body['service_offering_id'];
+                $check = $pdo->prepare('SELECT 1 FROM service_offerings WHERE id = ?');
+                $check->execute([$serviceId]);
+                if (!$check->fetchColumn()) Json::fail('Invalid service_offering_id', 400);
+            }
+
+            // contacted_at: caller can send a timestamp string OR a truthy
+            // boolean (in which case we stamp NOW). Empty/false = clear.
+            $contactedAt = null;
+            if (array_key_exists('contacted_at', $body) && $body['contacted_at']) {
+                $contactedAt = is_string($body['contacted_at'])
+                    ? $body['contacted_at']
+                    : date('Y-m-d H:i:s');
+            } elseif (!empty($body['contacted'])) {
+                $contactedAt = date('Y-m-d H:i:s');
+            }
+
             $ins = $pdo->prepare('INSERT INTO leads
-                (name, email, phone, address, company, url, notes, status, source)
-                VALUES (?,?,?,?,?,?,?,?,?)');
+                (name, email, phone, address, company, url, notes, status, source,
+                 industry, service_offering_id, contacted_at,
+                 added_by_user_id, added_by_system)
+                VALUES (?,?,?,?,?,?,?,?,?, ?,?,?, ?,?)');
             $ins->execute([
                 $name,
                 $email !== '' ? $email : null,
@@ -59,6 +96,14 @@ return function (string $method, array $segs): void {
                 $body['notes'] ?? null,
                 $status,
                 trim((string)($body['source']  ?? '')) ?: null,
+                trim((string)($body['industry'] ?? '')) ?: null,
+                $serviceId,
+                $contactedAt,
+                // UI-driven creates are stamped with the calling admin's
+                // user id. Bulk/AI imports go through the dedicated
+                // endpoints below which set added_by_system instead.
+                $currentUserId,
+                0,
             ]);
             $newLeadId = (int)$pdo->lastInsertId();
             // Replay every audience='lead' contract template as a pending
@@ -67,6 +112,21 @@ return function (string $method, array $segs): void {
             Json::send(['id' => $newLeadId], 201);
         }
         Json::fail('Method not allowed', 405);
+    }
+
+    // GET /api/leads/industries → distinct non-empty industry values used
+    // by at least one lead. Powers the dynamic Leads sub-menu in the
+    // sidenav and the industry filter dropdown on the list page.
+    if ($segs[1] === 'industries') {
+        if ($method !== 'GET') Json::fail('Method not allowed', 405);
+        $rows = $pdo->query(
+            "SELECT industry AS name, COUNT(*) AS lead_count
+               FROM leads
+              WHERE industry IS NOT NULL AND industry <> ''
+              GROUP BY industry
+              ORDER BY industry"
+        )->fetchAll();
+        Json::send(['industries' => $rows]);
     }
 
     // /api/leads/ai-generate — call an LLM to research + format a lead list.
@@ -104,11 +164,25 @@ return function (string $method, array $segs): void {
         $inserted = 0;
         $errors   = [];
 
+        // Optional batch-wide defaults: caller (e.g. the AI / leadgen flow)
+        // can pass `industry` once at the top level instead of repeating it
+        // on every row; per-row industry still wins when present.
+        $batchIndustry = trim((string)($body['industry'] ?? '')) ?: null;
+        $batchServiceId = null;
+        if (!empty($body['service_offering_id'])) {
+            $batchServiceId = (int)$body['service_offering_id'];
+            $check = $pdo->prepare('SELECT 1 FROM service_offerings WHERE id = ?');
+            $check->execute([$batchServiceId]);
+            if (!$check->fetchColumn()) Json::fail('Invalid service_offering_id', 400);
+        }
+
         $pdo->beginTransaction();
         try {
             $ins = $pdo->prepare('INSERT INTO leads
-                (name, email, phone, address, company, url, notes, status, source)
-                VALUES (?,?,?,?,?,?,?,?,?)');
+                (name, email, phone, address, company, url, notes, status, source,
+                 industry, service_offering_id,
+                 added_by_user_id, added_by_system)
+                VALUES (?,?,?,?,?,?,?,?,?, ?,?, ?,?)');
 
             foreach ($leads as $i => $row) {
                 $rowNum = $i + 1;
@@ -129,6 +203,9 @@ return function (string $method, array $segs): void {
                 $status = strtolower(trim((string)($row['status'] ?? 'new')));
                 if (!in_array($status, $allowedStatuses, true)) $status = 'new';
 
+                $rowIndustry  = trim((string)($row['industry'] ?? ''));
+                $rowServiceId = !empty($row['service_offering_id']) ? (int)$row['service_offering_id'] : null;
+
                 $ins->execute([
                     $name,
                     $email !== '' ? $email : null,
@@ -139,6 +216,14 @@ return function (string $method, array $segs): void {
                     $row['notes'] ?? null,
                     $status,
                     trim((string)($row['source']  ?? '')) ?: null,
+                    $rowIndustry !== '' ? $rowIndustry : $batchIndustry,
+                    $rowServiceId !== null ? $rowServiceId : $batchServiceId,
+                    // Bulk imports record BOTH the triggering admin AND the
+                    // system flag — the admin trail is preserved while the
+                    // list view still tags the row as automated rather
+                    // than hand-keyed.
+                    $currentUserId,
+                    1,
                 ]);
                 $inserted++;
             }
@@ -155,7 +240,9 @@ return function (string $method, array $segs): void {
     $id = (int)$segs[1];
     if ($id <= 0) Json::fail('Invalid id', 400);
 
-    $stmt = $pdo->prepare('SELECT * FROM leads WHERE id = ?');
+    // Single-row fetch uses the same enriched SELECT as the list so the
+    // detail view has service_name + added_by_name without a 2nd round-trip.
+    $stmt = $pdo->prepare($leadSelect . ' WHERE l.id = ?');
     $stmt->execute([$id]);
     $lead = $stmt->fetch();
     if (!$lead) Json::fail('Lead not found', 404);
@@ -511,8 +598,41 @@ return function (string $method, array $segs): void {
         $status = array_key_exists('status', $body) ? (string)$body['status'] : (string)$lead['status'];
         if (!in_array($status, $allowedStatuses, true)) Json::fail('Invalid status', 400);
 
+        // Resolve the new fields with the existing-row value as the default
+        // so partial-update PUTs (e.g. the inline status toggle on the
+        // list) don't accidentally null fields out.
+        $industry = array_key_exists('industry', $body)
+            ? (trim((string)$body['industry']) ?: null)
+            : ($lead['industry'] ?? null);
+
+        $serviceId = $lead['service_offering_id'] ?? null;
+        if (array_key_exists('service_offering_id', $body)) {
+            $raw = $body['service_offering_id'];
+            if ($raw === null || $raw === '' || $raw === 0 || $raw === '0') {
+                $serviceId = null;
+            } else {
+                $serviceId = (int)$raw;
+                $check = $pdo->prepare('SELECT 1 FROM service_offerings WHERE id = ?');
+                $check->execute([$serviceId]);
+                if (!$check->fetchColumn()) Json::fail('Invalid service_offering_id', 400);
+            }
+        }
+
+        // contacted_at can be sent as a `contacted` boolean (true ⇒ NOW(),
+        // false ⇒ clear) or a literal timestamp string. Falling through to
+        // the existing column value when neither key is present.
+        $contactedAt = $lead['contacted_at'] ?? null;
+        if (array_key_exists('contacted_at', $body)) {
+            $contactedAt = $body['contacted_at'] ?: null;
+        } elseif (array_key_exists('contacted', $body)) {
+            $contactedAt = !empty($body['contacted'])
+                ? ($lead['contacted_at'] ?: date('Y-m-d H:i:s'))
+                : null;
+        }
+
         $upd = $pdo->prepare('UPDATE leads
-            SET name=?, email=?, phone=?, address=?, company=?, url=?, notes=?, status=?, source=?
+            SET name=?, email=?, phone=?, address=?, company=?, url=?, notes=?, status=?, source=?,
+                industry=?, service_offering_id=?, contacted_at=?
             WHERE id = ?');
         $upd->execute([
             $name,
@@ -524,6 +644,9 @@ return function (string $method, array $segs): void {
             array_key_exists('notes', $body) ? $body['notes'] : $lead['notes'],
             $status,
             trim((string)($body['source']  ?? $lead['source']  ?? '')) ?: null,
+            $industry,
+            $serviceId,
+            $contactedAt,
             $id,
         ]);
         Json::send(['ok' => true]);
