@@ -3,85 +3,85 @@
 -- 14 table(s); pattern matches migration 100 (ADD NULL → backfill
 -- 1 → NOT NULL + FK + index). See 100's header for design rationale.
 
-ALTER TABLE `task_items` ADD COLUMN `tenant_id` INT UNSIGNED NULL AFTER `id`;
+ALTER TABLE `task_items` ADD COLUMN `tenant_id` INT UNSIGNED NULL;
 UPDATE      `task_items` SET    `tenant_id` = 1;
 ALTER TABLE `task_items` MODIFY `tenant_id` INT UNSIGNED NOT NULL,
                    ADD KEY `idx_task_items_tenant` (`tenant_id`),
                    ADD CONSTRAINT `fk_task_items_tenant` FOREIGN KEY (`tenant_id`) REFERENCES `tenants`(`id`);
 
-ALTER TABLE `task_item_attachments` ADD COLUMN `tenant_id` INT UNSIGNED NULL AFTER `id`;
+ALTER TABLE `task_item_attachments` ADD COLUMN `tenant_id` INT UNSIGNED NULL;
 UPDATE      `task_item_attachments` SET    `tenant_id` = 1;
 ALTER TABLE `task_item_attachments` MODIFY `tenant_id` INT UNSIGNED NOT NULL,
                    ADD KEY `idx_task_item_attachments_tenant` (`tenant_id`),
                    ADD CONSTRAINT `fk_task_item_attachments_tenant` FOREIGN KEY (`tenant_id`) REFERENCES `tenants`(`id`);
 
-ALTER TABLE `task_item_comments` ADD COLUMN `tenant_id` INT UNSIGNED NULL AFTER `id`;
+ALTER TABLE `task_item_comments` ADD COLUMN `tenant_id` INT UNSIGNED NULL;
 UPDATE      `task_item_comments` SET    `tenant_id` = 1;
 ALTER TABLE `task_item_comments` MODIFY `tenant_id` INT UNSIGNED NOT NULL,
                    ADD KEY `idx_task_item_comments_tenant` (`tenant_id`),
                    ADD CONSTRAINT `fk_task_item_comments_tenant` FOREIGN KEY (`tenant_id`) REFERENCES `tenants`(`id`);
 
-ALTER TABLE `task_item_history` ADD COLUMN `tenant_id` INT UNSIGNED NULL AFTER `id`;
+ALTER TABLE `task_item_history` ADD COLUMN `tenant_id` INT UNSIGNED NULL;
 UPDATE      `task_item_history` SET    `tenant_id` = 1;
 ALTER TABLE `task_item_history` MODIFY `tenant_id` INT UNSIGNED NOT NULL,
                    ADD KEY `idx_task_item_history_tenant` (`tenant_id`),
                    ADD CONSTRAINT `fk_task_item_history_tenant` FOREIGN KEY (`tenant_id`) REFERENCES `tenants`(`id`);
 
-ALTER TABLE `task_item_links` ADD COLUMN `tenant_id` INT UNSIGNED NULL AFTER `id`;
+ALTER TABLE `task_item_links` ADD COLUMN `tenant_id` INT UNSIGNED NULL;
 UPDATE      `task_item_links` SET    `tenant_id` = 1;
 ALTER TABLE `task_item_links` MODIFY `tenant_id` INT UNSIGNED NOT NULL,
                    ADD KEY `idx_task_item_links_tenant` (`tenant_id`),
                    ADD CONSTRAINT `fk_task_item_links_tenant` FOREIGN KEY (`tenant_id`) REFERENCES `tenants`(`id`);
 
-ALTER TABLE `task_item_states` ADD COLUMN `tenant_id` INT UNSIGNED NULL AFTER `id`;
+ALTER TABLE `task_item_states` ADD COLUMN `tenant_id` INT UNSIGNED NULL;
 UPDATE      `task_item_states` SET    `tenant_id` = 1;
 ALTER TABLE `task_item_states` MODIFY `tenant_id` INT UNSIGNED NOT NULL,
                    ADD KEY `idx_task_item_states_tenant` (`tenant_id`),
                    ADD CONSTRAINT `fk_task_item_states_tenant` FOREIGN KEY (`tenant_id`) REFERENCES `tenants`(`id`);
 
-ALTER TABLE `task_item_tags` ADD COLUMN `tenant_id` INT UNSIGNED NULL AFTER `id`;
+ALTER TABLE `task_item_tags` ADD COLUMN `tenant_id` INT UNSIGNED NULL;
 UPDATE      `task_item_tags` SET    `tenant_id` = 1;
 ALTER TABLE `task_item_tags` MODIFY `tenant_id` INT UNSIGNED NOT NULL,
                    ADD KEY `idx_task_item_tags_tenant` (`tenant_id`),
                    ADD CONSTRAINT `fk_task_item_tags_tenant` FOREIGN KEY (`tenant_id`) REFERENCES `tenants`(`id`);
 
-ALTER TABLE `task_item_types` ADD COLUMN `tenant_id` INT UNSIGNED NULL AFTER `id`;
+ALTER TABLE `task_item_types` ADD COLUMN `tenant_id` INT UNSIGNED NULL;
 UPDATE      `task_item_types` SET    `tenant_id` = 1;
 ALTER TABLE `task_item_types` MODIFY `tenant_id` INT UNSIGNED NOT NULL,
                    ADD KEY `idx_task_item_types_tenant` (`tenant_id`),
                    ADD CONSTRAINT `fk_task_item_types_tenant` FOREIGN KEY (`tenant_id`) REFERENCES `tenants`(`id`);
 
-ALTER TABLE `task_iterations` ADD COLUMN `tenant_id` INT UNSIGNED NULL AFTER `id`;
+ALTER TABLE `task_iterations` ADD COLUMN `tenant_id` INT UNSIGNED NULL;
 UPDATE      `task_iterations` SET    `tenant_id` = 1;
 ALTER TABLE `task_iterations` MODIFY `tenant_id` INT UNSIGNED NOT NULL,
                    ADD KEY `idx_task_iterations_tenant` (`tenant_id`),
                    ADD CONSTRAINT `fk_task_iterations_tenant` FOREIGN KEY (`tenant_id`) REFERENCES `tenants`(`id`);
 
-ALTER TABLE `task_projects` ADD COLUMN `tenant_id` INT UNSIGNED NULL AFTER `id`;
+ALTER TABLE `task_projects` ADD COLUMN `tenant_id` INT UNSIGNED NULL;
 UPDATE      `task_projects` SET    `tenant_id` = 1;
 ALTER TABLE `task_projects` MODIFY `tenant_id` INT UNSIGNED NOT NULL,
                    ADD KEY `idx_task_projects_tenant` (`tenant_id`),
                    ADD CONSTRAINT `fk_task_projects_tenant` FOREIGN KEY (`tenant_id`) REFERENCES `tenants`(`id`);
 
-ALTER TABLE `task_sprint_capacity` ADD COLUMN `tenant_id` INT UNSIGNED NULL AFTER `id`;
+ALTER TABLE `task_sprint_capacity` ADD COLUMN `tenant_id` INT UNSIGNED NULL;
 UPDATE      `task_sprint_capacity` SET    `tenant_id` = 1;
 ALTER TABLE `task_sprint_capacity` MODIFY `tenant_id` INT UNSIGNED NOT NULL,
                    ADD KEY `idx_task_sprint_capacity_tenant` (`tenant_id`),
                    ADD CONSTRAINT `fk_task_sprint_capacity_tenant` FOREIGN KEY (`tenant_id`) REFERENCES `tenants`(`id`);
 
-ALTER TABLE `task_tags` ADD COLUMN `tenant_id` INT UNSIGNED NULL AFTER `id`;
+ALTER TABLE `task_tags` ADD COLUMN `tenant_id` INT UNSIGNED NULL;
 UPDATE      `task_tags` SET    `tenant_id` = 1;
 ALTER TABLE `task_tags` MODIFY `tenant_id` INT UNSIGNED NOT NULL,
                    ADD KEY `idx_task_tags_tenant` (`tenant_id`),
                    ADD CONSTRAINT `fk_task_tags_tenant` FOREIGN KEY (`tenant_id`) REFERENCES `tenants`(`id`);
 
-ALTER TABLE `task_teams` ADD COLUMN `tenant_id` INT UNSIGNED NULL AFTER `id`;
+ALTER TABLE `task_teams` ADD COLUMN `tenant_id` INT UNSIGNED NULL;
 UPDATE      `task_teams` SET    `tenant_id` = 1;
 ALTER TABLE `task_teams` MODIFY `tenant_id` INT UNSIGNED NOT NULL,
                    ADD KEY `idx_task_teams_tenant` (`tenant_id`),
                    ADD CONSTRAINT `fk_task_teams_tenant` FOREIGN KEY (`tenant_id`) REFERENCES `tenants`(`id`);
 
-ALTER TABLE `task_team_members` ADD COLUMN `tenant_id` INT UNSIGNED NULL AFTER `id`;
+ALTER TABLE `task_team_members` ADD COLUMN `tenant_id` INT UNSIGNED NULL;
 UPDATE      `task_team_members` SET    `tenant_id` = 1;
 ALTER TABLE `task_team_members` MODIFY `tenant_id` INT UNSIGNED NOT NULL,
                    ADD KEY `idx_task_team_members_tenant` (`tenant_id`),

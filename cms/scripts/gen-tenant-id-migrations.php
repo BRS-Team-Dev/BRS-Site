@@ -118,13 +118,15 @@ SQL;
 };
 
 $tableBlock = function (string $t): string {
-    // Position the new column right after `id` for tables with a single-
-    // column PK named id (all the user-data tables in this codebase
-    // follow that convention). The runner ignores statement-level
-    // failures here because the whole migration is in one transaction —
-    // a position clash would surface as a rollback at apply time.
+    // Intentionally NO position clause. The codebase has a handful of
+    // junction tables (task_item_tags, task_team_members, newsletter_
+    // suppressions, settings) with composite PKs and no `id` column;
+    // an `AFTER id` clause would crash with 1054 on those. MySQL appends
+    // the column to the end of the row when no position is specified,
+    // which is purely aesthetic — SELECT * with explicit columns picks
+    // up the value regardless.
     return <<<SQL
-ALTER TABLE `{$t}` ADD COLUMN `tenant_id` INT UNSIGNED NULL AFTER `id`;
+ALTER TABLE `{$t}` ADD COLUMN `tenant_id` INT UNSIGNED NULL;
 UPDATE      `{$t}` SET    `tenant_id` = 1;
 ALTER TABLE `{$t}` MODIFY `tenant_id` INT UNSIGNED NOT NULL,
                    ADD KEY `idx_{$t}_tenant` (`tenant_id`),

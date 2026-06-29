@@ -3,115 +3,115 @@
 -- 19 table(s); pattern matches migration 100 (ADD NULL → backfill
 -- 1 → NOT NULL + FK + index). See 100's header for design rationale.
 
-ALTER TABLE `tenders` ADD COLUMN `tenant_id` INT UNSIGNED NULL AFTER `id`;
+ALTER TABLE `tenders` ADD COLUMN `tenant_id` INT UNSIGNED NULL;
 UPDATE      `tenders` SET    `tenant_id` = 1;
 ALTER TABLE `tenders` MODIFY `tenant_id` INT UNSIGNED NOT NULL,
                    ADD KEY `idx_tenders_tenant` (`tenant_id`),
                    ADD CONSTRAINT `fk_tenders_tenant` FOREIGN KEY (`tenant_id`) REFERENCES `tenants`(`id`);
 
-ALTER TABLE `tender_contacts` ADD COLUMN `tenant_id` INT UNSIGNED NULL AFTER `id`;
+ALTER TABLE `tender_contacts` ADD COLUMN `tenant_id` INT UNSIGNED NULL;
 UPDATE      `tender_contacts` SET    `tenant_id` = 1;
 ALTER TABLE `tender_contacts` MODIFY `tenant_id` INT UNSIGNED NOT NULL,
                    ADD KEY `idx_tender_contacts_tenant` (`tenant_id`),
                    ADD CONSTRAINT `fk_tender_contacts_tenant` FOREIGN KEY (`tenant_id`) REFERENCES `tenants`(`id`);
 
-ALTER TABLE `tender_contact_numbers` ADD COLUMN `tenant_id` INT UNSIGNED NULL AFTER `id`;
+ALTER TABLE `tender_contact_numbers` ADD COLUMN `tenant_id` INT UNSIGNED NULL;
 UPDATE      `tender_contact_numbers` SET    `tenant_id` = 1;
 ALTER TABLE `tender_contact_numbers` MODIFY `tenant_id` INT UNSIGNED NOT NULL,
                    ADD KEY `idx_tender_contact_numbers_tenant` (`tenant_id`),
                    ADD CONSTRAINT `fk_tender_contact_numbers_tenant` FOREIGN KEY (`tenant_id`) REFERENCES `tenants`(`id`);
 
-ALTER TABLE `tender_documents` ADD COLUMN `tenant_id` INT UNSIGNED NULL AFTER `id`;
+ALTER TABLE `tender_documents` ADD COLUMN `tenant_id` INT UNSIGNED NULL;
 UPDATE      `tender_documents` SET    `tenant_id` = 1;
 ALTER TABLE `tender_documents` MODIFY `tenant_id` INT UNSIGNED NOT NULL,
                    ADD KEY `idx_tender_documents_tenant` (`tenant_id`),
                    ADD CONSTRAINT `fk_tender_documents_tenant` FOREIGN KEY (`tenant_id`) REFERENCES `tenants`(`id`);
 
-ALTER TABLE `tender_document_sections` ADD COLUMN `tenant_id` INT UNSIGNED NULL AFTER `id`;
+ALTER TABLE `tender_document_sections` ADD COLUMN `tenant_id` INT UNSIGNED NULL;
 UPDATE      `tender_document_sections` SET    `tenant_id` = 1;
 ALTER TABLE `tender_document_sections` MODIFY `tenant_id` INT UNSIGNED NOT NULL,
                    ADD KEY `idx_tender_document_sections_tenant` (`tenant_id`),
                    ADD CONSTRAINT `fk_tender_document_sections_tenant` FOREIGN KEY (`tenant_id`) REFERENCES `tenants`(`id`);
 
-ALTER TABLE `tender_info` ADD COLUMN `tenant_id` INT UNSIGNED NULL AFTER `id`;
+ALTER TABLE `tender_info` ADD COLUMN `tenant_id` INT UNSIGNED NULL;
 UPDATE      `tender_info` SET    `tenant_id` = 1;
 ALTER TABLE `tender_info` MODIFY `tenant_id` INT UNSIGNED NOT NULL,
                    ADD KEY `idx_tender_info_tenant` (`tenant_id`),
                    ADD CONSTRAINT `fk_tender_info_tenant` FOREIGN KEY (`tenant_id`) REFERENCES `tenants`(`id`);
 
-ALTER TABLE `tender_notes` ADD COLUMN `tenant_id` INT UNSIGNED NULL AFTER `id`;
+ALTER TABLE `tender_notes` ADD COLUMN `tenant_id` INT UNSIGNED NULL;
 UPDATE      `tender_notes` SET    `tenant_id` = 1;
 ALTER TABLE `tender_notes` MODIFY `tenant_id` INT UNSIGNED NOT NULL,
                    ADD KEY `idx_tender_notes_tenant` (`tenant_id`),
                    ADD CONSTRAINT `fk_tender_notes_tenant` FOREIGN KEY (`tenant_id`) REFERENCES `tenants`(`id`);
 
-ALTER TABLE `operation_tasks` ADD COLUMN `tenant_id` INT UNSIGNED NULL AFTER `id`;
+ALTER TABLE `operation_tasks` ADD COLUMN `tenant_id` INT UNSIGNED NULL;
 UPDATE      `operation_tasks` SET    `tenant_id` = 1;
 ALTER TABLE `operation_tasks` MODIFY `tenant_id` INT UNSIGNED NOT NULL,
                    ADD KEY `idx_operation_tasks_tenant` (`tenant_id`),
                    ADD CONSTRAINT `fk_operation_tasks_tenant` FOREIGN KEY (`tenant_id`) REFERENCES `tenants`(`id`);
 
-ALTER TABLE `partners` ADD COLUMN `tenant_id` INT UNSIGNED NULL AFTER `id`;
+ALTER TABLE `partners` ADD COLUMN `tenant_id` INT UNSIGNED NULL;
 UPDATE      `partners` SET    `tenant_id` = 1;
 ALTER TABLE `partners` MODIFY `tenant_id` INT UNSIGNED NOT NULL,
                    ADD KEY `idx_partners_tenant` (`tenant_id`),
                    ADD CONSTRAINT `fk_partners_tenant` FOREIGN KEY (`tenant_id`) REFERENCES `tenants`(`id`);
 
-ALTER TABLE `partner_contacts` ADD COLUMN `tenant_id` INT UNSIGNED NULL AFTER `id`;
+ALTER TABLE `partner_contacts` ADD COLUMN `tenant_id` INT UNSIGNED NULL;
 UPDATE      `partner_contacts` SET    `tenant_id` = 1;
 ALTER TABLE `partner_contacts` MODIFY `tenant_id` INT UNSIGNED NOT NULL,
                    ADD KEY `idx_partner_contacts_tenant` (`tenant_id`),
                    ADD CONSTRAINT `fk_partner_contacts_tenant` FOREIGN KEY (`tenant_id`) REFERENCES `tenants`(`id`);
 
-ALTER TABLE `partner_accounts` ADD COLUMN `tenant_id` INT UNSIGNED NULL AFTER `id`;
+ALTER TABLE `partner_accounts` ADD COLUMN `tenant_id` INT UNSIGNED NULL;
 UPDATE      `partner_accounts` SET    `tenant_id` = 1;
 ALTER TABLE `partner_accounts` MODIFY `tenant_id` INT UNSIGNED NOT NULL,
                    ADD KEY `idx_partner_accounts_tenant` (`tenant_id`),
                    ADD CONSTRAINT `fk_partner_accounts_tenant` FOREIGN KEY (`tenant_id`) REFERENCES `tenants`(`id`);
 
-ALTER TABLE `partner_documents` ADD COLUMN `tenant_id` INT UNSIGNED NULL AFTER `id`;
+ALTER TABLE `partner_documents` ADD COLUMN `tenant_id` INT UNSIGNED NULL;
 UPDATE      `partner_documents` SET    `tenant_id` = 1;
 ALTER TABLE `partner_documents` MODIFY `tenant_id` INT UNSIGNED NOT NULL,
                    ADD KEY `idx_partner_documents_tenant` (`tenant_id`),
                    ADD CONSTRAINT `fk_partner_documents_tenant` FOREIGN KEY (`tenant_id`) REFERENCES `tenants`(`id`);
 
-ALTER TABLE `partner_notes` ADD COLUMN `tenant_id` INT UNSIGNED NULL AFTER `id`;
+ALTER TABLE `partner_notes` ADD COLUMN `tenant_id` INT UNSIGNED NULL;
 UPDATE      `partner_notes` SET    `tenant_id` = 1;
 ALTER TABLE `partner_notes` MODIFY `tenant_id` INT UNSIGNED NOT NULL,
                    ADD KEY `idx_partner_notes_tenant` (`tenant_id`),
                    ADD CONSTRAINT `fk_partner_notes_tenant` FOREIGN KEY (`tenant_id`) REFERENCES `tenants`(`id`);
 
-ALTER TABLE `contractors` ADD COLUMN `tenant_id` INT UNSIGNED NULL AFTER `id`;
+ALTER TABLE `contractors` ADD COLUMN `tenant_id` INT UNSIGNED NULL;
 UPDATE      `contractors` SET    `tenant_id` = 1;
 ALTER TABLE `contractors` MODIFY `tenant_id` INT UNSIGNED NOT NULL,
                    ADD KEY `idx_contractors_tenant` (`tenant_id`),
                    ADD CONSTRAINT `fk_contractors_tenant` FOREIGN KEY (`tenant_id`) REFERENCES `tenants`(`id`);
 
-ALTER TABLE `contractor_documents` ADD COLUMN `tenant_id` INT UNSIGNED NULL AFTER `id`;
+ALTER TABLE `contractor_documents` ADD COLUMN `tenant_id` INT UNSIGNED NULL;
 UPDATE      `contractor_documents` SET    `tenant_id` = 1;
 ALTER TABLE `contractor_documents` MODIFY `tenant_id` INT UNSIGNED NOT NULL,
                    ADD KEY `idx_contractor_documents_tenant` (`tenant_id`),
                    ADD CONSTRAINT `fk_contractor_documents_tenant` FOREIGN KEY (`tenant_id`) REFERENCES `tenants`(`id`);
 
-ALTER TABLE `contractor_notes` ADD COLUMN `tenant_id` INT UNSIGNED NULL AFTER `id`;
+ALTER TABLE `contractor_notes` ADD COLUMN `tenant_id` INT UNSIGNED NULL;
 UPDATE      `contractor_notes` SET    `tenant_id` = 1;
 ALTER TABLE `contractor_notes` MODIFY `tenant_id` INT UNSIGNED NOT NULL,
                    ADD KEY `idx_contractor_notes_tenant` (`tenant_id`),
                    ADD CONSTRAINT `fk_contractor_notes_tenant` FOREIGN KEY (`tenant_id`) REFERENCES `tenants`(`id`);
 
-ALTER TABLE `affiliates` ADD COLUMN `tenant_id` INT UNSIGNED NULL AFTER `id`;
+ALTER TABLE `affiliates` ADD COLUMN `tenant_id` INT UNSIGNED NULL;
 UPDATE      `affiliates` SET    `tenant_id` = 1;
 ALTER TABLE `affiliates` MODIFY `tenant_id` INT UNSIGNED NOT NULL,
                    ADD KEY `idx_affiliates_tenant` (`tenant_id`),
                    ADD CONSTRAINT `fk_affiliates_tenant` FOREIGN KEY (`tenant_id`) REFERENCES `tenants`(`id`);
 
-ALTER TABLE `affiliate_documents` ADD COLUMN `tenant_id` INT UNSIGNED NULL AFTER `id`;
+ALTER TABLE `affiliate_documents` ADD COLUMN `tenant_id` INT UNSIGNED NULL;
 UPDATE      `affiliate_documents` SET    `tenant_id` = 1;
 ALTER TABLE `affiliate_documents` MODIFY `tenant_id` INT UNSIGNED NOT NULL,
                    ADD KEY `idx_affiliate_documents_tenant` (`tenant_id`),
                    ADD CONSTRAINT `fk_affiliate_documents_tenant` FOREIGN KEY (`tenant_id`) REFERENCES `tenants`(`id`);
 
-ALTER TABLE `affiliate_notes` ADD COLUMN `tenant_id` INT UNSIGNED NULL AFTER `id`;
+ALTER TABLE `affiliate_notes` ADD COLUMN `tenant_id` INT UNSIGNED NULL;
 UPDATE      `affiliate_notes` SET    `tenant_id` = 1;
 ALTER TABLE `affiliate_notes` MODIFY `tenant_id` INT UNSIGNED NOT NULL,
                    ADD KEY `idx_affiliate_notes_tenant` (`tenant_id`),

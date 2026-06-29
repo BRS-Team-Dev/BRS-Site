@@ -3,121 +3,121 @@
 -- 20 table(s); pattern matches migration 100 (ADD NULL → backfill
 -- 1 → NOT NULL + FK + index). See 100's header for design rationale.
 
-ALTER TABLE `hr_employees` ADD COLUMN `tenant_id` INT UNSIGNED NULL AFTER `id`;
+ALTER TABLE `hr_employees` ADD COLUMN `tenant_id` INT UNSIGNED NULL;
 UPDATE      `hr_employees` SET    `tenant_id` = 1;
 ALTER TABLE `hr_employees` MODIFY `tenant_id` INT UNSIGNED NOT NULL,
                    ADD KEY `idx_hr_employees_tenant` (`tenant_id`),
                    ADD CONSTRAINT `fk_hr_employees_tenant` FOREIGN KEY (`tenant_id`) REFERENCES `tenants`(`id`);
 
-ALTER TABLE `hr_employee_notes` ADD COLUMN `tenant_id` INT UNSIGNED NULL AFTER `id`;
+ALTER TABLE `hr_employee_notes` ADD COLUMN `tenant_id` INT UNSIGNED NULL;
 UPDATE      `hr_employee_notes` SET    `tenant_id` = 1;
 ALTER TABLE `hr_employee_notes` MODIFY `tenant_id` INT UNSIGNED NOT NULL,
                    ADD KEY `idx_hr_employee_notes_tenant` (`tenant_id`),
                    ADD CONSTRAINT `fk_hr_employee_notes_tenant` FOREIGN KEY (`tenant_id`) REFERENCES `tenants`(`id`);
 
-ALTER TABLE `hr_employee_skills` ADD COLUMN `tenant_id` INT UNSIGNED NULL AFTER `id`;
+ALTER TABLE `hr_employee_skills` ADD COLUMN `tenant_id` INT UNSIGNED NULL;
 UPDATE      `hr_employee_skills` SET    `tenant_id` = 1;
 ALTER TABLE `hr_employee_skills` MODIFY `tenant_id` INT UNSIGNED NOT NULL,
                    ADD KEY `idx_hr_employee_skills_tenant` (`tenant_id`),
                    ADD CONSTRAINT `fk_hr_employee_skills_tenant` FOREIGN KEY (`tenant_id`) REFERENCES `tenants`(`id`);
 
-ALTER TABLE `hr_employment_history` ADD COLUMN `tenant_id` INT UNSIGNED NULL AFTER `id`;
+ALTER TABLE `hr_employment_history` ADD COLUMN `tenant_id` INT UNSIGNED NULL;
 UPDATE      `hr_employment_history` SET    `tenant_id` = 1;
 ALTER TABLE `hr_employment_history` MODIFY `tenant_id` INT UNSIGNED NOT NULL,
                    ADD KEY `idx_hr_employment_history_tenant` (`tenant_id`),
                    ADD CONSTRAINT `fk_hr_employment_history_tenant` FOREIGN KEY (`tenant_id`) REFERENCES `tenants`(`id`);
 
-ALTER TABLE `hr_documents` ADD COLUMN `tenant_id` INT UNSIGNED NULL AFTER `id`;
+ALTER TABLE `hr_documents` ADD COLUMN `tenant_id` INT UNSIGNED NULL;
 UPDATE      `hr_documents` SET    `tenant_id` = 1;
 ALTER TABLE `hr_documents` MODIFY `tenant_id` INT UNSIGNED NOT NULL,
                    ADD KEY `idx_hr_documents_tenant` (`tenant_id`),
                    ADD CONSTRAINT `fk_hr_documents_tenant` FOREIGN KEY (`tenant_id`) REFERENCES `tenants`(`id`);
 
-ALTER TABLE `hr_document_types` ADD COLUMN `tenant_id` INT UNSIGNED NULL AFTER `id`;
+ALTER TABLE `hr_document_types` ADD COLUMN `tenant_id` INT UNSIGNED NULL;
 UPDATE      `hr_document_types` SET    `tenant_id` = 1;
 ALTER TABLE `hr_document_types` MODIFY `tenant_id` INT UNSIGNED NOT NULL,
                    ADD KEY `idx_hr_document_types_tenant` (`tenant_id`),
                    ADD CONSTRAINT `fk_hr_document_types_tenant` FOREIGN KEY (`tenant_id`) REFERENCES `tenants`(`id`);
 
-ALTER TABLE `hr_contract_groups` ADD COLUMN `tenant_id` INT UNSIGNED NULL AFTER `id`;
+ALTER TABLE `hr_contract_groups` ADD COLUMN `tenant_id` INT UNSIGNED NULL;
 UPDATE      `hr_contract_groups` SET    `tenant_id` = 1;
 ALTER TABLE `hr_contract_groups` MODIFY `tenant_id` INT UNSIGNED NOT NULL,
                    ADD KEY `idx_hr_contract_groups_tenant` (`tenant_id`),
                    ADD CONSTRAINT `fk_hr_contract_groups_tenant` FOREIGN KEY (`tenant_id`) REFERENCES `tenants`(`id`);
 
-ALTER TABLE `hr_default_onboarding_tasks` ADD COLUMN `tenant_id` INT UNSIGNED NULL AFTER `id`;
+ALTER TABLE `hr_default_onboarding_tasks` ADD COLUMN `tenant_id` INT UNSIGNED NULL;
 UPDATE      `hr_default_onboarding_tasks` SET    `tenant_id` = 1;
 ALTER TABLE `hr_default_onboarding_tasks` MODIFY `tenant_id` INT UNSIGNED NOT NULL,
                    ADD KEY `idx_hr_default_onboarding_tasks_tenant` (`tenant_id`),
                    ADD CONSTRAINT `fk_hr_default_onboarding_tasks_tenant` FOREIGN KEY (`tenant_id`) REFERENCES `tenants`(`id`);
 
-ALTER TABLE `hr_onboarding_tasks` ADD COLUMN `tenant_id` INT UNSIGNED NULL AFTER `id`;
+ALTER TABLE `hr_onboarding_tasks` ADD COLUMN `tenant_id` INT UNSIGNED NULL;
 UPDATE      `hr_onboarding_tasks` SET    `tenant_id` = 1;
 ALTER TABLE `hr_onboarding_tasks` MODIFY `tenant_id` INT UNSIGNED NOT NULL,
                    ADD KEY `idx_hr_onboarding_tasks_tenant` (`tenant_id`),
                    ADD CONSTRAINT `fk_hr_onboarding_tasks_tenant` FOREIGN KEY (`tenant_id`) REFERENCES `tenants`(`id`);
 
-ALTER TABLE `hr_payroll_periods` ADD COLUMN `tenant_id` INT UNSIGNED NULL AFTER `id`;
+ALTER TABLE `hr_payroll_periods` ADD COLUMN `tenant_id` INT UNSIGNED NULL;
 UPDATE      `hr_payroll_periods` SET    `tenant_id` = 1;
 ALTER TABLE `hr_payroll_periods` MODIFY `tenant_id` INT UNSIGNED NOT NULL,
                    ADD KEY `idx_hr_payroll_periods_tenant` (`tenant_id`),
                    ADD CONSTRAINT `fk_hr_payroll_periods_tenant` FOREIGN KEY (`tenant_id`) REFERENCES `tenants`(`id`);
 
-ALTER TABLE `hr_payslips` ADD COLUMN `tenant_id` INT UNSIGNED NULL AFTER `id`;
+ALTER TABLE `hr_payslips` ADD COLUMN `tenant_id` INT UNSIGNED NULL;
 UPDATE      `hr_payslips` SET    `tenant_id` = 1;
 ALTER TABLE `hr_payslips` MODIFY `tenant_id` INT UNSIGNED NOT NULL,
                    ADD KEY `idx_hr_payslips_tenant` (`tenant_id`),
                    ADD CONSTRAINT `fk_hr_payslips_tenant` FOREIGN KEY (`tenant_id`) REFERENCES `tenants`(`id`);
 
-ALTER TABLE `hr_pto_ledger` ADD COLUMN `tenant_id` INT UNSIGNED NULL AFTER `id`;
+ALTER TABLE `hr_pto_ledger` ADD COLUMN `tenant_id` INT UNSIGNED NULL;
 UPDATE      `hr_pto_ledger` SET    `tenant_id` = 1;
 ALTER TABLE `hr_pto_ledger` MODIFY `tenant_id` INT UNSIGNED NOT NULL,
                    ADD KEY `idx_hr_pto_ledger_tenant` (`tenant_id`),
                    ADD CONSTRAINT `fk_hr_pto_ledger_tenant` FOREIGN KEY (`tenant_id`) REFERENCES `tenants`(`id`);
 
-ALTER TABLE `hr_time_off_requests` ADD COLUMN `tenant_id` INT UNSIGNED NULL AFTER `id`;
+ALTER TABLE `hr_time_off_requests` ADD COLUMN `tenant_id` INT UNSIGNED NULL;
 UPDATE      `hr_time_off_requests` SET    `tenant_id` = 1;
 ALTER TABLE `hr_time_off_requests` MODIFY `tenant_id` INT UNSIGNED NOT NULL,
                    ADD KEY `idx_hr_time_off_requests_tenant` (`tenant_id`),
                    ADD CONSTRAINT `fk_hr_time_off_requests_tenant` FOREIGN KEY (`tenant_id`) REFERENCES `tenants`(`id`);
 
-ALTER TABLE `hr_shifts` ADD COLUMN `tenant_id` INT UNSIGNED NULL AFTER `id`;
+ALTER TABLE `hr_shifts` ADD COLUMN `tenant_id` INT UNSIGNED NULL;
 UPDATE      `hr_shifts` SET    `tenant_id` = 1;
 ALTER TABLE `hr_shifts` MODIFY `tenant_id` INT UNSIGNED NOT NULL,
                    ADD KEY `idx_hr_shifts_tenant` (`tenant_id`),
                    ADD CONSTRAINT `fk_hr_shifts_tenant` FOREIGN KEY (`tenant_id`) REFERENCES `tenants`(`id`);
 
-ALTER TABLE `hr_certifications` ADD COLUMN `tenant_id` INT UNSIGNED NULL AFTER `id`;
+ALTER TABLE `hr_certifications` ADD COLUMN `tenant_id` INT UNSIGNED NULL;
 UPDATE      `hr_certifications` SET    `tenant_id` = 1;
 ALTER TABLE `hr_certifications` MODIFY `tenant_id` INT UNSIGNED NOT NULL,
                    ADD KEY `idx_hr_certifications_tenant` (`tenant_id`),
                    ADD CONSTRAINT `fk_hr_certifications_tenant` FOREIGN KEY (`tenant_id`) REFERENCES `tenants`(`id`);
 
-ALTER TABLE `hr_references` ADD COLUMN `tenant_id` INT UNSIGNED NULL AFTER `id`;
+ALTER TABLE `hr_references` ADD COLUMN `tenant_id` INT UNSIGNED NULL;
 UPDATE      `hr_references` SET    `tenant_id` = 1;
 ALTER TABLE `hr_references` MODIFY `tenant_id` INT UNSIGNED NOT NULL,
                    ADD KEY `idx_hr_references_tenant` (`tenant_id`),
                    ADD CONSTRAINT `fk_hr_references_tenant` FOREIGN KEY (`tenant_id`) REFERENCES `tenants`(`id`);
 
-ALTER TABLE `hr_change_requests` ADD COLUMN `tenant_id` INT UNSIGNED NULL AFTER `id`;
+ALTER TABLE `hr_change_requests` ADD COLUMN `tenant_id` INT UNSIGNED NULL;
 UPDATE      `hr_change_requests` SET    `tenant_id` = 1;
 ALTER TABLE `hr_change_requests` MODIFY `tenant_id` INT UNSIGNED NOT NULL,
                    ADD KEY `idx_hr_change_requests_tenant` (`tenant_id`),
                    ADD CONSTRAINT `fk_hr_change_requests_tenant` FOREIGN KEY (`tenant_id`) REFERENCES `tenants`(`id`);
 
-ALTER TABLE `hr_legal_documents` ADD COLUMN `tenant_id` INT UNSIGNED NULL AFTER `id`;
+ALTER TABLE `hr_legal_documents` ADD COLUMN `tenant_id` INT UNSIGNED NULL;
 UPDATE      `hr_legal_documents` SET    `tenant_id` = 1;
 ALTER TABLE `hr_legal_documents` MODIFY `tenant_id` INT UNSIGNED NOT NULL,
                    ADD KEY `idx_hr_legal_documents_tenant` (`tenant_id`),
                    ADD CONSTRAINT `fk_hr_legal_documents_tenant` FOREIGN KEY (`tenant_id`) REFERENCES `tenants`(`id`);
 
-ALTER TABLE `hr_feedback` ADD COLUMN `tenant_id` INT UNSIGNED NULL AFTER `id`;
+ALTER TABLE `hr_feedback` ADD COLUMN `tenant_id` INT UNSIGNED NULL;
 UPDATE      `hr_feedback` SET    `tenant_id` = 1;
 ALTER TABLE `hr_feedback` MODIFY `tenant_id` INT UNSIGNED NOT NULL,
                    ADD KEY `idx_hr_feedback_tenant` (`tenant_id`),
                    ADD CONSTRAINT `fk_hr_feedback_tenant` FOREIGN KEY (`tenant_id`) REFERENCES `tenants`(`id`);
 
-ALTER TABLE `hr_feedback_notes` ADD COLUMN `tenant_id` INT UNSIGNED NULL AFTER `id`;
+ALTER TABLE `hr_feedback_notes` ADD COLUMN `tenant_id` INT UNSIGNED NULL;
 UPDATE      `hr_feedback_notes` SET    `tenant_id` = 1;
 ALTER TABLE `hr_feedback_notes` MODIFY `tenant_id` INT UNSIGNED NOT NULL,
                    ADD KEY `idx_hr_feedback_notes_tenant` (`tenant_id`),
