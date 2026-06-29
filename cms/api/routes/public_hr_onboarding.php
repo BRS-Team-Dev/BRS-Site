@@ -19,8 +19,14 @@ require_once __DIR__ . '/../lib/hr_course.php';
  *   POST /api/public-hr-onboarding/:token/submit/:section   — mark a section complete
  */
 
+use BRS\Tenant;
+
 return function (string $method, array $segs): void {
-    $pdo = Db::pdo();
+    // Public routes have no JWT — bootstrap the tenant context.
+    // Hardcoded to BRS (tenant 1) until per-tenant public routing
+    // lands in Phase 5 (subdomain detection / per-tenant API key).
+    Tenant::setForPublic();
+    $pdo = Db::tpdo();
     $token = (string)($segs[1] ?? '');
     if ($token === '' || strlen($token) < 16) Json::fail('token required', 400);
 

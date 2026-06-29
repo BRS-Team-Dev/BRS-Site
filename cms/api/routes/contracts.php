@@ -22,7 +22,7 @@ use BRS\Contracts;
 
 return function (string $method, array $segs): void {
     $claims = Auth::require();
-    $pdo = Db::pdo();
+    $pdo = Db::tpdo();
 
     $audience = (string)($segs[1] ?? '');
     // Only audiences with a real entity table are addressable here.

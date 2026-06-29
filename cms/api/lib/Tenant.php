@@ -53,6 +53,23 @@ final class Tenant
     public static function isSuper(): bool  { return self::$super; }
     public static function isLoaded(): bool { return self::$tenantId !== null; }
 
+    /** Bootstrap context for public (no-auth) endpoints — onboarding
+     *  portals, form intake, surveys, public jobs board, etc. These
+     *  routes don't carry a JWT, so they can't derive a tenant from
+     *  claims. Until tenant-detection-from-host lands in Phase 5, all
+     *  public routes operate against the BRS tenant (id = 1).
+     *
+     *  Call this at the very top of any public route file BEFORE the
+     *  first Db::tpdo() use. */
+    public static function setForPublic(int $tenantId = 1): void
+    {
+        if (self::$tenantId !== null) return;
+        self::$tenantId = $tenantId;
+        self::$userId   = null;
+        self::$email    = null;
+        self::$super    = false;
+    }
+
     /** Test-only — wipes context so isolation tests can simulate
      *  consecutive requests as different tenants. Do not call from
      *  production code paths. */

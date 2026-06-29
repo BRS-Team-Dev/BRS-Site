@@ -35,7 +35,7 @@ use BRS\Json;
 
 return function (string $method, array $segs): void {
     Auth::require();
-    $pdo = Db::pdo();
+    $pdo = Db::tpdo();
 
     $resource = $segs[1] ?? '';
     switch ($resource) {
@@ -71,7 +71,7 @@ return function (string $method, array $segs): void {
  * name so it's safe across Windows + POSIX filesystems (no slashes, no
  * control chars, trimmed trailing dots/spaces).
  */
-function candidateFolderSlug(\PDO $pdo, int $candidateId): string {
+function candidateFolderSlug(\PDO|\BRS\TenantPdo $pdo, int $candidateId): string {
     $stmt = $pdo->prepare('SELECT first_name, last_name FROM recruitment_candidates WHERE id = ?');
     $stmt->execute([$candidateId]);
     $row = $stmt->fetch() ?: ['first_name' => '', 'last_name' => ''];
@@ -89,7 +89,7 @@ function candidateFolderSlug(\PDO $pdo, int $candidateId): string {
  * without a group fall under "Ungrouped"; null doc-type-id (an untyped
  * upload) also falls under "Ungrouped".
  */
-function candidateDocGroupSlug(\PDO $pdo, ?int $docTypeId): string {
+function candidateDocGroupSlug(\PDO|\BRS\TenantPdo $pdo, ?int $docTypeId): string {
     if (!$docTypeId) return 'Ungrouped';
     $stmt = $pdo->prepare(
         'SELECT g.name FROM recruitment_doc_types t
@@ -105,7 +105,7 @@ function candidateDocGroupSlug(\PDO $pdo, ?int $docTypeId): string {
 }
 
 // ────────── Candidates ──────────────────────────────────────────────────
-function handleRecruitmentCandidates(\PDO $pdo, string $method, array $segs): void {
+function handleRecruitmentCandidates(\PDO|\BRS\TenantPdo $pdo, string $method, array $segs): void {
     $statuses = ['new','interviewing','processing','compliant','client_screening','placed','rejected_by_us'];
 
     // /api/recruitment/candidates
@@ -338,7 +338,7 @@ function handleRecruitmentCandidates(\PDO $pdo, string $method, array $segs): vo
 }
 
 // ────────── Candidate documents (sub-resource) ─────────────────────────
-function handleRecruitmentCandidateDocuments(\PDO $pdo, string $method, array $segs, int $candidateId): void {
+function handleRecruitmentCandidateDocuments(\PDO|\BRS\TenantPdo $pdo, string $method, array $segs, int $candidateId): void {
     // /api/recruitment/candidates/:id/documents
     if (!isset($segs[4])) {
         if ($method === 'GET') {
@@ -511,7 +511,7 @@ function handleRecruitmentCandidateDocuments(\PDO $pdo, string $method, array $s
 }
 
 // ────────── Candidate notes (sub-resource) ─────────────────────────────
-function handleRecruitmentCandidateNotes(\PDO $pdo, string $method, array $segs, int $candidateId): void {
+function handleRecruitmentCandidateNotes(\PDO|\BRS\TenantPdo $pdo, string $method, array $segs, int $candidateId): void {
     if (!isset($segs[4])) {
         if ($method === 'GET') {
             $stmt = $pdo->prepare('SELECT * FROM recruitment_candidate_notes WHERE candidate_id = ? ORDER BY sort_order, id DESC');
@@ -572,7 +572,7 @@ function handleRecruitmentCandidateNotes(\PDO $pdo, string $method, array $segs,
 }
 
 // ────────── Doc-type catalogue (settings) ──────────────────────────────
-function handleRecruitmentDocTypes(\PDO $pdo, string $method, array $segs): void {
+function handleRecruitmentDocTypes(\PDO|\BRS\TenantPdo $pdo, string $method, array $segs): void {
     if (!isset($segs[2])) {
         if ($method === 'GET') {
             // `add_as_skill` is derived from the existence of a linked
@@ -680,7 +680,7 @@ function handleRecruitmentDocTypes(\PDO $pdo, string $method, array $segs): void
 }
 
 // ────────── Aggregated documents view ──────────────────────────────────
-function handleRecruitmentDocuments(\PDO $pdo, string $method): void {
+function handleRecruitmentDocuments(\PDO|\BRS\TenantPdo $pdo, string $method): void {
     if ($method !== 'GET') Json::fail('Method not allowed', 405);
     $rows = $pdo->query(
         "SELECT d.id, d.candidate_id, d.title, d.file_path, d.file_size, d.mime_type,
@@ -697,7 +697,7 @@ function handleRecruitmentDocuments(\PDO $pdo, string $method): void {
 }
 
 // ────────── Doc-type groups (settings) ─────────────────────────────────
-function handleRecruitmentDocGroups(\PDO $pdo, string $method, array $segs): void {
+function handleRecruitmentDocGroups(\PDO|\BRS\TenantPdo $pdo, string $method, array $segs): void {
     if (!isset($segs[2])) {
         if ($method === 'GET') {
             $rows = $pdo->query('SELECT id, name, sort_order FROM recruitment_doc_groups ORDER BY sort_order, id')->fetchAll();
@@ -756,7 +756,7 @@ function handleRecruitmentDocGroups(\PDO $pdo, string $method, array $segs): voi
  * `name` (unique index), we adopt it instead of failing — its
  * `doc_type_id` flips to point at this doc-type.
  */
-function syncDocTypeSkillLink(\PDO $pdo, int $docTypeId, string $name, bool $on): void {
+function syncDocTypeSkillLink(\PDO|\BRS\TenantPdo $pdo, int $docTypeId, string $name, bool $on): void {
     $existing = $pdo->prepare('SELECT id, doc_type_id FROM recruitment_skills WHERE doc_type_id = ?');
     $existing->execute([$docTypeId]);
     $linked = $existing->fetch();
@@ -797,7 +797,7 @@ function syncDocTypeSkillLink(\PDO $pdo, int $docTypeId, string $name, bool $on)
  *   PUT    /api/recruitment/skills/:id      → { ok }
  *   DELETE /api/recruitment/skills/:id      → { ok }
  */
-function handleRecruitmentSkills(\PDO $pdo, string $method, array $segs): void {
+function handleRecruitmentSkills(\PDO|\BRS\TenantPdo $pdo, string $method, array $segs): void {
     if (!isset($segs[2])) {
         if ($method === 'GET') {
             $rows = $pdo->query(
@@ -867,7 +867,7 @@ function handleRecruitmentSkills(\PDO $pdo, string $method, array $segs): void {
  * must resolve under the recruitment uploads root. The root itself is
  * never deletable.
  */
-function handleRecruitmentDocumentsBrowse(\PDO $pdo, string $method): void {
+function handleRecruitmentDocumentsBrowse(\PDO|\BRS\TenantPdo $pdo, string $method): void {
     if (!in_array($method, ['GET', 'DELETE'], true)) Json::fail('Method not allowed', 405);
 
     $root = realpath(__DIR__ . '/../../uploads/recruitment');
@@ -973,7 +973,7 @@ function rrmdir(string $path): void {
  *   rejected                   → "Rejected" tab.
  * Frontend filters by status; backend just stores + returns all.
  */
-function handleRecruitmentPlacements(\PDO $pdo, string $method, array $segs, int $candidateId): void {
+function handleRecruitmentPlacements(\PDO|\BRS\TenantPdo $pdo, string $method, array $segs, int $candidateId): void {
     $statuses = ['screening', 'placed', 'ended', 'rejected'];
 
     if (!isset($segs[4])) {
@@ -1122,7 +1122,7 @@ function handleRecruitmentPlacements(\PDO $pdo, string $method, array $segs, int
  * status joined in so the Recruitment client detail page can render the
  * full who-have-we-pitched view without a fan-out to candidate fetches.
  */
-function handleRecruitmentClientPlacements(\PDO $pdo, string $method, int $clientId): void {
+function handleRecruitmentClientPlacements(\PDO|\BRS\TenantPdo $pdo, string $method, int $clientId): void {
     if ($method !== 'GET') Json::fail('Method not allowed', 405);
     $stmt = $pdo->prepare(
         "SELECT p.*,
@@ -1154,7 +1154,7 @@ function handleRecruitmentClientPlacements(\PDO $pdo, string $method, int $clien
  * opportunity. Candidates get added later via the placement endpoint
  * with the role's id attached.
  */
-function handleRecruitmentRoles(\PDO $pdo, string $method, array $segs, int $clientId): void {
+function handleRecruitmentRoles(\PDO|\BRS\TenantPdo $pdo, string $method, array $segs, int $clientId): void {
     $statuses = ['open', 'filled', 'cancelled'];
 
     if (!isset($segs[4])) {

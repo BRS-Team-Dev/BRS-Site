@@ -33,7 +33,7 @@ return function (string $method, array $segs): void {
     // /api/auth/me
     if ($method === 'GET' && ($segs[1] ?? '') === 'me') {
         $claims = Auth::require();
-        $u = Db::pdo()->prepare('SELECT id, email, display_name, created_at FROM admin_users WHERE id = ?');
+        $u = Db::tpdo()->prepare('SELECT id, email, display_name, created_at FROM admin_users WHERE id = ?');
         $u->execute([$claims['sub']]);
         $row = $u->fetch();
         if (!$row) Json::fail('Unauthorized', 401);
@@ -48,12 +48,12 @@ return function (string $method, array $segs): void {
         $new     = (string)($body['new_password'] ?? '');
         if (strlen($new) < 8) Json::fail('New password must be at least 8 chars', 400);
 
-        $u = Db::pdo()->prepare('SELECT password_hash FROM admin_users WHERE id = ?');
+        $u = Db::tpdo()->prepare('SELECT password_hash FROM admin_users WHERE id = ?');
         $u->execute([$claims['sub']]);
         $row = $u->fetch();
         if (!$row || !password_verify($current, $row['password_hash'])) Json::fail('Current password incorrect', 400);
 
-        $upd = Db::pdo()->prepare('UPDATE admin_users SET password_hash = ? WHERE id = ?');
+        $upd = Db::tpdo()->prepare('UPDATE admin_users SET password_hash = ? WHERE id = ?');
         $upd->execute([password_hash($new, PASSWORD_BCRYPT), $claims['sub']]);
         Json::send(['ok' => true]);
     }
@@ -124,9 +124,11 @@ return function (string $method, array $segs): void {
         $pdo = Db::pdo();
         $pdo->beginTransaction();
         try {
+            // @global-scope: admin_user_id comes from a verified password_resets row, so the PK lookup is unambiguous
             $upd1 = $pdo->prepare('UPDATE admin_users SET password_hash = ? WHERE id = ?');
             $upd1->execute([password_hash($new, PASSWORD_BCRYPT), $row['admin_user_id']]);
 
+            // @global-scope: redeeming our own previously-verified password_resets row by its PK
             $upd2 = $pdo->prepare('UPDATE password_resets SET used_at = NOW() WHERE id = ?');
             $upd2->execute([$row['id']]);
 

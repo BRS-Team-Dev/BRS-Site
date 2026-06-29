@@ -25,7 +25,7 @@ use BRS\Json;
 
 return function (string $method, array $segs): void {
     Auth::require();
-    $pdo = Db::pdo();
+    $pdo = Db::tpdo();
 
     // /api/onboarding/clients — cross-form clients list.
     //   default          → only NOT-yet-qualified

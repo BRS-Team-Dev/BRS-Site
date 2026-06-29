@@ -14,8 +14,14 @@ use BRS\Json;
  * see everything and require auth.
  */
 
+use BRS\Tenant;
+
 return function (string $method, array $segs): void {
-    $pdo = Db::pdo();
+    // Public routes have no JWT — bootstrap the tenant context.
+    // Hardcoded to BRS (tenant 1) until per-tenant public routing
+    // lands in Phase 5 (subdomain detection / per-tenant API key).
+    Tenant::setForPublic();
+    $pdo = Db::tpdo();
 
     // GET /api/public/legal — list of published documents.
     // Includes show_in_sidenav + parent_id so the public-facing sidenav can

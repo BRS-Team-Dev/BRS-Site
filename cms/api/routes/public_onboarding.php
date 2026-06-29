@@ -19,13 +19,19 @@ use BRS\Mailer;
  *                                                                  edits)
  */
 
+use BRS\Tenant;
+
 return function (string $method, array $segs): void {
+    // Public routes have no JWT — bootstrap the tenant context.
+    // Hardcoded to BRS (tenant 1) until per-tenant public routing
+    // lands in Phase 5 (subdomain detection / per-tenant API key).
+    Tenant::setForPublic();
     $formId = (int)($segs[2] ?? 0);
     $token  = (string)($segs[3] ?? '');
     if ($formId <= 0 || strlen($token) !== 64 || !ctype_xdigit($token)) {
         Json::fail('Invalid onboarding link', 400);
     }
-    $pdo = Db::pdo();
+    $pdo = Db::tpdo();
 
     // Resolve form + client (token must match the form_id in the URL — defence in depth).
     // Note: we don't require is_published here because the token itself is the

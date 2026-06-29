@@ -22,19 +22,19 @@ use BRS\Json;
  * working. attach now returns bool (true = newly attached) so the caller can
  * spawn a recruitment role exactly once.
  */
-function getRecruitmentServiceOfferingId(\PDO $pdo): ?int {
+function getRecruitmentServiceOfferingId(\PDO|\BRS\TenantPdo $pdo): ?int {
     return \BRS\Recruitment::offeringId($pdo);
 }
-function attachRecruitmentService(\PDO $pdo, int $clientId): bool {
+function attachRecruitmentService(\PDO|\BRS\TenantPdo $pdo, int $clientId): bool {
     return \BRS\Recruitment::attachToClient($pdo, $clientId);
 }
-function detachRecruitmentService(\PDO $pdo, int $clientId): void {
+function detachRecruitmentService(\PDO|\BRS\TenantPdo $pdo, int $clientId): void {
     \BRS\Recruitment::detachFromClient($pdo, $clientId);
 }
 
 return function (string $method, array $segs): void {
     Auth::require();
-    $pdo = Db::pdo();
+    $pdo = Db::tpdo();
 
     if (!isset($segs[1])) {
         if ($method === 'GET') {

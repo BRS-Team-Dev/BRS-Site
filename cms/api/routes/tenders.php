@@ -20,7 +20,7 @@ use BRS\Json;
 
 return function (string $method, array $segs): void {
     Auth::require();
-    $pdo = Db::pdo();
+    $pdo = Db::tpdo();
 
     $allowedStatuses = ['planning', 'drafting', 'submitted', 'awarded', 'rejected', 'withdrawn'];
 

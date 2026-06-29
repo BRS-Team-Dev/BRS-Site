@@ -8,7 +8,7 @@ use BRS\Mailer;
 
 return function (string $method, array $segs): void {
     Auth::require();
-    $pdo = Db::pdo();
+    $pdo = Db::tpdo();
 
     // /api/settings/test-mail
     if (($segs[1] ?? '') === 'test-mail' && $method === 'POST') {

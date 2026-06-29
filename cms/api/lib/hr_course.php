@@ -19,7 +19,7 @@ function sanitizeQuizForPlayer(array &$module): void {
 }
 
 /** Load all modules for a course, with quiz answers stripped. */
-function loadModulesForPlayer(\PDO $pdo, int $courseId): array {
+function loadModulesForPlayer(\PDO|\BRS\TenantPdo $pdo, int $courseId): array {
     $stmt = $pdo->prepare('SELECT id, course_id, title, kind, body, video_url, quiz_json, images_json, blocks_json, pass_score, sort_order
                            FROM hr_course_modules WHERE course_id = ? ORDER BY sort_order, id');
     $stmt->execute([$courseId]);
@@ -30,7 +30,7 @@ function loadModulesForPlayer(\PDO $pdo, int $courseId): array {
 }
 
 /** Verify that a module belongs to a course; fail 404 otherwise. */
-function moduleForCourse(\PDO $pdo, int $mid, int $cid): array {
+function moduleForCourse(\PDO|\BRS\TenantPdo $pdo, int $mid, int $cid): array {
     $row = $pdo->prepare('SELECT * FROM hr_course_modules WHERE id = ? AND course_id = ?');
     $row->execute([$mid, $cid]);
     $m = $row->fetch();
@@ -39,7 +39,7 @@ function moduleForCourse(\PDO $pdo, int $mid, int $cid): array {
 }
 
 /** Insert or update a per-assignment / per-module progress row. */
-function upsertModuleProgress(\PDO $pdo, int $aid, int $mid, array $patch): void {
+function upsertModuleProgress(\PDO|\BRS\TenantPdo $pdo, int $aid, int $mid, array $patch): void {
     $row = $pdo->prepare('SELECT * FROM hr_course_module_progress WHERE assignment_id = ? AND module_id = ?');
     $row->execute([$aid, $mid]);
     $cur = $row->fetch();
@@ -60,7 +60,7 @@ function upsertModuleProgress(\PDO $pdo, int $aid, int $mid, array $patch): void
 }
 
 /** Bump the assignment to in_progress on first activity, or completed when all modules are done. */
-function finalizeAssignmentIfDone(\PDO $pdo, int $aid, int $cid): void {
+function finalizeAssignmentIfDone(\PDO|\BRS\TenantPdo $pdo, int $aid, int $cid): void {
     $tot = $pdo->prepare('SELECT COUNT(*) FROM hr_course_modules WHERE course_id = ?');
     $tot->execute([$cid]);
     $total = (int)$tot->fetchColumn();

@@ -24,8 +24,14 @@ use BRS\Json;
 header_remove('X-Frame-Options');
 header('Content-Security-Policy: frame-ancestors *');
 
+use BRS\Tenant;
+
 return function (string $method, array $segs): void {
-    $pdo = Db::pdo();
+    // Public routes have no JWT — bootstrap the tenant context.
+    // Hardcoded to BRS (tenant 1) until per-tenant public routing
+    // lands in Phase 5 (subdomain detection / per-tenant API key).
+    Tenant::setForPublic();
+    $pdo = Db::tpdo();
     $token = (string)($segs[1] ?? '');
     if ($token === '' || strlen($token) < 16) Json::fail('token required', 400);
 

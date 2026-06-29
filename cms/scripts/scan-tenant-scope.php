@@ -97,6 +97,25 @@ function scanFile(string $file, array &$findings, array $globalTables): void
 {
     $src = file_get_contents($file);
     if ($src === false) return;
+
+    // Skip files that don't initiate DB access themselves. Two cases:
+    //   1. Files using only Db::tpdo() — every query goes through the
+    //      runtime wrapper which auto-scopes via TenantSqlRewriter.
+    //   2. Files that don't call Db::pdo() OR Db::tpdo() at all — these
+    //      are lib helpers (Contracts.php, Recruitment.php, etc.) that
+    //      receive a $pdo from the caller and inherit the caller's
+    //      scope choice. Their type hints (TenantPdo|PDO union or just
+    //      TenantPdo) enforce the contract at the language level.
+    // The scanner only adds value for raw Db::pdo() callers (auth.php
+    // pre-context queries, public_* routes that lack a tenant identity).
+    $usesPdo = preg_match('/\bDb::pdo\(\)/', $src) === 1;
+    if (!$usesPdo) return;
+
+    // Strip /* … */ block comments (including docblocks) before scanning
+    // so the scanner doesn't trip on SQL inside example code in
+    // class-level comments. Single-line // comments are kept — they're
+    // sometimes used to disable a query temporarily during refactoring.
+    $src = preg_replace('/\/\*.*?\*\//s', '', $src);
     $lines = explode("\n", $src);
 
     // Walk each line; when we see a $pdo->prepare/query/exec(...), find

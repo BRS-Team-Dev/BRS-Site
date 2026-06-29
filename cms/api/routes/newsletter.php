@@ -29,7 +29,7 @@ use BRS\Newsletter;
 
 return function (string $method, array $segs): void {
     Auth::require();
-    $pdo = Db::pdo();
+    $pdo = Db::tpdo();
 
     // /api/newsletter/process-due
     if (($segs[1] ?? '') === 'process-due') {

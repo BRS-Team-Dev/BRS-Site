@@ -64,13 +64,13 @@ jobs:
         run: composer install --no-dev --optimize-autoloader --no-interaction --no-progress
 
       # --- Static SQL scanner: every query against a tenant-scoped
-      # table must be tenant_id-scoped. Warnings only initially while
-      # Phase 3 route migration is in progress; flips to --strict once
-      # the route migration completes (Phase 4). The scanner exits 0
-      # without --strict, so this step never fails the build yet, but
-      # GitHub surfaces the inline annotations on the PR file view.
-      - name: Tenant-scope scan (warnings)
-        run: php cms/scripts/scan-tenant-scope.php
+      # table must be tenant_id-scoped. Flipped to --strict in Phase 4
+      # once the route migration completed (all routes either use
+      # Db::tpdo() which auto-scopes via TenantPdo, or carry an explicit
+      # // @global-scope annotation for the genuinely-global queries
+      # like password-reset token redemption).
+      - name: Tenant-scope scan (blocking)
+        run: php cms/scripts/scan-tenant-scope.php --strict
 
       - name: Setup Node
         uses: actions/setup-node@v4

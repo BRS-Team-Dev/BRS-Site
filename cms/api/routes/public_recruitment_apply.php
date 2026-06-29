@@ -20,9 +20,15 @@ use BRS\Json;
  * applicant shows up in the CMS Recruitment → Candidates list, and replays the
  * candidate-audience contract templates as pending docs.
  */
+use BRS\Tenant;
+
 return function (string $method, array $segs): void {
+    // Public routes have no JWT — bootstrap the tenant context.
+    // Hardcoded to BRS (tenant 1) until per-tenant public routing
+    // lands in Phase 5 (subdomain detection / per-tenant API key).
+    Tenant::setForPublic();
     if ($method !== 'POST') Json::fail('Method not allowed', 405);
-    $pdo = Db::pdo();
+    $pdo = Db::tpdo();
 
     // Honeypot: silently accept-and-drop obvious bot submissions.
     if (trim((string)($_POST['company'] ?? '')) !== '') { Json::send(['ok' => true]); return; }

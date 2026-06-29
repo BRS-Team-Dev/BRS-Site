@@ -18,7 +18,7 @@ use BRS\Json;
 
 return function (string $method, array $segs): void {
     Auth::require();
-    $pdo = Db::pdo();
+    $pdo = Db::tpdo();
 
     $statuses   = ['active', 'inactive', 'on_break', 'ended'];
     $types      = ['individual', 'agency', 'freelancer', 'consultant'];

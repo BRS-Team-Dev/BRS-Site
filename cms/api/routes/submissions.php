@@ -8,7 +8,7 @@ use BRS\Json;
 
 return function (string $method, array $segs): void {
     Auth::require();
-    $pdo = Db::pdo();
+    $pdo = Db::tpdo();
 
     // /api/forms/:id/submissions  (segs = ['forms', id, 'submissions', maybeRowId])
     if (($segs[0] ?? '') !== 'forms' || ($segs[2] ?? '') !== 'submissions') {

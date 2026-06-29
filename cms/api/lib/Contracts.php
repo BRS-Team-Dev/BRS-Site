@@ -67,7 +67,7 @@ final class Contracts {
      * Signed flow on non-employees is admin-side for now.
      */
     public static function distributeTemplate(
-        PDO $pdo, int $typeId, string $name,
+        PDO|\BRS\TenantPdo $pdo, int $typeId, string $name,
         string $templatePath, ?string $templateMime, ?int $templateSize,
         string $kind, string $audience
     ): int {
@@ -127,7 +127,7 @@ final class Contracts {
      * audience-matched template so the new record sees the same pending
      * docs as the rest of the cohort.
      */
-    public static function fanOutToNewEntity(PDO $pdo, string $audience, int $ownerId): int {
+    public static function fanOutToNewEntity(PDO|\BRS\TenantPdo $pdo, string $audience, int $ownerId): int {
         $tpls = $pdo->prepare(
             "SELECT id, name, kind, template_path, template_mime, template_size
              FROM hr_document_types

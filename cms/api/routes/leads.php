@@ -19,7 +19,7 @@ use BRS\Json;
 
 return function (string $method, array $segs): void {
     $claims = Auth::require();
-    $pdo = Db::pdo();
+    $pdo = Db::tpdo();
     // JWT 'sub' is the admin_users.id of the calling user. Used to stamp
     // `added_by_user_id` on UI-driven lead creates so the list view can
     // show who added each row.

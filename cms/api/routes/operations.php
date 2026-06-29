@@ -23,7 +23,7 @@ use BRS\Json;
 
 return function (string $method, array $segs): void {
     Auth::require();
-    $pdo = Db::pdo();
+    $pdo = Db::tpdo();
 
     $resource = $segs[1] ?? '';
     if ($resource === 'documents') {
@@ -193,7 +193,7 @@ return function (string $method, array $segs): void {
  * `file_path` is the cms-relative path (e.g. 'uploads/hr/12/1234_file.pdf')
  * — the frontend prefixes `basePath` to build a real URL.
  */
-function handleOperationsDocuments(\PDO $pdo, string $method): void {
+function handleOperationsDocuments(\PDO|\BRS\TenantPdo $pdo, string $method): void {
     if ($method !== 'GET') Json::fail('Method not allowed', 405);
 
     $hr = $pdo->query(

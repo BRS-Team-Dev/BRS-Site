@@ -18,7 +18,7 @@ use BRS\Json;
 
 return function (string $method, array $segs): void {
     Auth::require();
-    $pdo = Db::pdo();
+    $pdo = Db::tpdo();
 
     $statuses    = ['pending', 'active', 'paused', 'suspended', 'terminated'];
     $tiers       = ['bronze', 'silver', 'gold', 'platinum'];

@@ -5,6 +5,7 @@ use BRS\Db;
 use BRS\Ddl;
 use BRS\Json;
 use BRS\Mailer;
+use BRS\Tenant;
 use BRS\Validator;
 
 if (!function_exists('brs_default_notify_body')) {
@@ -21,6 +22,10 @@ if (!function_exists('brs_default_notify_body')) {
 }
 
 return function (string $method, array $segs): void {
+    // Public dispatcher — no JWT — bootstrap tenant context to BRS
+    // (id=1) until per-tenant public routing lands in Phase 5.
+    Tenant::setForPublic();
+
     // /api/public/forms/:slug                  → GET form schema
     // /api/public/forms/:slug/submit           → POST submission
     // /api/public/onboarding/:formId/:token    → GET / PUT / submit
@@ -50,7 +55,7 @@ return function (string $method, array $segs): void {
                . '<body style="font-family:sans-serif;padding:40px;text-align:center"><h2>Missing token</h2></body>';
             return;
         }
-        $pdo  = Db::pdo();
+        $pdo  = Db::tpdo();
         $stmt = $pdo->prepare('SELECT email FROM newsletter_recipients WHERE unsubscribe_token = ?');
         $stmt->execute([$token]);
         $email = $stmt->fetchColumn();
@@ -81,7 +86,7 @@ return function (string $method, array $segs): void {
     $slug = strtolower((string)($segs[2] ?? ''));
     if (!preg_match(Ddl::IDENT_RE, $slug)) Json::fail('Invalid form', 400);
 
-    $pdo = Db::pdo();
+    $pdo = Db::tpdo();
     $f = $pdo->prepare('SELECT * FROM forms WHERE slug = ? AND is_published = 1');
     $f->execute([$slug]);
     $form = $f->fetch();

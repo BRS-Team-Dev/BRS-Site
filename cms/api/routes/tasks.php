@@ -29,7 +29,7 @@ use BRS\Json;
 
 return function (string $method, array $segs): void {
     Auth::require();
-    $pdo = Db::pdo();
+    $pdo = Db::tpdo();
     $sub = (string)($segs[1] ?? '');
 
     if ($sub === 'teams')          { handleTeams($pdo, $method, $segs);      return; }
@@ -48,7 +48,7 @@ return function (string $method, array $segs): void {
  * picker can show enough detail to identify the right one. The endpoint
  * marks entries already linked to a project so the UI can grey them out.
  */
-function handleServicesPool(\PDO $pdo, string $method): void {
+function handleServicesPool(\PDO|\BRS\TenantPdo $pdo, string $method): void {
     if ($method !== 'GET') Json::fail('Method not allowed', 405);
     $rows = $pdo->query("
         SELECT oc.id              AS onboarding_client_id,
@@ -81,7 +81,7 @@ function handleServicesPool(\PDO $pdo, string $method): void {
     Json::send(['services' => $rows]);
 }
 
-function handleTeams(\PDO $pdo, string $method, array $segs): void {
+function handleTeams(\PDO|\BRS\TenantPdo $pdo, string $method, array $segs): void {
     if (!isset($segs[2])) {
         if ($method === 'GET') {
             $rows = $pdo->query('
@@ -164,7 +164,7 @@ function handleTeams(\PDO $pdo, string $method, array $segs): void {
     Json::fail('Method not allowed', 405);
 }
 
-function handleProjects(\PDO $pdo, string $method, array $segs): void {
+function handleProjects(\PDO|\BRS\TenantPdo $pdo, string $method, array $segs): void {
     if (!isset($segs[2])) {
         if ($method === 'GET') {
             $where = '';
@@ -277,7 +277,7 @@ function handleProjects(\PDO $pdo, string $method, array $segs): void {
     Json::fail('Method not allowed', 405);
 }
 
-function handleTypes(\PDO $pdo, string $method, array $segs): void {
+function handleTypes(\PDO|\BRS\TenantPdo $pdo, string $method, array $segs): void {
     if (!isset($segs[2])) {
         if ($method === 'GET') {
             Json::send(['types' => $pdo->query('SELECT * FROM task_item_types ORDER BY sort_order, id')->fetchAll()]);
@@ -317,7 +317,7 @@ function handleTypes(\PDO $pdo, string $method, array $segs): void {
     Json::fail('Method not allowed', 405);
 }
 
-function handleStates(\PDO $pdo, string $method, array $segs): void {
+function handleStates(\PDO|\BRS\TenantPdo $pdo, string $method, array $segs): void {
     if (!isset($segs[2])) {
         if ($method === 'GET') {
             Json::send(['states' => $pdo->query('SELECT * FROM task_item_states ORDER BY sort_order, id')->fetchAll()]);
@@ -357,7 +357,7 @@ function handleStates(\PDO $pdo, string $method, array $segs): void {
     Json::fail('Method not allowed', 405);
 }
 
-function handleItems(\PDO $pdo, string $method, array $segs): void {
+function handleItems(\PDO|\BRS\TenantPdo $pdo, string $method, array $segs): void {
     if (!isset($segs[2])) {
         if ($method === 'GET') {
             $where = []; $params = [];
@@ -484,7 +484,7 @@ function handleItems(\PDO $pdo, string $method, array $segs): void {
     Json::fail('Method not allowed', 405);
 }
 
-function handleIterations(\PDO $pdo, string $method, array $segs): void {
+function handleIterations(\PDO|\BRS\TenantPdo $pdo, string $method, array $segs): void {
     if (!isset($segs[2])) {
         if ($method === 'GET') {
             $where = []; $params = [];

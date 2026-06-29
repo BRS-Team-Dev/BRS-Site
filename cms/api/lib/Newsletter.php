@@ -33,7 +33,7 @@ final class Newsletter
         bool $audienceLeads,
         ?string $customEmails
     ): array {
-        $pdo = Db::pdo();
+        $pdo = Db::tpdo();
         /** @var array<string, array{email:string, name:?string, source:string, source_id:?int}> */
         $byEmail = [];
 
@@ -121,7 +121,7 @@ final class Newsletter
      */
     public static function send(int $campaignId): array
     {
-        $pdo = Db::pdo();
+        $pdo = Db::tpdo();
 
         $stmt = $pdo->prepare('SELECT * FROM newsletter_campaigns WHERE id = ?');
         $stmt->execute([$campaignId]);

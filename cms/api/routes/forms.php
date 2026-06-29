@@ -12,7 +12,7 @@ use BRS\Json;
 
 return function (string $method, array $segs): void {
     Auth::require();
-    $pdo = Db::pdo();
+    $pdo = Db::tpdo();
 
     // /api/forms
     if (!isset($segs[1])) {

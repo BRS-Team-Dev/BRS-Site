@@ -18,7 +18,7 @@ require_once __DIR__ . '/../lib/hr_course.php';
 
 return function (string $method, array $segs): void {
     Auth::require();
-    $pdo = Db::pdo();
+    $pdo = Db::tpdo();
     $sub = (string)($segs[1] ?? '');
 
     if ($sub === 'employees')        { handleEmployees($pdo, $method, $segs);       return; }
@@ -46,7 +46,7 @@ return function (string $method, array $segs): void {
 };
 
 /** Resolve the currently signed-in employee record (if any). */
-function currentEmployee(\PDO $pdo): ?array {
+function currentEmployee(\PDO|\BRS\TenantPdo $pdo): ?array {
     $claims = Auth::require();
     $uid = (int)($claims['sub'] ?? 0);
     if ($uid <= 0) return null;
@@ -61,7 +61,7 @@ function pickEnum(?string $value, array $allowed, string $fallback): string {
     return $fallback;
 }
 
-function handleMe(\PDO $pdo, string $method, array $segs): void {
+function handleMe(\PDO|\BRS\TenantPdo $pdo, string $method, array $segs): void {
     $emp = currentEmployee($pdo);
     if (!$emp) Json::fail('No employee record for the current user', 404);
 
@@ -985,7 +985,7 @@ function handleMe(\PDO $pdo, string $method, array $segs): void {
     Json::fail('Not found', 404);
 }
 
-function handleEmployees(\PDO $pdo, string $method, array $segs): void {
+function handleEmployees(\PDO|\BRS\TenantPdo $pdo, string $method, array $segs): void {
     if (isset($segs[2]) && isset($segs[3])) {
         $eid = (int)$segs[2];
         if ($segs[3] === 'onboarding')     { handleOnboarding($pdo, $method, $segs, $eid);     return; }
@@ -1236,7 +1236,7 @@ function handleEmployees(\PDO $pdo, string $method, array $segs): void {
  * endpoint returns the same row shape grouped by `employee_id` so the
  * frontend can populate its `Map<empId, HrDocument[]>` from a single query.
  */
-function handleAllDocuments(\PDO $pdo, string $method): void {
+function handleAllDocuments(\PDO|\BRS\TenantPdo $pdo, string $method): void {
     if ($method !== 'GET') Json::fail('Method not allowed', 405);
     $stmt = $pdo->query('SELECT d.*, u.display_name AS uploaded_by_name
                          FROM hr_documents d
@@ -1256,7 +1256,7 @@ function handleAllDocuments(\PDO $pdo, string $method): void {
  * GET /api/hr/all-onboarding — every employee's onboarding tasks in one
  * round-trip. Same N+1-collapse rationale as `/api/hr/all-documents`.
  */
-function handleAllOnboarding(\PDO $pdo, string $method): void {
+function handleAllOnboarding(\PDO|\BRS\TenantPdo $pdo, string $method): void {
     if ($method !== 'GET') Json::fail('Method not allowed', 405);
     $rows = $pdo->query('SELECT * FROM hr_onboarding_tasks ORDER BY employee_id, sort_order, id')->fetchAll();
     $byEmployee = [];
@@ -1268,7 +1268,7 @@ function handleAllOnboarding(\PDO $pdo, string $method): void {
     Json::send(['tasks_by_employee' => (object)$byEmployee]);
 }
 
-function handleOnboarding(\PDO $pdo, string $method, array $segs, int $eid): void {
+function handleOnboarding(\PDO|\BRS\TenantPdo $pdo, string $method, array $segs, int $eid): void {
     if (!isset($segs[4])) {
         if ($method === 'GET') {
             $stmt = $pdo->prepare('SELECT * FROM hr_onboarding_tasks WHERE employee_id = ? ORDER BY sort_order, id');
@@ -1321,7 +1321,7 @@ function handleOnboarding(\PDO $pdo, string $method, array $segs, int $eid): voi
     Json::fail('Method not allowed', 405);
 }
 
-function handleDocuments(\PDO $pdo, string $method, array $segs, int $eid): void {
+function handleDocuments(\PDO|\BRS\TenantPdo $pdo, string $method, array $segs, int $eid): void {
     if (!isset($segs[4])) {
         if ($method === 'GET') {
             $stmt = $pdo->prepare('SELECT d.*, u.display_name AS uploaded_by_name
@@ -1371,7 +1371,7 @@ function handleDocuments(\PDO $pdo, string $method, array $segs, int $eid): void
     Json::fail('Method not allowed', 405);
 }
 
-function handlePto(\PDO $pdo, string $method, array $segs, int $eid): void {
+function handlePto(\PDO|\BRS\TenantPdo $pdo, string $method, array $segs, int $eid): void {
     if (!isset($segs[4])) {
         if ($method !== 'GET') Json::fail('Method not allowed', 405);
         $emp = $pdo->prepare('SELECT pto_days_year, pto_taken_days, pto_accrued_days FROM hr_employees WHERE id = ?');
@@ -1418,7 +1418,7 @@ function handlePto(\PDO $pdo, string $method, array $segs, int $eid): void {
     Json::fail('Not found', 404);
 }
 
-function handleEmpLearning(\PDO $pdo, string $method, array $segs, int $eid): void {
+function handleEmpLearning(\PDO|\BRS\TenantPdo $pdo, string $method, array $segs, int $eid): void {
     if (!isset($segs[4])) {
         if ($method === 'GET') {
             // Also surface: compliance link (if course satisfies a compliance task),
@@ -1472,7 +1472,7 @@ function handleEmpLearning(\PDO $pdo, string $method, array $segs, int $eid): vo
     Json::fail('Method not allowed', 405);
 }
 
-function handleCertifications(\PDO $pdo, string $method, array $segs, int $eid): void {
+function handleCertifications(\PDO|\BRS\TenantPdo $pdo, string $method, array $segs, int $eid): void {
     if (!isset($segs[4])) {
         if ($method === 'GET') {
             $stmt = $pdo->prepare('SELECT * FROM hr_certifications WHERE employee_id = ? ORDER BY issued_at DESC, id DESC');
@@ -1553,7 +1553,7 @@ function handleCertifications(\PDO $pdo, string $method, array $segs, int $eid):
  * transfers) automatically pick up the org's required learning instead of
  * silently missing it.
  */
-function syncScopedCourseAssignments(\PDO $pdo, int $employeeId, ?string $department): void {
+function syncScopedCourseAssignments(\PDO|\BRS\TenantPdo $pdo, int $employeeId, ?string $department): void {
     // Company-wide courses: every course that has at least one company-scoped assignment.
     $companyCourses = $pdo->query('SELECT DISTINCT course_id, due_date
                                    FROM hr_course_assignments
@@ -1576,7 +1576,7 @@ function syncScopedCourseAssignments(\PDO $pdo, int $employeeId, ?string $depart
     }
 }
 
-function handleEmployeeNotes(\PDO $pdo, string $method, array $segs, int $eid): void {
+function handleEmployeeNotes(\PDO|\BRS\TenantPdo $pdo, string $method, array $segs, int $eid): void {
     $nid = isset($segs[4]) ? (int)$segs[4] : 0;
     if ($nid === 0 && $method === 'GET') {
         $stmt = $pdo->prepare('
@@ -1620,7 +1620,7 @@ function saveCertFile(int $eid): ?string {
     return 'uploads/hr/' . $eid . '/certs/' . $name;
 }
 
-function handlePayroll(\PDO $pdo, string $method, array $segs): void {
+function handlePayroll(\PDO|\BRS\TenantPdo $pdo, string $method, array $segs): void {
     // /payroll/ytd?employee_id=X&period_id=Y — UK tax-year YTD totals up to and including
     // the given period. Tax year runs 6 April → 5 April.
     if (($segs[2] ?? '') === 'ytd' && $method === 'GET') {
@@ -1839,7 +1839,7 @@ function handlePayroll(\PDO $pdo, string $method, array $segs): void {
     Json::fail('Method not allowed', 405);
 }
 
-function handleTimeOff(\PDO $pdo, string $method, array $segs): void {
+function handleTimeOff(\PDO|\BRS\TenantPdo $pdo, string $method, array $segs): void {
     if (!isset($segs[2])) {
         if ($method === 'GET') {
             $where = []; $params = [];
@@ -1919,7 +1919,7 @@ function handleTimeOff(\PDO $pdo, string $method, array $segs): void {
     Json::fail('Method not allowed', 405);
 }
 
-function handleReviews(\PDO $pdo, string $method, array $segs): void {
+function handleReviews(\PDO|\BRS\TenantPdo $pdo, string $method, array $segs): void {
     $sub = (string)($segs[2] ?? '');
 
     if ($sub === 'cycles') {
@@ -2058,7 +2058,7 @@ function handleReviews(\PDO $pdo, string $method, array $segs): void {
     Json::fail('Method not allowed', 405);
 }
 
-function handleCourses(\PDO $pdo, string $method, array $segs): void {
+function handleCourses(\PDO|\BRS\TenantPdo $pdo, string $method, array $segs): void {
     if (!isset($segs[2])) {
         if ($method === 'GET') {
             // Admin view shows both active and inactive courses; the UI tags inactive
@@ -2290,7 +2290,7 @@ function handleCourses(\PDO $pdo, string $method, array $segs): void {
     Json::fail('Method not allowed', 405);
 }
 
-function handleChangeRequests(\PDO $pdo, string $method, array $segs): void {
+function handleChangeRequests(\PDO|\BRS\TenantPdo $pdo, string $method, array $segs): void {
     if (!isset($segs[2])) {
         if ($method !== 'GET') Json::fail('Method not allowed', 405);
         $where = []; $params = [];
@@ -2333,7 +2333,7 @@ function handleChangeRequests(\PDO $pdo, string $method, array $segs): void {
     Json::fail('Method not allowed', 405);
 }
 
-function handleCompliance(\PDO $pdo, string $method, array $segs): void {
+function handleCompliance(\PDO|\BRS\TenantPdo $pdo, string $method, array $segs): void {
     if (!isset($segs[2])) {
         if ($method === 'GET') {
             $pdo->exec("UPDATE hr_compliance_tasks SET status = CASE
@@ -2461,7 +2461,7 @@ function handleCompliance(\PDO $pdo, string $method, array $segs): void {
     Json::fail('Method not allowed', 405);
 }
 
-function handlePulseSurveys(\PDO $pdo, string $method, array $segs): void {
+function handlePulseSurveys(\PDO|\BRS\TenantPdo $pdo, string $method, array $segs): void {
     if (!isset($segs[2])) {
         if ($method === 'GET') {
             $stmt = $pdo->query('
@@ -2569,7 +2569,7 @@ function handlePulseSurveys(\PDO $pdo, string $method, array $segs): void {
     Json::fail('Method not allowed', 405);
 }
 
-function handleFeedback(\PDO $pdo, string $method, array $segs): void {
+function handleFeedback(\PDO|\BRS\TenantPdo $pdo, string $method, array $segs): void {
     if (!isset($segs[2])) {
         if ($method !== 'GET') Json::fail('Method not allowed', 405);
         $where = []; $params = [];
@@ -2598,7 +2598,7 @@ function handleFeedback(\PDO $pdo, string $method, array $segs): void {
     Json::fail('Method not allowed', 405);
 }
 
-function handleReports(\PDO $pdo, string $method, array $segs): void {
+function handleReports(\PDO|\BRS\TenantPdo $pdo, string $method, array $segs): void {
     if ($method !== 'GET') Json::fail('Method not allowed', 405);
     $sub = (string)($segs[2] ?? 'overview');
     if ($sub === 'overview') {
@@ -2643,7 +2643,7 @@ function handleReports(\PDO $pdo, string $method, array $segs): void {
     Json::fail('Not found', 404);
 }
 
-function handleSuccession(\PDO $pdo, string $method, array $segs): void {
+function handleSuccession(\PDO|\BRS\TenantPdo $pdo, string $method, array $segs): void {
     if (!isset($segs[2])) {
         if ($method === 'GET') {
             $stmt = $pdo->query('
@@ -2803,7 +2803,7 @@ function handleSuccession(\PDO $pdo, string $method, array $segs): void {
     Json::fail('Method not allowed', 405);
 }
 
-function handleJobs(\PDO $pdo, string $method, array $segs): void {
+function handleJobs(\PDO|\BRS\TenantPdo $pdo, string $method, array $segs): void {
     if (!isset($segs[2])) {
         if ($method === 'GET') {
             $stmt = $pdo->query('
@@ -2885,7 +2885,7 @@ function handleJobs(\PDO $pdo, string $method, array $segs): void {
     Json::fail('Method not allowed', 405);
 }
 
-function handleCandidates(\PDO $pdo, string $method, array $segs): void {
+function handleCandidates(\PDO|\BRS\TenantPdo $pdo, string $method, array $segs): void {
     if (!isset($segs[2])) {
         if ($method === 'GET') {
             $stmt = $pdo->query('SELECT * FROM hr_candidates ORDER BY created_at DESC');
@@ -2952,7 +2952,7 @@ function handleCandidates(\PDO $pdo, string $method, array $segs): void {
     Json::fail('Method not allowed', 405);
 }
 
-function handleApplications(\PDO $pdo, string $method, array $segs): void {
+function handleApplications(\PDO|\BRS\TenantPdo $pdo, string $method, array $segs): void {
     if (!isset($segs[2])) {
         if ($method === 'POST') {
             $b = Json::readBody();
@@ -3095,14 +3095,14 @@ function handleApplications(\PDO $pdo, string $method, array $segs): void {
 }
 
 /** Read-only list of hr_references for HR-side review (e.g. on the onboarding section detail). */
-function handleEmpReferences(\PDO $pdo, string $method, array $segs, int $eid): void {
+function handleEmpReferences(\PDO|\BRS\TenantPdo $pdo, string $method, array $segs, int $eid): void {
     if ($method !== 'GET') Json::fail('Method not allowed', 405);
     $stmt = $pdo->prepare('SELECT * FROM hr_references WHERE employee_id = ? ORDER BY sort_order, id');
     $stmt->execute([$eid]);
     Json::send(['references' => $stmt->fetchAll()]);
 }
 
-function handleVerifySection(\PDO $pdo, string $method, array $segs, int $eid): void {
+function handleVerifySection(\PDO|\BRS\TenantPdo $pdo, string $method, array $segs, int $eid): void {
     if ($method !== 'POST') Json::fail('Method not allowed', 405);
     $section = (string)($segs[4] ?? '');
     $allowed = ['profile','contact','emergency','payroll','documents','tasks','learning','background','references','diversity'];
@@ -3136,7 +3136,7 @@ function handleVerifySection(\PDO $pdo, string $method, array $segs, int $eid): 
 }
 
 /** HR rejects a submitted section with a reason; employee sees it on the portal and re-submits. */
-function handleRejectSection(\PDO $pdo, string $method, array $segs, int $eid): void {
+function handleRejectSection(\PDO|\BRS\TenantPdo $pdo, string $method, array $segs, int $eid): void {
     if ($method !== 'POST') Json::fail('Method not allowed', 405);
     $section = (string)($segs[4] ?? '');
     $allowed = ['profile','contact','emergency','payroll','documents','tasks','learning','background','references','diversity'];
@@ -3164,7 +3164,7 @@ function handleRejectSection(\PDO $pdo, string $method, array $segs, int $eid): 
     Json::send(['ok' => true, 'progress' => $progress]);
 }
 
-function handleDocumentTypes(\PDO $pdo, string $method, array $segs): void {
+function handleDocumentTypes(\PDO|\BRS\TenantPdo $pdo, string $method, array $segs): void {
     // /hr/document-types/template-image — upload an image used inside a signed-document template.
     if (($segs[2] ?? null) === 'template-image' && $method === 'POST') {
         if (empty($_FILES['file'])) Json::fail('file required', 400);
@@ -3362,7 +3362,7 @@ function handleDocumentTypes(\PDO $pdo, string $method, array $segs): void {
  *   PUT    /api/hr/contract-groups/:id        { name?, sort_order? }
  *   DELETE /api/hr/contract-groups/:id        (types fall back to Ungrouped)
  */
-function handleContractGroups(\PDO $pdo, string $method, array $segs): void {
+function handleContractGroups(\PDO|\BRS\TenantPdo $pdo, string $method, array $segs): void {
     if (!isset($segs[2])) {
         if ($method === 'GET') {
             $rows = $pdo->query('SELECT id, name, sort_order FROM hr_contract_groups ORDER BY sort_order, id')->fetchAll();
@@ -3421,7 +3421,7 @@ function handleContractGroups(\PDO $pdo, string $method, array $segs): void {
  *   PUT    /api/hr/contract-types/:id      → { ok }
  *   DELETE /api/hr/contract-types/:id      → { ok }
  */
-function handleContractTypes(\PDO $pdo, string $method, array $segs): void {
+function handleContractTypes(\PDO|\BRS\TenantPdo $pdo, string $method, array $segs): void {
     Auth::require();
     if (!isset($segs[2])) {
         if ($method === 'GET') {
@@ -3498,7 +3498,7 @@ function slugifyLegal(string $s): string {
     $s = preg_replace('/[^a-z0-9]+/', '-', $s) ?? '';
     return trim($s, '-') ?: 'document';
 }
-function uniqueLegalSlug(\PDO $pdo, string $base, ?int $excludeId = null): string {
+function uniqueLegalSlug(\PDO|\BRS\TenantPdo $pdo, string $base, ?int $excludeId = null): string {
     $slug = $base;
     $i = 2;
     while (true) {
@@ -3521,7 +3521,7 @@ function uniqueLegalSlug(\PDO $pdo, string $base, ?int $excludeId = null): strin
  *   PUT    /api/hr/legal/:id             update
  *   DELETE /api/hr/legal/:id             delete
  */
-function handleLegal(\PDO $pdo, string $method, array $segs): void {
+function handleLegal(\PDO|\BRS\TenantPdo $pdo, string $method, array $segs): void {
     $claims = Auth::require();
     $uid = (int)($claims['sub'] ?? 0) ?: null;
 

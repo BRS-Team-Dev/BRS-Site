@@ -27,7 +27,7 @@ use BRS\Json;
 
 return function (string $method, array $segs): void {
     Auth::require();
-    $pdo = Db::pdo();
+    $pdo = Db::tpdo();
     $sub = (string)($segs[1] ?? '');
 
     if ($sub === 'invoices') {
@@ -38,7 +38,7 @@ return function (string $method, array $segs): void {
 };
 
 /** Generate the next invoice number for the calendar year, e.g. INV-2026-0042. */
-function nextInvoiceNumber(\PDO $pdo): string
+function nextInvoiceNumber(\PDO|\BRS\TenantPdo $pdo): string
 {
     $year = (int)date('Y');
     $prefix = 'INV-' . $year . '-';
@@ -55,7 +55,7 @@ function nextInvoiceNumber(\PDO $pdo): string
 }
 
 /** Refresh the invoice header totals after a line insert/update/delete. */
-function recalcInvoiceTotals(\PDO $pdo, int $invoiceId): void
+function recalcInvoiceTotals(\PDO|\BRS\TenantPdo $pdo, int $invoiceId): void
 {
     $stmt = $pdo->prepare('SELECT
         COALESCE(SUM(line_total), 0) AS subtotal,
@@ -71,7 +71,7 @@ function recalcInvoiceTotals(\PDO $pdo, int $invoiceId): void
 }
 
 /** Compute and persist line_total + line_tax for a row. */
-function recalcLineRow(\PDO $pdo, int $lineId): void
+function recalcLineRow(\PDO|\BRS\TenantPdo $pdo, int $lineId): void
 {
     $stmt = $pdo->prepare('SELECT quantity, unit_price, tax_rate FROM invoice_lines WHERE id = ?');
     $stmt->execute([$lineId]);
@@ -83,7 +83,7 @@ function recalcLineRow(\PDO $pdo, int $lineId): void
         ->execute([$base, $tax, $lineId]);
 }
 
-function handleInvoices(\PDO $pdo, string $method, array $segs): void
+function handleInvoices(\PDO|\BRS\TenantPdo $pdo, string $method, array $segs): void
 {
     // Collection: /api/accounting/invoices
     if (!isset($segs[2])) {
