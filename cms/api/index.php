@@ -117,6 +117,9 @@ try {
         case 'public-survey':
             (require __DIR__ . '/routes/public_survey.php')($method, $segs);
             break;
+        case 'public-tenant-signup':
+            (require __DIR__ . '/routes/public_tenant_signup.php')($method, $segs);
+            break;
         case 'super-admin':
             (require __DIR__ . '/routes/super_admin.php')($method, $segs);
             break;

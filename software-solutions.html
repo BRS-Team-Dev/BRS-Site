@@ -1,0 +1,995 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Built Right Studio Software Solutions - Custom CRM systems, content management platforms, bespoke web apps, and business automation built around how your business actually works.">
+  <meta name="keywords" content="custom CRM, CMS development, bespoke web apps, business automation, internal dashboards, API integrations, UK software development">
+  <meta name="author" content="Built Right Studio">
+
+  <!-- Open Graph / Social Media -->
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://builtrightstudio.com/software-solutions">
+  <meta property="og:title" content="Software Solutions | Built Right Studio">
+  <meta property="og:description" content="Bespoke platforms that run your business — custom CRM, CMS and tailor-made web apps designed and built around your workflow.">
+
+  <!-- Favicon -->
+  <link rel="icon" type="image/png" sizes="32x32" href="assets/images/icon.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="assets/images/icon.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="assets/images/icon.png">
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+  <!-- Stylesheet -->
+  <link rel="stylesheet" href="css/styles.css">
+
+  <title>Software Solutions | Built Right Studio</title>
+</head>
+<body class="has-announcement">
+
+  <!-- ============================================
+       ANNOUNCEMENT BAR
+       ============================================ -->
+  <div class="announcement-bar">
+    <span><strong>24–72 Hour Website Delivery</strong> — Fast, Modern, Affordable. <a href="pricing.html">View Pricing</a></span>
+    <button class="announcement-close" aria-label="Close announcement">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="18" y1="6" x2="6" y2="18"></line>
+        <line x1="6" y1="6" x2="18" y2="18"></line>
+      </svg>
+    </button>
+  </div>
+
+  <!-- ============================================
+       HEADER / NAVIGATION
+       ============================================ -->
+  <header class="header has-announcement">
+    <div class="header-inner">
+      <!-- Logo -->
+      <a href="index.html" class="logo">
+        <img src="assets/images/icon-removebg-preview.png" alt="Built Right Studio">
+      </a>
+
+      <!-- Main Navigation -->
+      <nav class="nav-main" role="navigation" aria-label="Main navigation">
+        <a href="index.html" class="nav-link">Home</a>
+        <div class="nav-dropdown">
+          <a href="websites.html" class="nav-link active">Services
+            <svg class="nav-dropdown-caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+          </a>
+          <div class="nav-dropdown-menu">
+            <a href="websites.html">Websites</a>
+            <a href="software-solutions.html" class="active">Software Solutions</a>
+            <a href="it-services.html">IT Services</a>
+            <a href="brand-kit.html">Brand Kit</a>
+            <a href="social-media-marketing.html">Social Media Marketing</a>
+          </div>
+        </div>
+        <a href="portfolio.html" class="nav-link">Portfolio</a>
+        <a href="about.html" class="nav-link">About</a>
+        <a href="pricing.html" class="nav-link">Pricing</a>
+        <a href="contact.html" class="nav-link">Contact</a>
+      </nav>
+
+      <!-- Header CTA -->
+      <div class="header-cta">
+        <a href="contact.html" class="btn btn-primary">Get Started</a>
+
+        <!-- Mobile Toggle -->
+        <button class="mobile-toggle" aria-label="Toggle menu" aria-expanded="false">
+          <span></span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Mobile Navigation -->
+    <nav class="nav-mobile" role="navigation" aria-label="Mobile navigation">
+      <a href="index.html" class="nav-link">Home</a>
+      <div class="nav-mobile-dropdown">
+        <button class="nav-mobile-services-toggle" aria-expanded="false" aria-label="Toggle services menu">Services
+          <svg class="nav-dropdown-caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+        </button>
+        <div class="nav-mobile-submenu">
+          <a href="websites.html" class="nav-link">Websites</a>
+          <a href="software-solutions.html" class="nav-link active">Software Solutions</a>
+          <a href="it-services.html" class="nav-link">IT Services</a>
+          <a href="brand-kit.html" class="nav-link">Brand Kit</a>
+          <a href="social-media-marketing.html" class="nav-link">Social Media Marketing</a>
+        </div>
+      </div>
+      <a href="portfolio.html" class="nav-link">Portfolio</a>
+      <a href="about.html" class="nav-link">About</a>
+      <a href="pricing.html" class="nav-link">Pricing</a>
+      <a href="contact.html" class="nav-link">Contact</a>
+      <a href="contact.html" class="btn btn-primary" style="margin-top: var(--space-6);">Get Started</a>
+    </nav>
+  </header>
+
+  <!-- ============================================
+       MAIN CONTENT
+       ============================================ -->
+  <main>
+
+    <!-- ============================================
+         PAGE HERO
+         ============================================ -->
+    <section class="section section-dark" style="padding-top: var(--space-20); background: linear-gradient(135deg, rgba(0, 0, 0, 0.6) 0%, var(--color-black-pure) 100%), url('assets/images/a8.jpg') center / cover no-repeat;">
+      <div class="container">
+        <div class="section-header reveal">
+          <span class="overline">Software Solutions</span>
+          <h1 class="display-2">Software <span class="text-gold">Solutions</span></h1>
+          <p class="lead">Bespoke platforms that run your business. From custom CRMs to content management and tailor-made web apps, we build software designed around exactly how you work — not the other way around.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================
+         SERVICES OVERVIEW GRID
+         ============================================ -->
+    <section class="section section-white">
+      <div class="container">
+        <!-- Quick Navigation -->
+        <div class="reveal" style="margin-bottom: var(--space-12);">
+          <div class="card" style="padding: var(--space-6); display: flex; flex-wrap: wrap; justify-content: center; gap: var(--space-4);">
+            <a href="#crm" class="btn btn-ghost">Custom CRM</a>
+            <a href="#cms" class="btn btn-ghost">Content Management</a>
+            <a href="#apps" class="btn btn-ghost">Bespoke Web Apps</a>
+            <a href="#automation" class="btn btn-ghost">Business Automation</a>
+            <a href="#dashboards" class="btn btn-ghost">Internal Dashboards</a>
+            <a href="#integrations" class="btn btn-ghost">Integrations &amp; APIs</a>
+          </div>
+        </div>
+
+        <!-- Services Grid Overview -->
+        <div class="grid grid-cols-3 gap-8" data-stagger>
+          <!-- Custom CRM -->
+          <a href="#crm" class="card service-card reveal" style="text-decoration: none;">
+            <div class="icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                <circle cx="9" cy="7" r="4"></circle>
+                <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+              </svg>
+            </div>
+            <h4 class="card-title">Custom CRM Systems</h4>
+            <p>Manage leads, clients and pipelines your way.</p>
+            <span class="text-gold text-sm">From £1,500</span>
+          </a>
+
+          <!-- CMS -->
+          <a href="#cms" class="card service-card reveal" style="text-decoration: none;">
+            <div class="icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                <polyline points="14 2 14 8 20 8"></polyline>
+                <line x1="16" y1="13" x2="8" y2="13"></line>
+                <line x1="16" y1="17" x2="8" y2="17"></line>
+              </svg>
+            </div>
+            <h4 class="card-title">Content Management / CMS</h4>
+            <p>Update your own content without touching code.</p>
+            <span class="text-gold text-sm">From £900</span>
+          </a>
+
+          <!-- Bespoke Web Apps -->
+          <a href="#apps" class="card service-card reveal" style="text-decoration: none;">
+            <div class="icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <polyline points="16 18 22 12 16 6"></polyline>
+                <polyline points="8 6 2 12 8 18"></polyline>
+              </svg>
+            </div>
+            <h4 class="card-title">Bespoke Web Apps</h4>
+            <p>Tailor-made tools built around your workflow.</p>
+            <span class="text-gold text-sm">Custom quote</span>
+          </a>
+
+          <!-- Business Automation -->
+          <a href="#automation" class="card service-card reveal" style="text-decoration: none;">
+            <div class="icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <circle cx="12" cy="12" r="3"></circle>
+                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+              </svg>
+            </div>
+            <h4 class="card-title">Business Automation</h4>
+            <p>Replace repetitive manual work with smart workflows.</p>
+            <span class="text-gold text-sm">From £600</span>
+          </a>
+
+          <!-- Internal Dashboards -->
+          <a href="#dashboards" class="card service-card reveal" style="text-decoration: none;">
+            <div class="icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <line x1="18" y1="20" x2="18" y2="10"></line>
+                <line x1="12" y1="20" x2="12" y2="4"></line>
+                <line x1="6" y1="20" x2="6" y2="14"></line>
+              </svg>
+            </div>
+            <h4 class="card-title">Internal Dashboards</h4>
+            <p>See your business metrics in one clear place.</p>
+            <span class="text-gold text-sm">From £800</span>
+          </a>
+
+          <!-- Integrations & APIs -->
+          <a href="#integrations" class="card service-card reveal" style="text-decoration: none;">
+            <div class="icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path>
+                <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path>
+              </svg>
+            </div>
+            <h4 class="card-title">Integrations &amp; APIs</h4>
+            <p>Connect the tools your business already relies on.</p>
+            <span class="text-gold text-sm">From £500</span>
+          </a>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================
+         CUSTOM CRM - DETAILED
+         ============================================ -->
+    <section id="crm" class="section section-dark">
+      <div class="container">
+        <div class="section-header reveal">
+            <span class="overline">Built Around You</span>
+            <h2 style="color: var(--color-white);">Custom <span class="text-gold">CRM Systems</span></h2>
+            <p class="lead">
+              Off-the-shelf CRMs force you to work their way. We build a system that matches your pipeline, your terminology and your process — exactly.
+            </p>
+        </div>
+        <div class="grid grid-cols-2 gap-16 items-center" style="gap: var(--space-20); align-items: self-start;">
+          <!-- Content -->
+          <div class="reveal">
+            <p>
+              Track leads, manage clients, and never let an opportunity slip through the cracks. Your CRM is designed around your sales and delivery workflow, with the fields, stages and automations that actually matter to your business — and nothing you'll never use.
+            </p>
+
+            <div class="feature-list" style="margin-top: var(--space-8);">
+              <div class="feature-item">
+                <svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+                <span class="feature-text">Custom pipeline &amp; deal stages</span>
+              </div>
+              <div class="feature-item">
+                <svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+                <span class="feature-text">Contact &amp; company records</span>
+              </div>
+              <div class="feature-item">
+                <svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+                <span class="feature-text">Task reminders &amp; follow-ups</span>
+              </div>
+              <div class="feature-item">
+                <svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+                <span class="feature-text">Role-based user permissions</span>
+              </div>
+              <div class="feature-item">
+                <svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+                <span class="feature-text">Reporting &amp; export tools</span>
+              </div>
+            </div>
+
+            <div class="btn-group" style="margin-top: var(--space-8);">
+              <a href="contact.html" class="btn btn-primary">Get Started — From £1,500</a>
+              <a href="pricing.html" class="btn btn-outline">See Pricing</a>
+            </div>
+          </div>
+
+          <!-- Visual / Info Card -->
+          <div class="reveal" style="animation-delay: 200ms;">
+            <div class="card card-gold" style="padding: var(--space-10);">
+              <div class="text-center" style="margin-bottom: var(--space-8);">
+                <div style="font-size: var(--text-4xl); font-weight: var(--font-bold); color: var(--color-soft-gold); line-height: 1;">2 – 4 wks</div>
+                <div class="text-muted">Typical Delivery</div>
+              </div>
+
+              <div class="divider-gold"></div>
+
+              <div style="margin-top: var(--space-8);">
+                <h5 style="margin-bottom: var(--space-4);">Ideal For:</h5>
+                <ul style="display: flex; flex-direction: column; gap: var(--space-3);">
+                  <li style="display: flex; align-items: center; gap: var(--space-3);">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--color-soft-gold)" stroke-width="2">
+                      <polyline points="20 6 9 17 4 12"></polyline>
+                    </svg>
+                    <span class="text-secondary">Sales-led businesses</span>
+                  </li>
+                  <li style="display: flex; align-items: center; gap: var(--space-3);">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--color-soft-gold)" stroke-width="2">
+                      <polyline points="20 6 9 17 4 12"></polyline>
+                    </svg>
+                    <span class="text-secondary">Agencies &amp; consultancies</span>
+                  </li>
+                  <li style="display: flex; align-items: center; gap: var(--space-3);">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--color-soft-gold)" stroke-width="2">
+                      <polyline points="20 6 9 17 4 12"></polyline>
+                    </svg>
+                    <span class="text-secondary">Service providers</span>
+                  </li>
+                  <li style="display: flex; align-items: center; gap: var(--space-3);">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--color-soft-gold)" stroke-width="2">
+                      <polyline points="20 6 9 17 4 12"></polyline>
+                    </svg>
+                    <span class="text-secondary">Growing teams</span>
+                  </li>
+                  <li style="display: flex; align-items: center; gap: var(--space-3);">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--color-soft-gold)" stroke-width="2">
+                      <polyline points="20 6 9 17 4 12"></polyline>
+                    </svg>
+                    <span class="text-secondary">Recruitment &amp; lettings</span>
+                  </li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================
+         CONTENT MANAGEMENT / CMS - DETAILED
+         ============================================ -->
+    <section id="cms" class="section section-white">
+      <div class="container">
+        <div class="section-header reveal">
+            <span class="overline">Total Control</span>
+            <h2 style="color: var(--color-charcoal-black);">Content Management <span class="text-gold">/ CMS</span></h2>
+            <p class="lead" style="color: var(--text-secondary2);">
+              Edit your website yourself — pages, posts, products, images and more — without paying a developer every time something changes.
+            </p>
+        </div>
+        <div class="grid grid-cols-2 gap-16 items-center" style="gap: var(--space-20); align-items: self-start;">
+          <!-- Visual / Info Card -->
+          <div class="reveal">
+            <div class="card" style="padding: var(--space-10); text-align: center;">
+              <div style="font-size: var(--text-4xl); font-weight: var(--font-bold); color: var(--color-soft-gold); line-height: 1;">100%</div>
+              <p class="text-muted" style="margin-top: var(--space-2);">Self-manageable content</p>
+
+              <div class="divider" style="margin: var(--space-8) 0;"></div>
+
+              <div class="stats-grid" style="grid-template-columns: repeat(3, 1fr);">
+                <div class="stat-item" style="padding: var(--space-4);">
+                  <div class="stat-number" style="font-size: var(--text-3xl);" data-counter="0" data-suffix="" >0</div>
+                  <div class="stat-label" style="font-size: var(--text-xs);">Code Needed</div>
+                </div>
+                <div class="stat-item" style="padding: var(--space-4);">
+                  <div class="stat-number" style="font-size: var(--text-3xl);" data-counter="24" data-suffix="/7">0/7</div>
+                  <div class="stat-label" style="font-size: var(--text-xs);">Edit Anytime</div>
+                </div>
+                <div class="stat-item" style="padding: var(--space-4);">
+                  <div class="stat-number" style="font-size: var(--text-3xl);" data-counter="1" data-suffix=" wk">0 wk</div>
+                  <div class="stat-label" style="font-size: var(--text-xs);">Typical Build</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Content -->
+          <div class="reveal" style="animation-delay: 200ms;">
+            <p style="color: var(--text-secondary2);">
+              We build an intuitive admin area that lets you and your team manage everything in plain language. Add a blog post, update a price, swap an image, or publish a new page in minutes — with a structure designed around the content you actually publish.
+            </p>
+
+            <div class="feature-list" style="margin-top: var(--space-8);">
+              <div class="feature-item">
+                <svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+                <span class="feature-text text-dark-gray2">Easy-to-use admin dashboard</span>
+              </div>
+              <div class="feature-item">
+                <svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+                <span class="feature-text text-dark-gray2">Pages, posts &amp; media library</span>
+              </div>
+              <div class="feature-item">
+                <svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+                <span class="feature-text text-dark-gray2">Multiple user accounts &amp; roles</span>
+              </div>
+              <div class="feature-item">
+                <svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+                <span class="feature-text text-dark-gray2">SEO-friendly content fields</span>
+              </div>
+              <div class="feature-item">
+                <svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+                <span class="feature-text text-dark-gray2">Training &amp; handover included</span>
+              </div>
+            </div>
+
+            <div class="btn-group" style="margin-top: var(--space-8);">
+              <a href="contact.html" class="btn btn-primary">Get Started — From £900</a>
+              <a href="pricing.html" class="btn btn-outline">See Pricing</a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================
+         BESPOKE WEB APPS - DETAILED
+         ============================================ -->
+    <section id="apps" class="section section-dark">
+      <div class="container">
+        <div class="section-header reveal">
+          <span class="overline">Tailor-Made</span>
+          <h2>Bespoke <span class="text-gold">Web Apps</span></h2>
+          <p class="lead">
+            When no existing product fits, we build one. A web app shaped entirely around your process, your data and your customers.
+          </p>
+        </div>
+        <div class="grid grid-cols-2 gap-16 items-center" style="gap: var(--space-20); align-items: self-start;">
+          <!-- Content -->
+          <div class="reveal">
+            <p>
+              Booking systems, member portals, quote builders, internal tools — if you can describe the problem, we can build the platform that solves it. We scope, design and develop a secure, scalable application that does exactly what your business needs, and grows with you.
+            </p>
+
+            <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: var(--space-6); margin-top: var(--space-8);">
+              <!-- Build -->
+              <div class="card" style="padding: var(--space-6);">
+                <h5 style="color: var(--color-soft-gold); margin-bottom: var(--space-4);">What We Build</h5>
+                <ul style="display: flex; flex-direction: column; gap: var(--space-2);">
+                  <li class="text-sm text-secondary">✓ Booking &amp; scheduling</li>
+                  <li class="text-sm text-secondary">✓ Client &amp; member portals</li>
+                  <li class="text-sm text-secondary">✓ Quote &amp; order systems</li>
+                  <li class="text-sm text-secondary">✓ Marketplaces</li>
+                  <li class="text-sm text-secondary">✓ Internal tooling</li>
+                </ul>
+              </div>
+
+              <!-- Included -->
+              <div class="card" style="padding: var(--space-6);">
+                <h5 style="color: var(--color-soft-gold); margin-bottom: var(--space-4);">Always Included</h5>
+                <ul style="display: flex; flex-direction: column; gap: var(--space-2);">
+                  <li class="text-sm text-secondary">✓ Secure user accounts</li>
+                  <li class="text-sm text-secondary">✓ Mobile responsive</li>
+                  <li class="text-sm text-secondary">✓ Admin controls</li>
+                  <li class="text-sm text-secondary">✓ Scalable hosting</li>
+                  <li class="text-sm text-secondary">✓ Ongoing support</li>
+                </ul>
+              </div>
+            </div>
+
+            <div class="btn-group" style="margin-top: var(--space-8);">
+              <a href="contact.html" class="btn btn-primary">Get Started — Custom Quote</a>
+              <a href="portfolio.html" class="btn btn-outline">See Examples</a>
+            </div>
+          </div>
+
+          <!-- Visual -->
+          <div class="reveal" style="animation-delay: 200ms;">
+            <div class="card card-gold" style="padding: var(--space-10);">
+              <div class="text-center">
+                <span class="badge badge-gold" style="margin-bottom: var(--space-4);">Fully Bespoke</span>
+                <h3 style="margin-bottom: var(--space-2);">Built For Your Business</h3>
+                <div style="font-size: var(--text-4xl); font-weight: var(--font-bold); color: var(--color-soft-gold); margin: var(--space-4) 0;">Custom Quote</div>
+                <p class="text-muted">Priced to the scope of your project</p>
+              </div>
+
+              <div class="divider-gold" style="margin: var(--space-8) 0;"></div>
+
+              <div style="display: flex; justify-content: space-around; text-align: center;">
+                <div>
+                  <div style="font-size: var(--text-2xl); font-weight: var(--font-bold); color: var(--text-primary);">Scope</div>
+                  <div class="text-muted text-sm">Discovery</div>
+                </div>
+                <div>
+                  <div style="font-size: var(--text-2xl); font-weight: var(--font-bold); color: var(--text-primary);">Build</div>
+                  <div class="text-muted text-sm">Agile</div>
+                </div>
+                <div>
+                  <div style="font-size: var(--text-2xl); font-weight: var(--font-bold); color: var(--text-primary);">Support</div>
+                  <div class="text-muted text-sm">Ongoing</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================
+         BUSINESS AUTOMATION - DETAILED
+         ============================================ -->
+    <section id="automation" class="section section-white">
+      <div class="container">
+        <div class="section-header reveal">
+          <span class="overline">Work Smarter</span>
+          <h2 style="color: var(--color-charcoal-black);">Business <span class="text-gold">Automation</span></h2>
+          <p class="lead" style="color: var(--text-secondary2);">
+            Stop doing the same manual task twice. We automate the repetitive work that quietly eats your team's time every day.
+          </p>
+        </div>
+        <div class="grid grid-cols-2 gap-16 items-center" style="gap: var(--space-20); align-items: self-start;">
+          <!-- Content -->
+          <div class="reveal">
+            <p style="color: var(--text-secondary2);">
+              From sending invoices and onboarding clients to syncing data between systems, automation removes the bottlenecks and the human error. We map your processes, identify what can run on its own, and build reliable workflows that free your team to focus on real work.
+            </p>
+
+            <div class="feature-list" style="margin-top: var(--space-8);">
+              <div class="feature-item">
+                <svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+                <span class="feature-text text-dark-gray2">Automated emails &amp; notifications</span>
+              </div>
+              <div class="feature-item">
+                <svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+                <span class="feature-text text-dark-gray2">Data sync between tools</span>
+              </div>
+              <div class="feature-item">
+                <svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+                <span class="feature-text text-dark-gray2">Document &amp; invoice generation</span>
+              </div>
+              <div class="feature-item">
+                <svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+                <span class="feature-text text-dark-gray2">Scheduled tasks &amp; reports</span>
+              </div>
+              <div class="feature-item">
+                <svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+                <span class="feature-text text-dark-gray2">Onboarding &amp; approval flows</span>
+              </div>
+            </div>
+
+            <div class="btn-group" style="margin-top: var(--space-8);">
+              <a href="contact.html" class="btn btn-primary">Get Started — From £600</a>
+              <a href="pricing.html" class="btn btn-outline">See Pricing</a>
+            </div>
+          </div>
+
+          <!-- Visual -->
+          <div class="reveal" style="animation-delay: 200ms;">
+            <div class="card" style="padding: var(--space-10); text-align: center;">
+              <div style="font-size: var(--text-4xl); font-weight: var(--font-bold); color: var(--color-soft-gold); line-height: 1;">
+                <span data-counter="20" data-suffix="+ hrs">0+ hrs</span>
+              </div>
+              <p class="text-muted" style="margin-top: var(--space-2);">saved per month, typically</p>
+
+              <div class="divider" style="margin: var(--space-8) 0;"></div>
+
+              <div style="text-align: left;">
+                <h5 style="margin-bottom: var(--space-4); color: var(--text-muted);">Common Wins</h5>
+                <ul style="display: flex; flex-direction: column; gap: var(--space-3);">
+                  <li style="display: flex; align-items: center; gap: var(--space-3);">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--color-soft-gold)" stroke-width="2">
+                      <polyline points="20 6 9 17 4 12"></polyline>
+                    </svg>
+                    <span class="text-secondary">Fewer manual errors</span>
+                  </li>
+                  <li style="display: flex; align-items: center; gap: var(--space-3);">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--color-soft-gold)" stroke-width="2">
+                      <polyline points="20 6 9 17 4 12"></polyline>
+                    </svg>
+                    <span class="text-secondary">Faster turnaround times</span>
+                  </li>
+                  <li style="display: flex; align-items: center; gap: var(--space-3);">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--color-soft-gold)" stroke-width="2">
+                      <polyline points="20 6 9 17 4 12"></polyline>
+                    </svg>
+                    <span class="text-secondary">Lower running costs</span>
+                  </li>
+                  <li style="display: flex; align-items: center; gap: var(--space-3);">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--color-soft-gold)" stroke-width="2">
+                      <polyline points="20 6 9 17 4 12"></polyline>
+                    </svg>
+                    <span class="text-secondary">Happier, freed-up teams</span>
+                  </li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================
+         SELF-SERVE SIGNUP
+         ============================================ -->
+    <section id="signup" class="section section-dark">
+      <div class="container">
+        <div class="reveal" style="text-align:center;max-width:720px;margin:0 auto var(--space-10);">
+          <h2 style="margin-bottom:var(--space-4);">Skip the call. <span class="text-gold">Start your account now.</span></h2>
+          <p class="lead">
+            Spin up your workspace in under a minute. No card needed — billing kicks in
+            once you decide to roll out. You'll land straight in your dashboard.
+          </p>
+        </div>
+
+        <form id="signup-form" class="signup-form card reveal" novalidate>
+          <div class="signup-grid">
+            <!-- Company -->
+            <fieldset class="signup-fieldset">
+              <legend>Company</legend>
+              <div class="form-row">
+                <label for="sf-company">Company name <span class="req">*</span></label>
+                <input id="sf-company" name="company_name" type="text" required autocomplete="organization" placeholder="Acme Corp" />
+              </div>
+              <div class="form-row">
+                <label for="sf-url">Company website</label>
+                <input id="sf-url" name="company_url" type="url" autocomplete="url" placeholder="https://acme.com" />
+              </div>
+              <div class="form-row">
+                <label for="sf-size">Team size</label>
+                <select id="sf-size" name="company_size">
+                  <option value="">— choose —</option>
+                  <option value="1-5">1–5</option>
+                  <option value="5-10">5–10</option>
+                  <option value="10-25">10–25</option>
+                  <option value="25-50">25–50</option>
+                  <option value="50-100">50–100</option>
+                  <option value="1000+">1000+</option>
+                </select>
+              </div>
+              <div class="form-row">
+                <label for="sf-logo">Company logo <span class="muted">(optional)</span></label>
+                <input id="sf-logo" name="logo" type="file" accept="image/png,image/jpeg,image/svg+xml,image/webp" />
+                <span class="hint">PNG, JPG, SVG or WEBP, up to 2MB</span>
+              </div>
+            </fieldset>
+
+            <!-- Main contact -->
+            <fieldset class="signup-fieldset">
+              <legend>Main contact</legend>
+              <div class="form-row">
+                <label for="sf-name">Your name</label>
+                <input id="sf-name" name="admin_name" type="text" autocomplete="name" placeholder="Jane Doe" />
+              </div>
+              <div class="form-row">
+                <label for="sf-email">Work email <span class="req">*</span></label>
+                <input id="sf-email" name="contact_email" type="email" required autocomplete="email" placeholder="jane@acme.com" />
+                <span class="hint">Used for login. Free-mail addresses (gmail, yahoo, etc.) aren't accepted — your company's domain identifies your tenant.</span>
+              </div>
+              <div class="form-row">
+                <label for="sf-phone">Phone</label>
+                <input id="sf-phone" name="contact_phone" type="tel" autocomplete="tel" placeholder="+44 7700 900123" />
+              </div>
+              <div class="form-row">
+                <label for="sf-pass">Password <span class="req">*</span></label>
+                <input id="sf-pass" name="admin_password" type="password" required minlength="8" autocomplete="new-password" placeholder="At least 8 characters" />
+                <span class="hint">You can change it later from your account settings.</span>
+              </div>
+            </fieldset>
+          </div>
+
+          <!-- Theme picker -->
+          <fieldset class="signup-fieldset signup-theme">
+            <legend>Pick a theme</legend>
+            <p class="muted small" style="margin:0 0 var(--space-4);">You can tweak colours from your dashboard. Choose the vibe that fits today.</p>
+            <div class="theme-grid" role="radiogroup" aria-label="Color theme">
+              <label class="theme-card" data-theme="midnight-gold">
+                <input type="radio" name="color_theme" value="midnight-gold" checked />
+                <span class="theme-swatch th-midnight-gold" aria-hidden="true"></span>
+                <span class="theme-name">Midnight Gold</span>
+              </label>
+              <label class="theme-card" data-theme="frosted-mint">
+                <input type="radio" name="color_theme" value="frosted-mint" />
+                <span class="theme-swatch th-frosted-mint" aria-hidden="true"></span>
+                <span class="theme-name">Frosted Mint</span>
+              </label>
+              <label class="theme-card" data-theme="sunrise-coral">
+                <input type="radio" name="color_theme" value="sunrise-coral" />
+                <span class="theme-swatch th-sunrise-coral" aria-hidden="true"></span>
+                <span class="theme-name">Sunrise Coral</span>
+              </label>
+              <label class="theme-card" data-theme="indigo-pulse">
+                <input type="radio" name="color_theme" value="indigo-pulse" />
+                <span class="theme-swatch th-indigo-pulse" aria-hidden="true"></span>
+                <span class="theme-name">Indigo Pulse</span>
+              </label>
+              <label class="theme-card" data-theme="graphite-rose">
+                <input type="radio" name="color_theme" value="graphite-rose" />
+                <span class="theme-swatch th-graphite-rose" aria-hidden="true"></span>
+                <span class="theme-name">Graphite Rose</span>
+              </label>
+              <label class="theme-card" data-theme="forest-amber">
+                <input type="radio" name="color_theme" value="forest-amber" />
+                <span class="theme-swatch th-forest-amber" aria-hidden="true"></span>
+                <span class="theme-name">Forest Amber</span>
+              </label>
+            </div>
+          </fieldset>
+
+          <div id="signup-error" class="signup-error" hidden></div>
+
+          <div class="signup-cta">
+            <button type="submit" id="signup-submit" class="btn btn-primary btn-lg">
+              <span class="submit-label">Create my workspace →</span>
+              <span class="submit-spinner" aria-hidden="true"></span>
+            </button>
+            <p class="muted small" style="margin-top:var(--space-4);">
+              No payment required — billing only starts when you're ready to invite your team.
+              By signing up you agree to our <a href="#">Terms</a> and <a href="#">Privacy Policy</a>.
+            </p>
+          </div>
+        </form>
+      </div>
+
+      <!-- Page-scoped styles for the signup form. Lifted into the page
+           so the existing styles.css doesn't need editing in lockstep. -->
+      <style>
+        .signup-form { padding: var(--space-10); max-width: 1040px; margin: 0 auto; background: var(--color-black-soft, #111); border: 1px solid rgba(255,255,255,0.08); border-radius: var(--radius-lg, 16px); }
+        .signup-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-8); }
+        @media (max-width: 768px) { .signup-grid { grid-template-columns: 1fr; gap: var(--space-6); } .signup-form { padding: var(--space-6); } }
+        .signup-fieldset { border: 0; padding: 0; margin: 0; }
+        .signup-fieldset legend { font-family: 'Playfair Display', serif; font-size: 1.25rem; font-weight: 600; margin-bottom: var(--space-4); color: var(--color-gold-400, #d4a93a); }
+        .form-row { display: flex; flex-direction: column; gap: 6px; margin-bottom: var(--space-4); }
+        .form-row label { font-size: 13px; font-weight: 600; letter-spacing: 0.3px; color: #ccc; }
+        .form-row label .req { color: #ff6b6b; }
+        .form-row label .muted { color: #888; font-weight: 400; }
+        .form-row input, .form-row select {
+          width: 100%;
+          padding: 12px 14px;
+          background: rgba(255,255,255,0.04);
+          border: 1px solid rgba(255,255,255,0.12);
+          border-radius: 8px;
+          color: #fff;
+          font-family: 'Poppins', sans-serif;
+          font-size: 14px;
+          transition: border-color 0.15s, background 0.15s;
+        }
+        .form-row input:focus, .form-row select:focus {
+          outline: none;
+          border-color: var(--color-gold-400, #d4a93a);
+          background: rgba(212,169,58,0.06);
+        }
+        .form-row .hint { font-size: 12px; color: #777; line-height: 1.4; }
+        .form-row input[type=file] { padding: 8px; background: transparent; border-style: dashed; cursor: pointer; }
+
+        .signup-theme { margin-top: var(--space-8); padding-top: var(--space-6); border-top: 1px solid rgba(255,255,255,0.06); }
+        .theme-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 12px; }
+        @media (max-width: 768px) { .theme-grid { grid-template-columns: repeat(3, 1fr); } }
+        @media (max-width: 420px) { .theme-grid { grid-template-columns: repeat(2, 1fr); } }
+        .theme-card {
+          position: relative;
+          display: flex; flex-direction: column; align-items: center; gap: 8px;
+          padding: 12px 8px;
+          background: rgba(255,255,255,0.03);
+          border: 2px solid rgba(255,255,255,0.08);
+          border-radius: 12px;
+          cursor: pointer;
+          transition: border-color 0.15s, transform 0.15s;
+        }
+        .theme-card:hover { border-color: rgba(212,169,58,0.4); transform: translateY(-2px); }
+        .theme-card input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+        .theme-card:has(input:checked) { border-color: var(--color-gold-400, #d4a93a); background: rgba(212,169,58,0.10); }
+        .theme-card:has(input:checked)::after {
+          content: '✓';
+          position: absolute; top: 8px; right: 10px;
+          color: var(--color-gold-400, #d4a93a);
+          font-weight: 700; font-size: 14px;
+        }
+        .theme-swatch {
+          width: 100%; height: 56px;
+          border-radius: 8px;
+          box-shadow: inset 0 0 0 1px rgba(255,255,255,0.08);
+        }
+        .theme-name {
+          font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;
+          color: #ddd;
+          text-align: center;
+        }
+        /* Theme swatches — each panel previews the chosen ramp + accent. */
+        .th-midnight-gold  { background: linear-gradient(135deg, #0e0e10 0%, #1a1a1c 55%, #d4a93a 100%); }
+        .th-frosted-mint   { background: linear-gradient(135deg, #f4fbf8 0%, #d4f0e3 55%, #2fc28b 100%); }
+        .th-sunrise-coral  { background: linear-gradient(135deg, #fff4ec 0%, #ffd0bf 55%, #ff6b50 100%); }
+        .th-indigo-pulse   { background: linear-gradient(135deg, #1a1b3a 0%, #2c2e6b 55%, #7aa9ff 100%); }
+        .th-graphite-rose  { background: linear-gradient(135deg, #2a2a2e 0%, #4a3a3e 55%, #e88aa7 100%); }
+        .th-forest-amber   { background: linear-gradient(135deg, #0f1a14 0%, #1f3a2c 55%, #f5b04a 100%); }
+
+        .signup-error {
+          margin-top: var(--space-6);
+          padding: 12px 16px;
+          background: rgba(255,107,107,0.10);
+          border: 1px solid rgba(255,107,107,0.4);
+          border-radius: 8px;
+          color: #ff8a8a; font-size: 14px;
+        }
+        .signup-cta { margin-top: var(--space-8); text-align: center; }
+        .signup-cta .btn-lg { min-width: 280px; position: relative; }
+        .submit-spinner {
+          display: none;
+          width: 14px; height: 14px;
+          border: 2px solid rgba(0,0,0,0.25); border-top-color: #000;
+          border-radius: 50%;
+          margin-left: 10px;
+          animation: spin 0.7s linear infinite;
+          vertical-align: middle;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .signup-form.is-submitting .submit-label { opacity: 0.7; }
+        .signup-form.is-submitting .submit-spinner { display: inline-block; }
+        .signup-form.is-submitting button { pointer-events: none; }
+      </style>
+
+      <!-- Submission handler. POST /cc/api/public/tenant-signup with
+           the form as multipart; on 201 store the JWT and bounce into
+           the admin dashboard. Errors land inline in #signup-error. -->
+      <script>
+        (function () {
+          var form = document.getElementById('signup-form');
+          if (!form) return;
+          var errBox = document.getElementById('signup-error');
+          form.addEventListener('submit', function (ev) {
+            ev.preventDefault();
+            errBox.hidden = true;
+            errBox.textContent = '';
+            form.classList.add('is-submitting');
+
+            var fd = new FormData(form);
+            fetch('/cc/api/public/tenant-signup', { method: 'POST', body: fd })
+              .then(function (r) { return r.json().then(function (j) { return { code: r.status, body: j }; }); })
+              .then(function (res) {
+                if (res.code === 201 && res.body && res.body.token) {
+                  // Store the JWT under the keys the CMS Angular app reads
+                  // so the user lands logged-in.
+                  try {
+                    localStorage.setItem('brs.token', res.body.token);
+                    localStorage.setItem('brs.user',  JSON.stringify(res.body.user));
+                  } catch (e) {}
+                  window.location.href = '/cc/admin/dashboard';
+                  return;
+                }
+                throw new Error((res.body && res.body.error) || ('Signup failed (' + res.code + ')'));
+              })
+              .catch(function (e) {
+                form.classList.remove('is-submitting');
+                errBox.textContent = e.message || 'Signup failed';
+                errBox.hidden = false;
+                errBox.scrollIntoView({ behavior: 'smooth', block: 'center' });
+              });
+          });
+        })();
+      </script>
+    </section>
+
+    <!-- ============================================
+         CTA SECTION (consultation alternative)
+         ============================================ -->
+    <section class="section section-white">
+      <div class="container">
+        <div class="card card-gold reveal" style="padding: var(--space-16); text-align: center;">
+          <h2 style="margin-bottom: var(--space-4);">Prefer to <span class="text-gold">Talk First?</span></h2>
+          <p class="lead" style="max-width: 600px; margin: 0 auto var(--space-8);">
+            If your needs are bigger than a quick signup — multiple integrations, custom modules, a migration from another platform — book a free consultation and we'll design something that fits.
+          </p>
+          <div class="btn-group" style="justify-content: center;">
+            <a href="contact.html" class="btn btn-primary btn-lg">Book a Consultation</a>
+            <a href="pricing.html" class="btn btn-secondary btn-lg">View Pricing</a>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ============================================
+       FOOTER
+       ============================================ -->
+  <footer class="footer">
+    <div class="container">
+      <div class="footer-grid">
+        <!-- Brand -->
+        <div class="footer-brand">
+          <a href="index.html" class="logo">
+            <img src="assets/images/logo3.png" alt="Built Right Studio" style="height: 100px;">
+          </a>
+          <p>Modern websites built in 24–72 hours. Fast delivery, clean design, affordable pricing.</p>
+
+          <!-- Social Links -->
+          <div class="social-links">
+            <a href="#" class="social-link" aria-label="Instagram">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="2" y="2" width="20" height="20" rx="5" ry="5"></rect>
+                <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"></path>
+                <line x1="17.5" y1="6.5" x2="17.51" y2="6.5"></line>
+              </svg>
+            </a>
+            <a href="#" class="social-link" aria-label="TikTok">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M9 12a4 4 0 1 0 4 4V4a5 5 0 0 0 5 5"></path>
+              </svg>
+            </a>
+            <a href="#" class="social-link" aria-label="LinkedIn">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6z"></path>
+                <rect x="2" y="9" width="4" height="12"></rect>
+                <circle cx="4" cy="4" r="2"></circle>
+              </svg>
+            </a>
+          </div>
+        </div>
+
+        <!-- Quick Links -->
+        <div>
+          <h6 class="footer-heading">Quick Links</h6>
+          <ul class="footer-links">
+            <li><a href="index.html">Home</a></li>
+            <li><a href="websites.html">Services</a></li>
+            <li><a href="portfolio.html">Portfolio</a></li>
+            <li><a href="about.html">About Us</a></li>
+            <li><a href="pricing.html">Pricing</a></li>
+            <li><a href="contact.html">Contact</a></li>
+          </ul>
+        </div>
+
+        <!-- Services -->
+        <div>
+          <h6 class="footer-heading">Services</h6>
+          <ul class="footer-links">
+            <li><a href="websites.html">Websites</a></li>
+            <li><a href="software-solutions.html">Software Solutions</a></li>
+            <li><a href="it-services.html">IT Services</a></li>
+            <li><a href="brand-kit.html">Brand Kit</a></li>
+            <li><a href="social-media-marketing.html">Social Media Marketing</a></li>
+          </ul>
+        </div>
+
+        <!-- Contact -->
+        <div>
+          <h6 class="footer-heading">Contact</h6>
+          <ul class="footer-links">
+            <li><a href="mailto:hello@builtrightstudio.com">hello@builtrightstudio.com</a></li>
+            <li><a href="contact.html">Book a Consultation</a></li>
+            <li>UK-Based Team</li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- Footer Bottom -->
+      <div class="footer-bottom">
+        <p class="footer-copyright">© 2025 Built Right Studio. All rights reserved.</p>
+        <div class="footer-legal">
+          <a href="#">Privacy Policy</a>
+          <a href="#">Terms of Service</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+  <!-- ============================================
+       FLOATING CTA
+       ============================================ -->
+  <div class="floating-cta">
+    <a href="contact.html" class="btn btn-primary">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+      </svg>
+      Get Started
+    </a>
+  </div>
+
+  <!-- JavaScript -->
+  <script src="js/main.js"></script>
+
+</body>
+</html>

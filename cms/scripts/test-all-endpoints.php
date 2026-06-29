@@ -84,12 +84,12 @@ $ENDPOINTS = [
     ['GET',  '/leads/99999', [404], 'Lead by bad id (404)',   'super'],
     ['GET',  '/services',    [200], 'Services list',          'super'],
     ['GET',  '/dashboard/crm', [200], 'CRM dashboard',         'super'],
-    ['GET',  '/leadgen',     [200], 'Leadgen list',           'super', null, 'tolerate-403'],
-    ['GET',  '/newsletter',  [200], 'Newsletter list',        'super', null, 'tolerate-403'],
+    ['GET',  '/leadgen/models', [200], 'Leadgen models',       'super'],
+    ['GET',  '/newsletter/campaigns', [200], 'Newsletter campaigns', 'super'],
 
     // Forms + onboarding
-    ['GET',  '/forms',       [200], 'Forms list',             'super'],
-    ['GET',  '/onboarding',  [200], 'Onboarding templates',   'super'],
+    ['GET',  '/forms',           [200], 'Forms list',             'super'],
+    ['GET',  '/onboarding/clients', [200], 'Onboarding clients', 'super'],
     ['GET',  '/sections',    [200], 'Admin sections',         'super'],
     ['GET',  '/settings',    [200], 'Settings',               'super'],
 
@@ -109,7 +109,6 @@ $ENDPOINTS = [
 
     // Recruitment
     ['GET',  '/recruitment/candidates', [200], 'Rec candidates', 'super'],
-    ['GET',  '/recruitment/clients',    [200], 'Rec clients',    'super'],
     ['GET',  '/recruitment/doc-types',  [200], 'Rec doc types',  'super'],
     ['GET',  '/recruitment/doc-groups', [200], 'Rec doc groups', 'super'],
     ['GET',  '/recruitment/skills',     [200], 'Rec skills',     'super'],
@@ -120,8 +119,9 @@ $ENDPOINTS = [
     // Accounting
     ['GET',  '/accounting/invoices', [200], 'Invoices',       'super'],
 
-    // Contracts
-    ['GET',  '/contracts/types', [200], 'Contract types',     'super'],
+    // Contracts — /api/contracts/:audience/:id (entity-scoped)
+    ['GET',  '/contracts/client/1',  [200, 404], 'Contracts for a client', 'super'],
+    ['GET',  '/contracts/lead/1',    [200, 404], 'Contracts for a lead',   'super'],
 
     // Users
     ['GET',  '/users', [200], 'Users list',                   'super'],
