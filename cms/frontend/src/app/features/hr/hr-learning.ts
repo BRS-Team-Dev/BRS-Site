@@ -3,6 +3,7 @@ import { Router } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { environment } from '@env/environment';
 import { Api } from '../../core/api';
+import { DialogService } from '../../core/dialog';
 import { HrComplianceTask, HrCourse, HrCourseAssignment, HrCourseModule, HrCourseModuleImage, HrCourseModuleKind, HrEmployee, HrQuizQuestion, HrSlideBlock, HrSlideBlockKind } from '../../core/models';
 
 interface DraftQuiz {
@@ -405,7 +406,10 @@ interface DraftQuiz {
     .tab.active { color: var(--primary); border-color: var(--primary); }
     .form-grid { display: grid; grid-template-columns: 160px 1fr; column-gap: 16px; row-gap: 10px; align-items: center; max-width: 720px; }
     .form-grid label { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; }
-    .check { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--fg); }
+    .check { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--fg);
+      text-transform: none; letter-spacing: normal; font-weight: 500;
+      white-space: nowrap; cursor: pointer; margin: 0; }
+    .check input { width: auto; margin: 0; }
     h3.sec { font-size: 13px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; margin: 24px 0 10px; }
     .row { display: flex; align-items: center; gap: 8px; }
     .status {
@@ -466,8 +470,9 @@ interface DraftQuiz {
     .check-row input[type="checkbox"] { width: 16px; height: 16px; flex: 0 0 16px; cursor: pointer; }
     .check-row label {
       margin: 0; cursor: pointer;
-      color: var(--fg); font-size: 13px;
+      color: var(--fg); font-size: 13px; font-weight: 500;
       text-transform: none; letter-spacing: normal;
+      white-space: nowrap;
     }
     .quiz-wrap { margin-top: 18px; padding-top: 18px; border-top: 1px solid var(--line); }
     .quiz { display: flex; flex-direction: column; gap: 10px; }
@@ -615,6 +620,7 @@ interface DraftQuiz {
 export class HrLearning {
   private api = inject(Api);
   private router = inject(Router);
+  private dialog = inject(DialogService);
 
   courses = signal<HrCourse[]>([]);
   selectedId = signal<number | null>(null);
@@ -800,9 +806,10 @@ export class HrLearning {
     if (!id) return;
     this.api.updateHrCourse(id, p).subscribe(() => this.refreshCourses());
   }
-  delCourse(c: HrCourse) {
+  async delCourse(c: HrCourse) {
     if (!c.id) return;
-    if (!confirm(`Delete "${c.title}"? All assignments and progress will be removed.`)) return;
+    const ok = await this.dialog.confirm(`Delete "${c.title}"? All assignments and progress will be removed.`, { title: 'Delete course', confirmLabel: 'Delete', variant: 'danger' });
+    if (!ok) return;
     this.api.deleteHrCourse(c.id).subscribe(() => {
       this.selectedId.set(null);
       this.refreshCourses();
@@ -847,11 +854,12 @@ export class HrLearning {
       }
     });
   }
-  delModule(m: HrCourseModule, ev: Event) {
+  async delModule(m: HrCourseModule, ev: Event) {
     ev.stopPropagation();
     const id = this.selectedId();
     if (!id || !m.id) return;
-    if (!confirm(`Delete module "${m.title}"?`)) return;
+    const ok = await this.dialog.confirm(`Delete module "${m.title}"?`, { title: 'Delete module', confirmLabel: 'Delete', variant: 'danger' });
+    if (!ok) return;
     this.api.deleteHrCourseModule(id, m.id).subscribe(() => {
       this.selectedModuleId.set(null);
       this.refreshModules(id, null);
@@ -915,22 +923,24 @@ export class HrLearning {
       this.refreshAssignments(id);
     });
   }
-  assignAll() {
+  async assignAll() {
     const id = this.selectedId();
     if (!id) return;
     const ids = this.unassignedEmployees().map(e => e.id!);
     if (ids.length === 0) return;
-    if (!confirm(`Assign this course to ${ids.length} active employee${ids.length === 1 ? '' : 's'}?`)) return;
+    const ok = await this.dialog.confirm(`Assign this course to ${ids.length} active employee${ids.length === 1 ? '' : 's'}?`, { title: 'Assign to everyone', confirmLabel: 'Assign' });
+    if (!ok) return;
     this.api.assignHrCourse(id, ids, this.bulkDueDate || undefined, 'company').subscribe(() => {
       this.refreshAssignments(id);
     });
   }
-  assignDepartment() {
+  async assignDepartment() {
     const id = this.selectedId();
     if (!id || !this.bulkDepartment) return;
     const ids = this.unassignedEmployees().filter(e => e.department === this.bulkDepartment).map(e => e.id!);
     if (ids.length === 0) return;
-    if (!confirm(`Assign this course to ${ids.length} employee${ids.length === 1 ? '' : 's'} in ${this.bulkDepartment}?`)) return;
+    const ok = await this.dialog.confirm(`Assign this course to ${ids.length} employee${ids.length === 1 ? '' : 's'} in ${this.bulkDepartment}?`, { title: 'Assign to department', confirmLabel: 'Assign' });
+    if (!ok) return;
     this.api.assignHrCourse(id, ids, this.bulkDueDate || undefined, 'department', this.bulkDepartment).subscribe(() => {
       this.bulkDepartment = '';
       this.refreshAssignments(id);
@@ -943,16 +953,18 @@ export class HrLearning {
   toggleGroup(key: string) {
     this.expandedGroup.set(this.expandedGroup() === key ? null : key);
   }
-  unassignScope(scope: 'department'|'company', value?: string) {
+  async unassignScope(scope: 'department'|'company', value?: string) {
     const id = this.selectedId();
     if (!id) return;
     const label = scope === 'company' ? 'company-wide assignment' : `${value} department assignment`;
-    if (!confirm(`Remove this ${label}? All progress will be lost for the affected employees.`)) return;
+    const ok = await this.dialog.confirm(`Remove this ${label}? All progress will be lost for the affected employees.`, { title: 'Remove assignment', confirmLabel: 'Remove', variant: 'danger' });
+    if (!ok) return;
     this.api.unassignHrCourseScope(id, scope, value).subscribe(() => this.refreshAssignments(id));
   }
-  unassign(a: HrCourseAssignment) {
+  async unassign(a: HrCourseAssignment) {
     if (!a.id) return;
-    if (!confirm('Remove this assignment? Progress will be lost.')) return;
+    const ok = await this.dialog.confirm('Remove this assignment? Progress will be lost.', { title: 'Remove assignment', confirmLabel: 'Remove', variant: 'danger' });
+    if (!ok) return;
     this.api.deleteEmpHrLearning(a.employee_id, a.id).subscribe(() => {
       const id = this.selectedId();
       if (id) this.api.listHrCourseAssignments(id).subscribe(r => this.assignments.set(r.assignments));
@@ -967,8 +979,9 @@ export class HrLearning {
     this.slideDraft.update(list => [...list, next]);
     this.saveModule(m);
   }
-  removeBlock(m: HrCourseModule, idx: number) {
-    if (!confirm('Remove this block?')) return;
+  async removeBlock(m: HrCourseModule, idx: number) {
+    const ok = await this.dialog.confirm('Remove this block?', { title: 'Remove block', confirmLabel: 'Remove', variant: 'danger' });
+    if (!ok) return;
     this.slideDraft.update(list => { const next = [...list]; next.splice(idx, 1); return next; });
     this.saveModule(m);
   }
@@ -993,7 +1006,7 @@ export class HrLearning {
         this.saveModule(m);
         inp.value = '';
       },
-      error: e => { alert(e?.error?.error || 'Upload failed'); inp.value = ''; },
+      error: e => { this.dialog.alert(e?.error?.error || 'Upload failed', { title: 'Upload failed', variant: 'danger' }); inp.value = ''; },
     });
   }
 
@@ -1016,16 +1029,17 @@ export class HrLearning {
         this.applyImages(m.id!, r.images);
         inp.value = '';
       },
-      error: e => { alert(e?.error?.error || 'Upload failed'); inp.value = ''; },
+      error: e => { this.dialog.alert(e?.error?.error || 'Upload failed', { title: 'Upload failed', variant: 'danger' }); inp.value = ''; },
     });
   }
-  removeImage(m: HrCourseModule, img: HrCourseModuleImage) {
+  async removeImage(m: HrCourseModule, img: HrCourseModuleImage) {
     const cid = this.selectedId();
     if (!cid || !m.id) return;
     const all = this.parseImages(m);
     const idx = all.findIndex(i => i.url === img.url);
     if (idx < 0) return;
-    if (!confirm('Remove this image?')) return;
+    const ok = await this.dialog.confirm('Remove this image?', { title: 'Remove image', confirmLabel: 'Remove', variant: 'danger' });
+    if (!ok) return;
     this.api.deleteHrCourseModuleImage(cid, m.id, idx).subscribe(r => {
       this.applyImages(m.id!, r.images);
     });

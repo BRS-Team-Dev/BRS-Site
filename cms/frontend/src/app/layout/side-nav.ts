@@ -4,11 +4,12 @@ import { filter } from 'rxjs';
 import { Api } from '../core/api';
 import { AdminSection, FormDef, LeadIndustrySummary, ServiceOffering } from '../core/models';
 import { SettingsService } from '../core/settings.service';
+import { SideNavFooter } from './side-nav-footer';
 import { environment } from '@env/environment';
 
 @Component({
   selector: 'app-side-nav',
-  imports: [RouterLink, RouterLinkActive],
+  imports: [RouterLink, RouterLinkActive, SideNavFooter],
   template: `
     <aside>
       <div class="brand">
@@ -28,9 +29,17 @@ import { environment } from '@env/environment';
         </div>
 
         <div class="nav-group">
+          <a routerLink="/admin/taskboard" routerLinkActive="active">
+            <span class="icon">✓</span> Task Board
+          </a>
+        </div>
+
+        <div class="nav-group" [class.open]="isGroupOpen('clients', isClientsActive())">
           <a routerLink="/admin/clients" [class.active]="isClientsActive()">
             <span class="icon">●</span> Clients
-            @if (childrenOfBuiltin('clients').length > 0) { <span class="caret">›</span> }
+            @if (childrenOfBuiltin('clients').length > 0) {
+              <span class="caret" (click)="toggleCaret('clients', $event)">›</span>
+            }
           </a>
           @if (childrenOfBuiltin('clients').length > 0) {
             <div class="children">
@@ -43,80 +52,182 @@ import { environment } from '@env/environment';
           }
         </div>
 
-        <div class="nav-group">
+        <!-- Leads — restructured to host all lead-related entries as
+             children: a Categories sub-group for industry filters, the
+             Lead Gen page, and the Import Leads page. Lead Gen used to
+             sit at the top level; it's now nested under Leads so the
+             funnel reads coherently in one block. Auto-opens for any
+             child route (leads, leadgen, leads/import) via
+             isLeadsGroupActive. -->
+        <div class="nav-group" [class.open]="isGroupOpen('leads', isLeadsGroupActive())">
           <a routerLink="/admin/leads" [class.active]="isLeadsActive()">
             <span class="icon">◇</span> Leads
-            @if (leadIndustries().length > 0 || childrenOfBuiltin('leads').length > 0) { <span class="caret">›</span> }
-          </a>
-          @if (leadIndustries().length > 0 || childrenOfBuiltin('leads').length > 0) {
-            <div class="children">
-              @for (ind of leadIndustries(); track ind.name) {
-                <a [routerLink]="['/admin/leads']"
-                   [queryParams]="{ industry: ind.name }"
-                   queryParamsHandling="merge"
-                   [class.active]="isLeadIndustryActive(ind.name)">
-                  <span class="icon">◌</span> {{ ind.name }}
-                  <span class="count">{{ ind.lead_count }}</span>
-                </a>
-              }
-              @for (c of childrenOfBuiltin('leads'); track c.id) {
-                <a [routerLink]="childLinkPath(c)" [class.active]="isChildLinkActive(c)">
-                  <span class="icon">◌</span> {{ c.main_section_label || c.title }}
-                </a>
-              }
-            </div>
-          }
-        </div>
-
-        <div class="nav-group">
-          <a routerLink="/admin/leadgen" [class.active]="isLeadgenActive()">
-            <span class="icon">⇪</span> Lead Gen
-            <span class="caret">›</span>
+            <span class="caret" (click)="toggleCaret('leads', $event)">›</span>
           </a>
           <div class="children">
-            <a routerLink="/admin/leadgen/settings" [class.active]="isLeadgenSettingsActive()">
-              <span class="icon">⚙</span> Settings
+            <!-- Categories — second-level dropdown that lists every
+                 industry currently held by at least one lead. Each
+                 industry deep-links the leads list to that industry
+                 filter. The parent row toggles open/closed via the
+                 caret; clicking the label does nothing on its own. -->
+            <div class="nav-group" [class.open]="isGroupOpen('lead-categories', isLeadIndustryAnyActive())">
+              <a class="non-routing" (click)="toggleCaret('lead-categories', $event)">
+                <span class="icon">▦</span> Categories
+                @if (leadIndustries().length > 0) {
+                  <span class="caret">›</span>
+                }
+              </a>
+              @if (leadIndustries().length > 0) {
+                <div class="children">
+                  @for (ind of leadIndustries(); track ind.name) {
+                    <a [routerLink]="['/admin/leads']"
+                       [queryParams]="{ industry: ind.name }"
+                       queryParamsHandling="merge"
+                       [class.active]="isLeadIndustryActive(ind.name)">
+                      <span class="icon">◌</span>
+                      <span class="label" [title]="ind.name">{{ ind.name }}</span>
+                      <span class="count">{{ ind.lead_count }}</span>
+                    </a>
+                  }
+                </div>
+              }
+            </div>
+
+            <!-- Lead Gen — AI-driven prospect generation. Moved here
+                 from a sibling top-level entry. Plain routerLinkActive
+                 — exact match so /admin/leads/import (which mounts
+                 the same component) doesn't light Lead Gen too. -->
+            <a routerLink="/admin/leadgen"
+               routerLinkActive="active"
+               [routerLinkActiveOptions]="{ exact: true }">
+              <span class="icon">⇪</span> Lead Gen
             </a>
+
+            <!-- Import Leads — separate route, separate URL. Same
+                 component as Lead Gen but routed in 'import' mode. -->
+            <a routerLink="/admin/leads/import" routerLinkActive="active">
+              <span class="icon">⤓</span> Import Leads
+            </a>
+
+            <!-- Any user-defined main sections still pinned under Leads. -->
+            @for (c of childrenOfBuiltin('leads'); track c.id) {
+              <a [routerLink]="childLinkPath(c)" [class.active]="isChildLinkActive(c)">
+                <span class="icon">◌</span>
+                <span class="label" [title]="c.main_section_label || c.title">{{ c.main_section_label || c.title }}</span>
+              </a>
+            }
             @for (c of childrenOfBuiltin('leadgen'); track c.id) {
               <a [routerLink]="childLinkPath(c)" [class.active]="isChildLinkActive(c)">
-                <span class="icon">◌</span> {{ c.main_section_label || c.title }}
+                <span class="icon">◌</span>
+                <span class="label" [title]="c.main_section_label || c.title">{{ c.main_section_label || c.title }}</span>
               </a>
             }
           </div>
         </div>
 
-        <div class="nav-group">
-          <a routerLink="/admin/newsletter" [class.active]="isNewsletterActive()">
-            <span class="icon">✉</span> Newsletter
-            @if (childrenOfBuiltin('newsletter').length > 0) { <span class="caret">›</span> }
-          </a>
-          @if (childrenOfBuiltin('newsletter').length > 0) {
-            <div class="children">
-              @for (c of childrenOfBuiltin('newsletter'); track c.id) {
-                <a [routerLink]="childLinkPath(c)" [class.active]="isChildLinkActive(c)">
-                  <span class="icon">◌</span> {{ c.main_section_label || c.title }}
-                </a>
-              }
-            </div>
-          }
-        </div>
-
-        <div class="nav-group">
+        <div class="nav-group" [class.open]="isGroupOpen('services', isServicesActive())">
           <a routerLink="/admin/services" [class.active]="isServicesActive()">
             <span class="icon">⚒</span> Services
-            @if (serviceOfferings().length > 0 || childrenOfBuiltin('services').length > 0) { <span class="caret">›</span> }
+            @if (serviceOfferings().length > 0 || childrenOfBuiltin('services').length > 0) {
+              <span class="caret" (click)="toggleCaret('services', $event)">›</span>
+            }
           </a>
           @if (serviceOfferings().length > 0 || childrenOfBuiltin('services').length > 0) {
             <div class="children">
               @for (s of serviceOfferings(); track s.id) {
                 <a [routerLink]="['/admin/services']" [queryParams]="{ service: s.id }"
                    [class.active]="isServiceOfferingActive(s.id!)">
-                  <span class="icon">◌</span> {{ s.name }}
+                  <span class="icon">◌</span>
+                  <span class="label" [title]="s.name">{{ s.name }}</span>
                 </a>
               }
               @for (c of childrenOfBuiltin('services'); track c.id) {
                 <a [routerLink]="childLinkPath(c)" [class.active]="isChildLinkActive(c)">
-                  <span class="icon">◌</span> {{ c.main_section_label || c.title }}
+                  <span class="icon">◌</span>
+                  <span class="label" [title]="c.main_section_label || c.title">{{ c.main_section_label || c.title }}</span>
+                </a>
+              }
+            </div>
+          }
+        </div>
+
+        <!-- Onboarding — parent routes to a dedicated hub page showing
+             both surfaces (Standard forms + Multipart forms). Children
+             open the two dedicated admin pages. -->
+        <div class="nav-group" [class.open]="isGroupOpen('onboarding', isOnboardingHubActive() || isOnboardingActive() || isFormsActive())">
+          <a routerLink="/admin/onboarding" [class.active]="isOnboardingHubActive()">
+            <span class="icon">◈</span> Onboarding
+            <span class="caret" (click)="toggleCaret('onboarding', $event)">›</span>
+          </a>
+          <div class="children">
+            <!-- Forms sub-group -->
+            <div class="nav-group" [class.open]="isGroupOpen('onb-forms', isFormsActive())">
+              <a routerLink="/admin/forms" [class.active]="isFormsListActive()">
+                <span class="icon">▤</span> Forms
+                <span class="caret" (click)="toggleCaret('onb-forms', $event)">›</span>
+              </a>
+              <div class="children">
+                <a routerLink="/admin/submissions" [class.active]="isSubmissionsActive()">
+                  <span class="icon">☰</span> Submissions
+                </a>
+                @for (f of standardForms(); track f.id) {
+                  <a [routerLink]="['/admin/forms', f.id, 'submissions']" [class.active]="isStandardFormActive(f.id!)">
+                    <span class="icon">◌</span>
+                    <span class="label" [title]="f.title">{{ f.title }}</span>
+                  </a>
+                }
+                @for (m of childrenOfBuiltin('forms'); track m.id) {
+                  <a [routerLink]="childLinkPath(m)" [class.active]="isChildLinkActive(m)">
+                    <span class="icon">◌</span>
+                    <span class="label" [title]="m.main_section_label || m.title">{{ m.main_section_label || m.title }}</span>
+                  </a>
+                }
+              </div>
+            </div>
+
+            <!-- Multipart forms sub-group — /admin/onboarding/multipart
+                 is the dedicated multipart list page (separate from
+                 /admin/forms which is the standard-forms list). -->
+            <div class="nav-group" [class.open]="isGroupOpen('onb-multi', isOnboardingActive())">
+              <a routerLink="/admin/onboarding/multipart" [class.active]="isOnboardingActive()">
+                <span class="icon">◈</span> Multipart forms
+                @if (onboardingForms().length > 0 || childrenOfBuiltin('onboarding').length > 0) {
+                  <span class="caret" (click)="toggleCaret('onb-multi', $event)">›</span>
+                }
+              </a>
+              @if (onboardingForms().length > 0 || childrenOfBuiltin('onboarding').length > 0) {
+                <div class="children">
+                  @for (f of onboardingForms(); track f.id) {
+                    <a [routerLink]="['/admin/onboarding', f.id, 'clients']" [class.active]="isOnboardingFormActive(f.id!)">
+                      <span class="icon">◌</span>
+                      <span class="label" [title]="f.title">{{ f.title }}</span>
+                    </a>
+                  }
+                  @for (m of childrenOfBuiltin('onboarding'); track m.id) {
+                    <a [routerLink]="childLinkPath(m)" [class.active]="isChildLinkActive(m)">
+                      <span class="icon">◆</span>
+                      <span class="label" [title]="m.main_section_label || m.title">{{ m.main_section_label || m.title }}</span>
+                    </a>
+                  }
+                </div>
+              }
+            </div>
+          </div>
+        </div>
+
+        <div class="nav-group" [class.open]="isGroupOpen('newsletter', isNewsletterActive())">
+          <a routerLink="/admin/newsletter" [class.active]="isNewsletterActive()">
+            <span class="icon">✉</span> Newsletter
+            @if (childrenOfBuiltin('newsletter').length > 0) {
+              <span class="caret" (click)="toggleCaret('newsletter', $event)">›</span>
+            }
+          </a>
+          @if (childrenOfBuiltin('newsletter').length > 0) {
+            <div class="children">
+              @for (c of childrenOfBuiltin('newsletter'); track c.id) {
+                <a [routerLink]="childLinkPath(c)" [class.active]="isChildLinkActive(c)">
+                  <span class="icon">◌</span>
+                  <span class="label" [title]="c.main_section_label || c.title">{{ c.main_section_label || c.title }}</span>
                 </a>
               }
             </div>
@@ -124,56 +235,26 @@ import { environment } from '@env/environment';
         </div>
 
         <div class="nav-group">
-          <a routerLink="/admin/forms" routerLinkActive="active">
-            <span class="icon">▤</span> Forms
-            <span class="caret">›</span>
+          <a routerLink="/admin/feedback" [class.active]="isFeedbackActive()">
+            <span class="icon">★</span> Feedback
           </a>
-          <div class="children">
-            <a routerLink="/admin/submissions" routerLinkActive="active">
-              <span class="icon">☰</span> Submissions
-            </a>
-            <a routerLink="/admin/settings" routerLinkActive="active">
-              <span class="icon">⚙</span> Settings
-            </a>
-            @for (m of childrenOfBuiltin('forms'); track m.id) {
-              <a [routerLink]="childLinkPath(m)" [class.active]="isChildLinkActive(m)">
-                <span class="icon">◌</span> {{ m.main_section_label || m.title }}
-              </a>
-            }
-          </div>
-        </div>
-        <div class="nav-group">
-          <a routerLink="/admin/onboarding" [class.active]="isOnboardingActive()">
-            <span class="icon">◈</span> Onboarding
-            @if (onboardingForms().length > 0) { <span class="caret">›</span> }
-          </a>
-          @if (onboardingForms().length > 0 || childrenOfBuiltin('onboarding').length > 0) {
-            <div class="children">
-              @for (f of onboardingForms(); track f.id) {
-                <a [routerLink]="['/admin/onboarding', f.id, 'clients']" [class.active]="isOnboardingFormActive(f.id!)">
-                  <span class="icon">◌</span> {{ f.title }}
-                </a>
-              }
-              @for (m of childrenOfBuiltin('onboarding'); track m.id) {
-                <a [routerLink]="childLinkPath(m)" [class.active]="isChildLinkActive(m)">
-                  <span class="icon">◆</span> {{ m.main_section_label || m.title }}
-                </a>
-              }
-            </div>
-          }
         </div>
 
         @for (m of topMainSections(); track m.id) {
-          <div class="nav-group">
+          <div class="nav-group" [class.open]="isGroupOpen('main:' + m.id, isMainSectionActive(m.id!))">
             <a [routerLink]="['/admin/main', m.id]" [class.active]="isMainSectionActive(m.id!)">
-              <span class="icon">◆</span> {{ m.main_section_label || m.title }}
-              @if (childrenOf(m.id!).length > 0) { <span class="caret">›</span> }
+              <span class="icon">◆</span>
+              <span class="label" [title]="m.main_section_label || m.title">{{ m.main_section_label || m.title }}</span>
+              @if (childrenOf(m.id!).length > 0) {
+                <span class="caret" (click)="toggleCaret('main:' + m.id, $event)">›</span>
+              }
             </a>
             @if (childrenOf(m.id!).length > 0) {
               <div class="children">
                 @for (c of childrenOf(m.id!); track c.id) {
                   <a [routerLink]="childLinkPath(c)" [class.active]="isChildLinkActive(c)">
-                    <span class="icon">◌</span> {{ c.main_section_label || c.title }}
+                    <span class="icon">◌</span>
+                    <span class="label" [title]="c.main_section_label || c.title">{{ c.main_section_label || c.title }}</span>
                   </a>
                 }
               </div>
@@ -181,6 +262,7 @@ import { environment } from '@env/environment';
           </div>
         }
       </nav>
+      <app-side-nav-footer />
     </aside>
   `,
   styles: [`
@@ -228,13 +310,34 @@ import { environment } from '@env/environment';
     }
     a:hover { background: var(--bg-3); }
     a.active { background: var(--bg-3); color: var(--primary); }
-    .icon { width: 20px; text-align: center; opacity: 0.85; }
+    /* Anchors with no routerLink (e.g. the Categories group label —
+       a pure container that only toggles open/closed) still need to
+       read as interactive. */
+    a.non-routing { cursor: pointer; }
+    .icon { width: 20px; text-align: center; opacity: 0.85; flex-shrink: 0; }
+    /* Label span truncates when the text overflows the row width.
+       flex: 1 lets it eat leftover space so ellipsis kicks in; min-width: 0
+       is required because a flex child's default min-content width would
+       otherwise refuse to shrink below the intrinsic text width. Native
+       [title] attr on the span provides the hover tooltip. */
+    .label {
+      flex: 1; min-width: 0;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    /* Caret stays pushed to the right of the row via margin-left: auto
+       (the parent <a> is display: flex). The padding gives it a real
+       click-target without bumping the row taller — the negative
+       vertical margin cancels the padding's height contribution. */
     .caret {
       margin-left: auto; opacity: 0.6;
+      padding: 4px 6px; margin-top: -4px; margin-bottom: -4px; margin-right: -6px;
+      border-radius: var(--radius-sm); cursor: pointer;
       transition: transform 0.2s;
     }
-    .nav-group:has(.active) > a > .caret,
-    .nav-group:hover > a > .caret { transform: rotate(90deg); }
+    .caret:hover { background: var(--bg-3); opacity: 1; }
+    /* Open state is fully driven by [class.open] in the template
+       (which combines route-activity + the user's chevron overrides). */
+    .nav-group.open > a > .caret { transform: rotate(90deg); }
 
     .children {
       display: none;
@@ -258,8 +361,7 @@ import { environment } from '@env/environment';
     }
     .children a.active .count { background: rgba(212, 169, 58, 0.16); color: var(--primary); }
 
-    .nav-group:has(.active) > .children,
-    .nav-group:hover > .children { display: flex; }
+    .nav-group.open > .children { display: flex; }
   `],
 })
 export class SideNav {
@@ -271,6 +373,31 @@ export class SideNav {
   logoUrl = computed(() => this.svc.brandLogoUrl() || `${environment.basePath}/icon.png`);
   initials = this.svc.brandInitials;
   logoFailed = false;
+
+  /** Nav-group keys whose open state the user has manually FLIPPED
+   *  away from the default (active = open, inactive = closed).
+   *  Cleared on every navigation so a fresh route reverts every group
+   *  to "open iff its route is active". Keys: 'clients','leads',
+   *  'leadgen','newsletter','services','forms','onboarding','main:<id>'. */
+  private flippedGroups = signal<Set<string>>(new Set());
+
+  /** Click handler bound to the chevron span. Toggles the open state
+   *  WITHOUT navigating (preventDefault + stopPropagation kills the
+   *  parent anchor's routerLink). */
+  toggleCaret(key: string, ev: Event): void {
+    ev.preventDefault();
+    ev.stopPropagation();
+    const next = new Set(this.flippedGroups());
+    if (next.has(key)) next.delete(key); else next.add(key);
+    this.flippedGroups.set(next);
+  }
+
+  /** A group is open by default when its route is active. The user can
+   *  flip that default via a chevron click — `flippedGroups` is the
+   *  set of "user disagrees with default" overrides. */
+  isGroupOpen(key: string, isActive: boolean): boolean {
+    return this.flippedGroups().has(key) ? !isActive : isActive;
+  }
   onboardingForms = signal<FormDef[]>([]);
   standardForms = signal<FormDef[]>([]);
   serviceOfferings = signal<ServiceOffering[]>([]);
@@ -300,6 +427,14 @@ export class SideNav {
     const url = this.currentUrl();
     return url === '/admin/leads' || url.startsWith('/admin/leads/') || url.startsWith('/admin/leads?');
   };
+  /** Broader check used for the Leads group's auto-open hint:
+   *  matches every child route (Categories filter, Lead Gen, Import
+   *  Leads). Without this, navigating from /admin/leads → /admin/leadgen
+   *  would collapse the parent and hide Lead Gen + Import Leads. */
+  isLeadsGroupActive = (): boolean => {
+    const url = this.currentUrl();
+    return this.isLeadsActive() || url.startsWith('/admin/leadgen');
+  };
   /** An industry sub-link is active when the current URL is the leads
    *  list AND its `industry` query param matches this entry. Encoded
    *  match so names with spaces ("Care Homes") survive the round trip. */
@@ -310,18 +445,64 @@ export class SideNav {
     const params = new URLSearchParams(q);
     return (params.get('industry') ?? '') === name;
   };
+  /** True when ANY industry filter is in the URL — used to auto-open
+   *  the Categories sub-group whenever the user is filtered by one. */
+  isLeadIndustryAnyActive = (): boolean => {
+    const url = this.currentUrl();
+    if (!url.startsWith('/admin/leads')) return false;
+    const q = url.split('?')[1] ?? '';
+    return new URLSearchParams(q).has('industry');
+  };
+  isFormsActive = (): boolean => {
+    const url = this.currentUrl();
+    // "Forms" sub-group lights on any standard-form admin URL, INCLUDING
+    // the global Submissions page (which lives under Forms in the sidenav
+    // even though its URL is /admin/submissions*). Any form-specific
+    // sub-page (`/admin/forms/:id/edit|submissions|submission/...`) is
+    // caught by the `/admin/forms/` prefix.
+    if (url === '/admin/forms' || url.startsWith('/admin/forms/') || url.startsWith('/admin/forms?')) return true;
+    if (url === '/admin/submissions' || url.startsWith('/admin/submissions/') || url.startsWith('/admin/submissions?')) return true;
+    return false;
+  };
+  /** True only on the Onboarding hub itself so the parent link doesn't
+   *  falsely light up when the user is drilled into a child page. */
+  isOnboardingHubActive = (): boolean => {
+    const url = this.currentUrl();
+    return url === '/admin/onboarding' || url.startsWith('/admin/onboarding?');
+  };
+  /** "Forms" child anchor — highlights on the bare list URL only.
+   *  Specific form rows own their own highlight via `isStandardFormActive`
+   *  so the parent doesn't compete with them. */
+  isFormsListActive = (): boolean => {
+    const url = this.currentUrl();
+    return url === '/admin/forms' || url.startsWith('/admin/forms?');
+  };
+  /** "Submissions" child anchor — global cross-form submissions viewer. */
+  isSubmissionsActive = (): boolean => {
+    const url = this.currentUrl();
+    return url === '/admin/submissions'
+        || url.startsWith('/admin/submissions/')
+        || url.startsWith('/admin/submissions?');
+  };
+  /** Highlights a specific standard-form row in the sidenav whenever
+   *  the user is on ANY sub-page for that form (edit / submissions /
+   *  a single submission), not just the exact submissions URL. */
+  isStandardFormActive = (id: number): boolean => {
+    const url = this.currentUrl();
+    return new RegExp(`^/admin/forms/${id}(/|\\?|$)`).test(url);
+  };
   isLeadgenActive = (): boolean => {
     const url = this.currentUrl();
     // Parent only highlights on the index page; child pages light their own row.
     return url === '/admin/leadgen' || url.startsWith('/admin/leadgen?');
   };
-  isLeadgenSettingsActive = (): boolean => {
-    const url = this.currentUrl();
-    return url === '/admin/leadgen/settings' || url.startsWith('/admin/leadgen/settings/') || url.startsWith('/admin/leadgen/settings?');
-  };
   isNewsletterActive = (): boolean => {
     const url = this.currentUrl();
     return url === '/admin/newsletter' || url.startsWith('/admin/newsletter/') || url.startsWith('/admin/newsletter?');
+  };
+  isFeedbackActive = (): boolean => {
+    const url = this.currentUrl();
+    return url === '/admin/feedback' || url.startsWith('/admin/feedback/') || url.startsWith('/admin/feedback?');
   };
   isServicesActive = (): boolean => {
     const url = this.currentUrl();
@@ -331,23 +512,15 @@ export class SideNav {
    *  open via `/admin/services?service=<id>`. */
   isServiceOfferingActive = (id: number): boolean =>
     new RegExp(`[?&]service=${id}(?:&|$)`).test(this.currentUrl());
-  topMainSections = computed(() =>
-    this.onboardingForms().filter(f => (f.sidenav_placement ?? 'top') === 'top')
-  );
-  /** Forms flagged to render as their own standalone top-level sidenav entry. */
-  independentSections = computed(() =>
-    [...this.onboardingForms(), ...this.standardForms()].filter(f => !!f.show_in_sidenav_root)
-  );
-  /** Forms (any type) with placement='child' nested under another form (parent_key === parent's id). */
-  childrenOf = (parentId: number) =>
-    [...this.onboardingForms(), ...this.standardForms()]
-      .filter(f => f.sidenav_placement === 'child' && f.sidenav_parent_key === String(parentId));
-  /** Forms (any type) with placement='child' nested under a built-in
-   *  sidenav parent. The accepted keys are listed in
-   *  `SIDENAV_BUILTIN_PARENTS` (`core/sidenav-config.ts`). */
-  childrenOfBuiltin = (key: string) =>
-    [...this.onboardingForms(), ...this.standardForms()]
-      .filter(f => f.sidenav_placement === 'child' && f.sidenav_parent_key === key);
+  /** All forms (standard + multipart) now live exclusively under the
+   *  Onboarding parent — the old sidenav_placement / sidenav_parent_key /
+   *  show_in_sidenav_root fields no longer influence the tree. These
+   *  helpers return empty so no form leaks to top-level or under
+   *  clients / services / leads / newsletter. */
+  topMainSections = computed<FormDef[]>(() => []);
+  independentSections = computed<FormDef[]>(() => []);
+  childrenOf = (_parentId: number): FormDef[] => [];
+  childrenOfBuiltin = (_key: string): FormDef[] => [];
   isStandardForm = (f: FormDef) => f.form_type !== 'onboarding';
   /** Where in the admin UI a sidenav child link should point. */
   childLinkPath = (f: FormDef): any[] =>
@@ -361,19 +534,24 @@ export class SideNav {
 
   isOnboardingActive = computed(() => {
     const url = this.currentUrl();
-    // Active only on templates-management URLs — never on a specific form's
-    // clients/client pages, since those highlight the form's own child entry.
-    if (url === '/admin/onboarding' || url.startsWith('/admin/onboarding?')) return true;
+    // "Multipart forms" child row lights on any multipart-admin URL,
+    // but NOT the bare Onboarding hub (that's `isOnboardingHubActive`
+    // — parent-row only). Includes any form-specific sub-page
+    // (`/admin/onboarding/:id/edit|clients|client/...`) so the
+    // sub-group's [class.open] fires and the individual form row
+    // becomes visible + highlighted.
+    if (url === '/admin/onboarding/multipart' || url.startsWith('/admin/onboarding/multipart?')) return true;
     if (url === '/admin/onboarding/new') return true;
-    if (/^\/admin\/onboarding\/\d+\/edit($|[/?])/.test(url)) return true;
     if (url === '/admin/onboarding/clients' || url.startsWith('/admin/onboarding/clients/')) return true;
+    if (/^\/admin\/onboarding\/\d+(\/|$|\?)/.test(url)) return true;
     return false;
   });
+  /** Highlights a specific multipart-form row whenever the user is on
+   *  ANY sub-page for that form (edit / clients list / a single
+   *  client). Previously missed /edit. */
   isOnboardingFormActive = (formId: number): boolean => {
     const url = this.currentUrl();
-    return url === `/admin/onboarding/${formId}/clients`
-        || url.startsWith(`/admin/onboarding/${formId}/clients/`)
-        || url.startsWith(`/admin/onboarding/${formId}/client/`);
+    return new RegExp(`^/admin/onboarding/${formId}(/|\\?|$)`).test(url);
   };
   isMainSectionActive = (formId: number): boolean => {
     const url = this.currentUrl();
@@ -392,6 +570,10 @@ export class SideNav {
     this.router.events.pipe(filter(e => e instanceof NavigationEnd)).subscribe(e => {
       const url = (e as NavigationEnd).urlAfterRedirects;
       this.currentUrl.set(url);
+      // Reset chevron overrides on every navigation so the new active
+      // group opens cleanly and previously-flipped groups revert to
+      // their default (open iff active = false → closed).
+      this.flippedGroups.set(new Set());
       // Refresh sidenav children only when landing on the bare list root —
       // i.e. the page a user arrives at after creating / deleting an entry.
       // The previous `startsWith` checks fired on every navigation within

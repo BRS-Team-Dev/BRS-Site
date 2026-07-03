@@ -2,14 +2,15 @@ import { Component, computed, effect, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { Api } from '../core/api';
 import { Auth } from '../core/auth';
+import { DialogService } from '../core/dialog';
 import { TenantSummary } from '../core/models';
 import { SettingsService } from '../core/settings.service';
 import { SystemService, SystemKey } from '../core/system.service';
-import { ThemeService } from '../core/theme.service';
+import { NotificationBell } from './notification-bell';
 
 @Component({
   selector: 'app-top-nav',
-  imports: [RouterLink],
+  imports: [RouterLink, NotificationBell],
   template: `
     @if (auth.isImpersonating()) {
       <!-- Banner pinned across the top whenever a super-admin is operating
@@ -91,13 +92,15 @@ import { ThemeService } from '../core/theme.service';
           }
         </div>
       }
-      <button
-        class="ghost theme-btn"
-        (click)="theme.toggle()"
-        [title]="theme.theme() === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'"
-        [attr.aria-label]="theme.theme() === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'">
-        {{ theme.theme() === 'dark' ? '☀' : '☾' }}
-      </button>
+      <!-- Theme is now tenant-level (chosen at signup or from
+           /me/account → Appearance). No per-user dark/light toggle. -->
+
+      <!-- Notification bell — sub-tabbed panel per system section,
+           badge shows total unread across all sections. -->
+      @if (auth.user()) {
+        <app-notification-bell></app-notification-bell>
+      }
+
       @if (auth.user(); as u) {
         <div class="user-menu" (click)="userOpen.set(!userOpen()); $event.stopPropagation()">
           <span class="user-avatar">{{ initials(u.display_name || u.email) }}</span>
@@ -186,14 +189,6 @@ import { ThemeService } from '../core/theme.service';
     .sys-dot[data-sys="crm"]        { background: #3b82f6; }
     .sys-dot[data-sys="account"]    { background: #f59e0b; }
     .sys-dot[data-sys="support"]    { background: #ef4444; }
-
-    .theme-btn {
-      width: 32px; height: 32px; padding: 0;
-      display: inline-flex; align-items: center; justify-content: center;
-      font-size: 18px; line-height: 1;
-    }
-    .theme-btn:hover { color: var(--primary); border-color: var(--primary); }
-    :host-context([data-theme="light"]) .theme-btn { color: var(--primary); }
 
     .user-menu {
       position: relative;
@@ -325,8 +320,8 @@ import { ThemeService } from '../core/theme.service';
 export class TopNav {
   private svc = inject(SettingsService);
   private api = inject(Api);
+  private dialog = inject(DialogService);
   auth = inject(Auth);
-  theme = inject(ThemeService);
   system = inject(SystemService);
   brandName = this.svc.brandName;
   open = signal(false);
@@ -387,7 +382,10 @@ export class TopNav {
     this.tenantOpen.set(false);
     this.auth.impersonate(t.id).subscribe({
       next: () => { window.location.reload(); },
-      error: err => alert('Impersonation failed: ' + (err?.error?.error || 'unknown')),
+      error: err => this.dialog.alert(
+        'Impersonation failed: ' + (err?.error?.error || 'unknown'),
+        { title: 'Impersonation failed', variant: 'danger' }
+      ),
     });
   }
 

@@ -1,6 +1,7 @@
 import { Component, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Api } from '../../core/api';
+import { DialogService } from '../../core/dialog';
 import { AdminUserRecord, TaskTeam, TaskTeamMember, TaskItemState, TaskItemType } from '../../core/models';
 
 type Tab = 'teams' | 'types' | 'states';
@@ -187,6 +188,7 @@ type Tab = 'teams' | 'types' | 'states';
 })
 export class TasksSettings {
   private api = inject(Api);
+  private dialog = inject(DialogService);
   readonly tabs: { key: Tab; label: string }[] = [
     { key: 'teams',  label: 'Teams' },
     { key: 'types',  label: 'Item types' },
@@ -257,9 +259,10 @@ export class TasksSettings {
     if (!t.id || !userId) return;
     this.api.addTaskTeamMember(t.id, userId).subscribe(() => this.loadMembers(t.id!));
   }
-  removeMember(t: TaskTeam, m: TaskTeamMember) {
+  async removeMember(t: TaskTeam, m: TaskTeamMember) {
     if (!t.id) return;
-    if (!confirm(`Remove ${m.display_name || m.email} from "${t.name}"?`)) return;
+    const ok = await this.dialog.confirm(`Remove ${m.display_name || m.email} from "${t.name}"?`, { title: 'Remove member', confirmLabel: 'Remove', variant: 'danger' });
+    if (!ok) return;
     this.api.removeTaskTeamMember(t.id, m.id).subscribe(() => this.loadMembers(t.id!));
   }
 
@@ -272,9 +275,10 @@ export class TasksSettings {
     if (!t.id) return;
     this.api.updateTaskTeam(t.id, t).subscribe();
   }
-  delTeam(t: TaskTeam) {
+  async delTeam(t: TaskTeam) {
     if (!t.id) return;
-    if (!confirm(`Delete team "${t.name}"? Projects using it must be re-assigned first.`)) return;
+    const ok = await this.dialog.confirm(`Delete team "${t.name}"? Projects using it must be re-assigned first.`, { title: 'Delete team', confirmLabel: 'Delete', variant: 'danger' });
+    if (!ok) return;
     this.api.deleteTaskTeam(t.id).subscribe(() => this.refreshTeams());
   }
   refreshTeams() { this.api.listTaskTeams().subscribe(r => this.teams.set(r.teams)); }
@@ -296,9 +300,10 @@ export class TasksSettings {
       this.api.updateTaskType(t.id!, { ...t, is_default: t.is_default ? 0 : 1 }).subscribe(() => this.refreshTypes());
     });
   }
-  delType(t: TaskItemType) {
+  async delType(t: TaskItemType) {
     if (!t.id) return;
-    if (!confirm(`Delete type "${t.name}"? Items of this type must be re-typed first.`)) return;
+    const ok = await this.dialog.confirm(`Delete type "${t.name}"? Items of this type must be re-typed first.`, { title: 'Delete type', confirmLabel: 'Delete', variant: 'danger' });
+    if (!ok) return;
     this.api.deleteTaskType(t.id).subscribe(() => this.refreshTypes());
   }
   refreshTypes() { this.api.listTaskTypes().subscribe(r => this.types.set(r.types)); }
@@ -323,9 +328,10 @@ export class TasksSettings {
     if (!s.id) return;
     this.api.updateTaskState(s.id, { ...s, is_terminal: s.is_terminal ? 0 : 1 }).subscribe(() => this.refreshStates());
   }
-  delState(s: TaskItemState) {
+  async delState(s: TaskItemState) {
     if (!s.id) return;
-    if (!confirm(`Delete state "${s.name}"? Items in this state must be moved first.`)) return;
+    const ok = await this.dialog.confirm(`Delete state "${s.name}"? Items in this state must be moved first.`, { title: 'Delete state', confirmLabel: 'Delete', variant: 'danger' });
+    if (!ok) return;
     this.api.deleteTaskState(s.id).subscribe(() => this.refreshStates());
   }
   refreshStates() { this.api.listTaskStates().subscribe(r => this.states.set(r.states)); }

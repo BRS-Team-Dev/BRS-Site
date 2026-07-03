@@ -2,6 +2,7 @@ import { Component, inject, signal, computed } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { Api } from '../../core/api';
+import { DialogService } from '../../core/dialog';
 import { HrLegalDocument } from '../../core/models';
 
 const CATEGORIES: Array<{ key: string; label: string }> = [
@@ -197,6 +198,7 @@ export class HrLegalDetail {
   private api = inject(Api);
   private route = inject(ActivatedRoute);
   private router = inject(Router);
+  private dialog = inject(DialogService);
 
   readonly categories = CATEGORIES;
 
@@ -258,10 +260,11 @@ export class HrLegalDetail {
     });
   }
 
-  del() {
+  async del() {
     const d = this.doc();
     if (!d?.id) return;
-    if (!confirm(`Delete "${d.title}"? This cannot be undone.`)) return;
+    const ok = await this.dialog.confirm(`Delete "${d.title}"? This cannot be undone.`, { title: 'Delete document', confirmLabel: 'Delete', variant: 'danger' });
+    if (!ok) return;
     this.api.deleteHrLegalDoc(d.id).subscribe(() => this.router.navigate(['/hr/legal']));
   }
 

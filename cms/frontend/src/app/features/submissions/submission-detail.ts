@@ -1,5 +1,6 @@
 import { Component, Input, inject } from '@angular/core';
 import { Api } from '../../core/api';
+import { DialogService } from '../../core/dialog';
 import { FormField } from '../../core/models';
 import { environment } from '@env/environment';
 
@@ -38,14 +39,19 @@ export class SubmissionDetail {
   @Input() onDeleted?: () => void;
 
   private api = inject(Api);
+  private dialog = inject(DialogService);
 
   filePath(rel: string) { return `${environment.basePath}/storage/${rel}`; }
   formatCheckbox(v: any) {
     try { const arr = typeof v === 'string' ? JSON.parse(v) : v; return Array.isArray(arr) ? arr.join(', ') : String(v); }
     catch { return String(v); }
   }
-  del() {
-    if (!confirm('Delete this submission?')) return;
+  async del() {
+    const ok = await this.dialog.confirm(
+      'Delete this submission?',
+      { title: 'Delete submission', confirmLabel: 'Delete', variant: 'danger' }
+    );
+    if (!ok) return;
     this.api.deleteSubmission(this.formId, this.row.id).subscribe(() => this.onDeleted?.());
   }
 }

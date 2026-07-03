@@ -1,6 +1,7 @@
 import { Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Api } from '../../core/api';
+import { DialogService } from '../../core/dialog';
 import { HrEmployee, HrEmployeeSkill, HrSkill } from '../../core/models';
 
 interface CellKey { employeeId: number; skillId: number; }
@@ -158,6 +159,7 @@ interface CellKey { employeeId: number; skillId: number; }
 })
 export class ManagementSkills {
   private api = inject(Api);
+  private dialog = inject(DialogService);
 
   team = signal<HrEmployee[]>([]);
   skills = signal<HrSkill[]>([]);
@@ -197,12 +199,13 @@ export class ManagementSkills {
       category: this.newCategory.trim() || undefined,
     }).subscribe({
       next: () => { this.closeSkillForm(); this.refresh(); },
-      error: e => alert(e?.error?.error || 'Could not save skill'),
+      error: e => this.dialog.alert(e?.error?.error || 'Could not save skill', { title: 'Error', variant: 'danger' }),
     });
   }
-  removeSkill(s: HrSkill) {
+  async removeSkill(s: HrSkill) {
     if (!s.id) return;
-    if (!confirm(`Remove "${s.name}" from the catalogue? All assessments using it will also be removed.`)) return;
+    const ok = await this.dialog.confirm(`Remove "${s.name}" from the catalogue? All assessments using it will also be removed.`, { title: 'Remove skill', confirmLabel: 'Remove', variant: 'danger' });
+    if (!ok) return;
     this.api.deleteHrSkill(s.id).subscribe(() => this.refresh());
   }
 

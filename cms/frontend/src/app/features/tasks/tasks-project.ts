@@ -3,6 +3,7 @@ import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { Api } from '../../core/api';
 import { Auth } from '../../core/auth';
+import { DialogService } from '../../core/dialog';
 import { AdminUserRecord, ServicePoolEntry, TaskItem, TaskItemState, TaskItemType, TaskIteration, TaskProject } from '../../core/models';
 import { ComboBox, ComboOption } from '../../shared/combo-box';
 
@@ -1197,6 +1198,7 @@ const DAY_OPTIONS = [0.5, 1, 2, 3, 5, 8, 13];
 })
 export class TasksProject {
   private api = inject(Api);
+  private dialog = inject(DialogService);
   private auth = inject(Auth);
   private route = inject(ActivatedRoute);
   private router = inject(Router);
@@ -1547,10 +1549,11 @@ export class TasksProject {
       default: return 'P3 — medium';
     }
   }
-  del(it: TaskItem, e?: Event) {
+  async del(it: TaskItem, e?: Event) {
     e?.stopPropagation();
     if (!it.id) return;
-    if (!confirm(`Delete "${it.title}"?`)) return;
+    const ok = await this.dialog.confirm(`Delete "${it.title}"?`, { title: 'Delete item', confirmLabel: 'Delete', variant: 'danger' });
+    if (!ok) return;
     this.api.deleteTaskItem(it.id).subscribe(() => {
       this.selectedId.set(null);
       this.refreshItems();
@@ -1705,9 +1708,10 @@ export class TasksProject {
     }
     this.api.updateTaskIteration(it.id, changes).subscribe(() => this.refreshIterations());
   }
-  delIteration(it: TaskIteration) {
+  async delIteration(it: TaskIteration) {
     if (!it.id) return;
-    if (!confirm(`Delete "${it.name}"? Its items will return to the backlog.`)) return;
+    const ok = await this.dialog.confirm(`Delete "${it.name}"? Its items will return to the backlog.`, { title: 'Delete iteration', confirmLabel: 'Delete', variant: 'danger' });
+    if (!ok) return;
     this.api.deleteTaskIteration(it.id).subscribe(() => {
       this.refreshIterations();
       this.refreshItems();

@@ -4,6 +4,7 @@ declare(strict_types=1);
 use BRS\Auth;
 use BRS\Db;
 use BRS\Json;
+use BRS\StripeClient;
 use BRS\Tenant;
 use BRS\Tenants;
 
@@ -98,9 +99,59 @@ return function (string $method, array $segs): void {
     $check->execute([$emailDomain]);
     if ($check->fetchColumn() !== false) {
         Json::fail(
-            "An account already exists for $emailDomain — log in instead, or contact your admin to invite you.",
+            "An account already exists for $emailDomain. Log in instead, or contact your admin to invite you.",
             409
         );
+    }
+
+    // ── Anti-abuse: prior signup on this email domain? ─────────
+    // Even if the tenant_email_domains row was removed (deleted tenant),
+    // trial_abuse_signals is append-only. Reappearance of the same domain
+    // triggers "card required" mode below.
+    $domainSeen = $pdo->prepare(
+        'SELECT 1 FROM trial_abuse_signals
+          WHERE signal_type = "email_domain" AND signal_value = ? LIMIT 1'
+    );
+    $domainSeen->execute([$emailDomain]);
+    $domainFlagged = $domainSeen->fetchColumn() !== false;
+
+    // ── Anti-abuse: card check + trial-requires-card enforcement ─
+    // `payment_method_id` (Stripe pm_...) is optional in general but
+    // REQUIRED when:
+    //   - env `TRIAL_REQUIRES_CARD=true` is set globally, OR
+    //   - the email domain is flagged (previous trial from same domain)
+    $paymentMethodId = trim((string)($_POST['payment_method_id'] ?? ''));
+    $requireCard = $domainFlagged
+        || filter_var($GLOBALS['BRS_CONFIG']['stripe']['trial_requires_card'] ?? false, FILTER_VALIDATE_BOOLEAN);
+
+    if ($requireCard && $paymentMethodId === '') {
+        Json::fail(
+            $domainFlagged
+                ? 'This email domain was used for a previous trial. Please add a card to continue.'
+                : 'A payment method is required to start your trial. Your card will not be charged.',
+            402
+        );
+    }
+
+    // If a payment_method_id is present AND Stripe is configured,
+    // verify it isn't a fingerprint we've already seen on another
+    // tenant. Cheap way to block trial farming with re-used cards.
+    $cardFingerprint = null;
+    if ($paymentMethodId !== '' && StripeClient::isConfigured()) {
+        try {
+            $sdk = StripeClient::client();
+            $pm = $sdk->paymentMethods->retrieve($paymentMethodId, []);
+            $cardFingerprint = $pm->card->fingerprint ?? null;
+            if ($cardFingerprint && StripeClient::isCardReusedAcrossTenants($cardFingerprint)) {
+                Json::fail(
+                    'This card was used to start a previous trial. Please choose a paid plan or contact sales.',
+                    402
+                );
+            }
+        } catch (\Throwable $e) {
+            error_log('[signup] card check failed: ' . $e->getMessage());
+            Json::fail('Could not verify payment method. Please try again.', 400);
+        }
     }
 
     // Slug dedup — append -2, -3 until unique.
@@ -227,6 +278,54 @@ return function (string $method, array $segs): void {
         apcu_delete('brs.tenant.apikeys');
     }
 
+    // ── Post-signup anti-abuse writes ──────────────────────────
+    // Log the email domain unconditionally so any future signup on
+    // this domain (even after tenant deletion) triggers card-required
+    // mode. Log the card fingerprint (if we captured one) so re-use
+    // on a different signup is blocked upfront.
+    try {
+        $pdo->prepare(
+            'INSERT INTO trial_abuse_signals (tenant_id, signal_type, signal_value)
+             VALUES (?, "email_domain", ?)'
+        )->execute([$tenantId, $emailDomain]);
+
+        $clientIp = $_SERVER['HTTP_CF_CONNECTING_IP']
+            ?? $_SERVER['HTTP_X_FORWARDED_FOR']
+            ?? $_SERVER['REMOTE_ADDR']
+            ?? '';
+        // Take just the first hop in case of X-Forwarded-For chain.
+        $clientIp = trim(explode(',', $clientIp)[0]);
+        if ($clientIp !== '' && strlen($clientIp) <= 45) {
+            $pdo->prepare(
+                'INSERT INTO trial_abuse_signals (tenant_id, signal_type, signal_value)
+                 VALUES (?, "ip_address", ?)'
+            )->execute([$tenantId, $clientIp]);
+        }
+    } catch (\Throwable $e) {
+        error_log('[signup] trial_abuse_signals insert failed: ' . $e->getMessage());
+    }
+
+    // Attach the payment method to a new Stripe customer + save
+    // locally. Non-fatal: signup still succeeds if Stripe is
+    // temporarily unreachable; the tenant just won't have a card
+    // saved until they add one from Settings > Billing.
+    if ($paymentMethodId !== '' && StripeClient::isConfigured()) {
+        try {
+            $sdk = StripeClient::client();
+            $customerId = StripeClient::getOrCreateCustomer($tenantId);
+            $sdk->paymentMethods->attach($paymentMethodId, ['customer' => $customerId]);
+            $sdk->customers->update($customerId, [
+                'invoice_settings' => ['default_payment_method' => $paymentMethodId],
+            ]);
+            $pm = $sdk->paymentMethods->retrieve($paymentMethodId, []);
+            StripeClient::upsertPaymentMethod($tenantId, $pm);
+            $pdo->prepare('UPDATE tenants SET stripe_default_pm_id = ? WHERE id = ?')
+                ->execute([$paymentMethodId, $tenantId]);
+        } catch (\Throwable $e) {
+            error_log('[signup] Stripe PM attach failed: ' . $e->getMessage());
+        }
+    }
+
     // Issue a JWT so the caller can redirect the new admin straight
     // into the dashboard — no separate login round-trip needed.
     $token = Auth::issueToken($adminId, $contactEmail, $tenantId, false);
@@ -240,10 +339,11 @@ return function (string $method, array $segs): void {
             'display_name' => $adminName,
         ],
         'tenant'  => [
-            'id'         => $tenantId,
-            'slug'       => $finalSlug,
-            'brand_name' => $companyName,
-            'logo_path'  => $logoRelPath,
+            'id'          => $tenantId,
+            'slug'        => $finalSlug,
+            'brand_name'  => $companyName,
+            'color_theme' => $colorTheme,
+            'logo_path'   => $logoRelPath,
         ],
     ], 201);
 };

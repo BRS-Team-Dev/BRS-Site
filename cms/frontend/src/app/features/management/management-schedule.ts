@@ -1,6 +1,7 @@
 import { Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Api } from '../../core/api';
+import { DialogService } from '../../core/dialog';
 import { HrEmployee, HrShift } from '../../core/models';
 
 @Component({
@@ -162,6 +163,7 @@ import { HrEmployee, HrShift } from '../../core/models';
 })
 export class ManagementSchedule {
   private api = inject(Api);
+  private dialog = inject(DialogService);
 
   team = signal<HrEmployee[]>([]);
   shifts = signal<HrShift[]>([]);
@@ -249,9 +251,10 @@ export class ManagementSchedule {
       });
     }
   }
-  del() {
+  async del() {
     if (!this.draft.id) return;
-    if (!confirm('Delete this shift?')) return;
+    const ok = await this.dialog.confirm('Delete this shift?', { title: 'Delete shift', confirmLabel: 'Delete', variant: 'danger' });
+    if (!ok) return;
     this.api.deleteTeamShift(this.draft.id).subscribe(() => { this.formOpen.set(false); this.refresh(); });
   }
 

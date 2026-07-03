@@ -1,6 +1,7 @@
 import { Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Api } from '../../core/api';
+import { DialogService } from '../../core/dialog';
 import { HrEmployee, HrSuccessionCandidate, HrSuccessionCandidateNote, HrSuccessionPlan, HrSuccessionPlanNote } from '../../core/models';
 import { ComboBox, ComboOption } from '../../shared/combo-box';
 
@@ -293,6 +294,7 @@ import { ComboBox, ComboOption } from '../../shared/combo-box';
 })
 export class HrSuccession {
   private api = inject(Api);
+  private dialog = inject(DialogService);
 
   plans = signal<HrSuccessionPlan[]>([]);
   selectedId = signal<number | null>(null);
@@ -332,10 +334,11 @@ export class HrSuccession {
       this.loadCandNotes(c.id!);
     });
   }
-  delCandNote(c: HrSuccessionCandidate, n: HrSuccessionCandidateNote) {
+  async delCandNote(c: HrSuccessionCandidate, n: HrSuccessionCandidateNote) {
     const planId = this.selectedId();
     if (!planId || !c.id || !n.id) return;
-    if (!confirm('Delete this note?')) return;
+    const ok = await this.dialog.confirm('Delete this note?', { title: 'Delete note', confirmLabel: 'Delete', variant: 'danger' });
+    if (!ok) return;
     this.api.deleteHrSuccessionCandidateNote(planId, c.id, n.id).subscribe(() => this.loadCandNotes(c.id!));
   }
   readinessLabel(r?: string) {
@@ -397,10 +400,11 @@ export class HrSuccession {
       this.api.listHrSuccessionPlanNotes(id).subscribe(r => this.notes.set(r.notes));
     });
   }
-  delNote(n: HrSuccessionPlanNote) {
+  async delNote(n: HrSuccessionPlanNote) {
     const id = this.selectedId();
     if (!id || !n.id) return;
-    if (!confirm('Delete this note?')) return;
+    const ok = await this.dialog.confirm('Delete this note?', { title: 'Delete note', confirmLabel: 'Delete', variant: 'danger' });
+    if (!ok) return;
     this.api.deleteHrSuccessionPlanNote(id, n.id).subscribe(() =>
       this.api.listHrSuccessionPlanNotes(id).subscribe(r => this.notes.set(r.notes))
     );
@@ -425,9 +429,10 @@ export class HrSuccession {
     if (!id) return;
     this.api.updateHrSuccessionPlan(id, p).subscribe(() => this.refreshPlans());
   }
-  delPlan(p: HrSuccessionPlan) {
+  async delPlan(p: HrSuccessionPlan) {
     if (!p.id) return;
-    if (!confirm(`Delete plan for "${p.key_role}"?`)) return;
+    const ok = await this.dialog.confirm(`Delete plan for "${p.key_role}"?`, { title: 'Delete plan', confirmLabel: 'Delete', variant: 'danger' });
+    if (!ok) return;
     this.api.deleteHrSuccessionPlan(p.id).subscribe(() => {
       this.selectedId.set(null);
       this.candidates.set([]);
@@ -448,10 +453,11 @@ export class HrSuccession {
     if (!planId || !c.id) return;
     this.api.updateHrSuccessionCandidate(planId, c.id, p).subscribe();
   }
-  delCand(c: HrSuccessionCandidate) {
+  async delCand(c: HrSuccessionCandidate) {
     const planId = this.selectedId();
     if (!planId || !c.id) return;
-    if (!confirm(`Remove ${c.first_name} ${c.last_name}?`)) return;
+    const ok = await this.dialog.confirm(`Remove ${c.first_name} ${c.last_name}?`, { title: 'Remove candidate', confirmLabel: 'Remove', variant: 'danger' });
+    if (!ok) return;
     this.api.deleteHrSuccessionCandidate(planId, c.id).subscribe(() => {
       this.api.listHrSuccessionCandidates(planId).subscribe(r => this.candidates.set(r.candidates));
       this.refreshPlans();

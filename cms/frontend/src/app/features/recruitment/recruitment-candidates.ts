@@ -3,6 +3,7 @@ import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { environment } from '@env/environment';
 import { Api } from '../../core/api';
+import { DialogService } from '../../core/dialog';
 import {
   Client, RecruitmentCandidate, RecruitmentCandidateDocument, RecruitmentCandidateNote,
   RecruitmentCandidateStatus, RecruitmentDocGroup, RecruitmentDocType, RecruitmentOnboarding,
@@ -1281,6 +1282,9 @@ const TABS: { key: Tab; label: string }[] = [
       display: flex; align-items: center; gap: 10px;
       padding: 8px 12px; background: var(--bg-3); border: 1px solid var(--line);
       border-radius: var(--radius-sm); cursor: pointer; font-size: 13px; color: var(--fg);
+      text-transform: none; letter-spacing: normal;
+      white-space: nowrap;
+      font-weight: 500;
     }
     .inline-toggle input[type="checkbox"] { width: 16px; height: 16px; flex: 0 0 16px; }
 
@@ -1292,6 +1296,7 @@ export class RecruitmentCandidates {
   private api = inject(Api);
   private router = inject(Router);
   private route = inject(ActivatedRoute);
+  private dialog = inject(DialogService);
 
   STATUSES = STATUSES;
   STATUS_LABEL = STATUS_LABEL;
@@ -1407,10 +1412,14 @@ export class RecruitmentCandidates {
     this.placementError.set(null);
     this.showPlacementModal.set(true);
   }
-  delPlacement(p: RecruitmentPlacement) {
+  async delPlacement(p: RecruitmentPlacement) {
     const id = this.current()?.id; if (!id || !p.id) return;
-    if (!confirm(`Delete this placement with ${this.clientName(p.client_id)}?`)) return;
-    this.api.deleteRecruitmentPlacement(id, p.id).subscribe(() => {
+    const ok = await this.dialog.confirm(
+      `Delete this placement with ${this.clientName(p.client_id)}?`,
+      { title: 'Delete placement', confirmLabel: 'Delete', variant: 'danger' }
+    );
+    if (!ok) return;
+    this.api.deleteRecruitmentPlacement(id, p.id!).subscribe(() => {
       this.api.listRecruitmentPlacements(id).subscribe(r => this.placements.set(r.placements ?? []));
     });
   }
@@ -1662,10 +1671,14 @@ export class RecruitmentCandidates {
     ev?.stopPropagation();
     this.router.navigate(['/recruitment/candidates', c.id, 'edit']);
   }
-  del(c: RecruitmentCandidate, ev?: Event) {
+  async del(c: RecruitmentCandidate, ev?: Event) {
     ev?.stopPropagation();
     if (!c.id) return;
-    if (!confirm(`Delete ${c.first_name} ${c.last_name}? All documents + notes will be removed.`)) return;
+    const ok = await this.dialog.confirm(
+      `Delete ${c.first_name} ${c.last_name}? All documents + notes will be removed.`,
+      { title: 'Delete candidate', confirmLabel: 'Delete', variant: 'danger' }
+    );
+    if (!ok) return;
     this.api.deleteRecruitmentCandidate(c.id).subscribe(() => this.refreshList());
   }
 
@@ -1810,10 +1823,14 @@ export class RecruitmentCandidates {
     const id = this.current()?.id; if (!id || !d.id) return;
     this.api.updateRecruitmentCandidateDocument(id, d.id, { status: status as any }).subscribe(() => this.refreshDocs(id));
   }
-  delDoc(d: RecruitmentCandidateDocument) {
+  async delDoc(d: RecruitmentCandidateDocument) {
     const id = this.current()?.id; if (!id || !d.id) return;
-    if (!confirm(`Delete "${d.title}"?`)) return;
-    this.api.deleteRecruitmentCandidateDocument(id, d.id).subscribe(() => this.refreshDocs(id));
+    const ok = await this.dialog.confirm(
+      `Delete "${d.title}"?`,
+      { title: 'Delete document', confirmLabel: 'Delete', variant: 'danger' }
+    );
+    if (!ok) return;
+    this.api.deleteRecruitmentCandidateDocument(id, d.id!).subscribe(() => this.refreshDocs(id));
   }
 
   // ── Notes tab ─────────────────────────────────────────────────────
@@ -1861,10 +1878,14 @@ export class RecruitmentCandidates {
       const cur = this.current()?.status; if (cur) this.notesActiveStatus.set(cur);
     });
   }
-  delNote(n: RecruitmentCandidateNote) {
+  async delNote(n: RecruitmentCandidateNote) {
     const id = this.current()?.id; if (!id || !n.id) return;
-    if (!confirm('Delete this note?')) return;
-    this.api.deleteRecruitmentCandidateNote(id, n.id).subscribe(() => {
+    const ok = await this.dialog.confirm(
+      'Delete this note?',
+      { title: 'Delete note', confirmLabel: 'Delete', variant: 'danger' }
+    );
+    if (!ok) return;
+    this.api.deleteRecruitmentCandidateNote(id, n.id!).subscribe(() => {
       this.api.listRecruitmentCandidateNotes(id).subscribe(r => this.notes.set(r.notes ?? []));
     });
   }

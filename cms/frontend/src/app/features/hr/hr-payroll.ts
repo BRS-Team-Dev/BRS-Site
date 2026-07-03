@@ -3,6 +3,7 @@ import { DecimalPipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { Api } from '../../core/api';
+import { DialogService } from '../../core/dialog';
 import { HrEmployee, HrPayrollPeriod, HrPayslip } from '../../core/models';
 
 @Component({
@@ -236,6 +237,7 @@ import { HrEmployee, HrPayrollPeriod, HrPayslip } from '../../core/models';
 export class HrPayroll {
   private api = inject(Api);
   private router = inject(Router);
+  private dialog = inject(DialogService);
 
   periods = signal<HrPayrollPeriod[]>([]);
   employees = signal<HrEmployee[]>([]);
@@ -380,7 +382,7 @@ export class HrPayroll {
     if (!periodId || !e.id) return;
     const slip = this.slipFor(e.id);
     const gross = Number(slip?.gross_amount ?? this.defaultGross(e)) || 0;
-    if (gross <= 0) { alert('No salary on file — set the gross amount manually first.'); return; }
+    if (gross <= 0) { this.dialog.alert('No salary on file — set the gross amount manually first.', { title: 'No salary', variant: 'warning' }); return; }
     const calc = this.computeDeductions(gross, e.tax_code, e.student_loan_plan);
     const pen  = this.defaultPension(gross, e);
     const otherExisting = slip ? Number(slip.other_deduct ?? 0) : 0;
@@ -397,15 +399,19 @@ export class HrPayroll {
       this.api.listHrPayslips(periodId).subscribe(rr => this.payslips.set(rr.payslips));
     });
   }
-  autofillAll() {
+  async autofillAll() {
     const periodId = this.selectedId();
     if (!periodId) return;
     const targets = this.employees().filter(e => e.id && this.defaultGross(e) > 0 && !this.slipFor(e.id!));
     if (targets.length === 0) {
-      alert('Every employee already has a payslip in this period. Reset a slip with ✕ if you want to re-fill it.');
+      this.dialog.alert('Every employee already has a payslip in this period. Reset a slip with ✕ if you want to re-fill it.', { title: 'Nothing to fill' });
       return;
     }
-    if (!confirm(`Auto-fill ${targets.length} payslip${targets.length === 1 ? '' : 's'} with gross, PAYE tax, NI, student-loan, and pension deductions calculated from each employee's record? Bonuses and other one-off deductions still need to be entered manually.`)) return;
+    const ok = await this.dialog.confirm(
+      `Auto-fill ${targets.length} payslip${targets.length === 1 ? '' : 's'} with gross, PAYE tax, NI, student-loan, and pension deductions calculated from each employee's record? Bonuses and other one-off deductions still need to be entered manually.`,
+      { title: 'Auto-fill payslips', confirmLabel: 'Auto-fill', variant: 'warning' },
+    );
+    if (!ok) return;
     let pending = targets.length;
     for (const e of targets) {
       const gross = this.defaultGross(e);
@@ -460,9 +466,14 @@ export class HrPayroll {
       this.api.listHrPayrollPeriods().subscribe(r => this.periods.set(r.periods));
     });
   }
-  delPeriod(p: HrPayrollPeriod) {
+  async delPeriod(p: HrPayrollPeriod) {
     if (!p.id) return;
-    if (!confirm(`Delete period "${p.name}"? All payslips will be removed.`)) return;
+    const ok = await this.dialog.confirm(`Delete period "${p.name}"? All payslips will be removed.`, {
+      title: 'Delete period',
+      confirmLabel: 'Delete',
+      variant: 'danger',
+    });
+    if (!ok) return;
     this.api.deleteHrPayrollPeriod(p.id).subscribe(() => {
       this.selectedId.set(null);
       this.api.listHrPayrollPeriods().subscribe(r => this.periods.set(r.periods));

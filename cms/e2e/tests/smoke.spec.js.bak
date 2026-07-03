@@ -1,0 +1,100 @@
+// @ts-check
+const { test, expect } = require('@playwright/test');
+
+/**
+ * Base smoke test — logs into the CRM as claude-test and walks the
+ * main sections that we've been touching lately. Any console error
+ * (page.on('pageerror') or console with type 'error') fails the test
+ * so we surface runtime issues that tsc --noEmit can't catch.
+ */
+
+const CREDS = {
+  email: 'claude-test@builtrightstudio.com',
+  password: '29ae7c454ffdcc024896eda3da3f2522',
+};
+
+// Collect console errors + uncaught exceptions across the test.
+function collectErrors(page) {
+  const errs = [];
+  page.on('console', (m) => {
+    if (m.type() === 'error') errs.push(`[console:error] ${m.text()}`);
+  });
+  page.on('pageerror', (e) => {
+    errs.push(`[pageerror] ${e.message}`);
+  });
+  return errs;
+}
+
+async function login(page) {
+  await page.goto('login');
+  // Login form uses type-based inputs, no placeholders. Locate by
+  // the `name` attribute + input type.
+  await page.locator('input[type="email"]').fill(CREDS.email);
+  await page.locator('input[type="password"]').fill(CREDS.password);
+  await page.locator('button[type="submit"], button.primary').first().click();
+  // After login the router redirects to the admin shell.
+  await page.waitForURL('**/admin/**', { timeout: 20_000 });
+}
+
+test('login + admin shell renders', async ({ page }) => {
+  const errs = collectErrors(page);
+  await login(page);
+  await expect(page.locator('.brand')).toBeVisible();
+  await page.screenshot({ path: 'screenshots/01-after-login.png', fullPage: true });
+  expect(errs, `Console errors:\n${errs.join('\n')}`).toHaveLength(0);
+});
+
+test('settings page opens without errors', async ({ page }) => {
+  const errs = collectErrors(page);
+  await login(page);
+  await page.goto('admin/settings');
+  await expect(page.getByRole('heading', { name: /settings/i })).toBeVisible();
+  await page.screenshot({ path: 'screenshots/02-settings.png', fullPage: true });
+  expect(errs, `Console errors:\n${errs.join('\n')}`).toHaveLength(0);
+});
+
+test('settings → notifications tab renders 7 sections', async ({ page }) => {
+  const errs = collectErrors(page);
+  await login(page);
+  await page.goto('admin/settings');
+  // Tab rail buttons carry an emoji icon + label span; locate by the
+  // label text specifically to avoid matching the notification bell.
+  await page.locator('.tab-row .tab-label', { hasText: 'Notifications' }).click();
+  await expect(page.getByRole('heading', { name: /notifications/i })).toBeVisible();
+
+  // The section catalogue should render at least CRM's block.
+  await expect(page.getByText('CRM', { exact: false }).first()).toBeVisible();
+  await page.screenshot({ path: 'screenshots/03-notifications.png', fullPage: true });
+  expect(errs, `Console errors:\n${errs.join('\n')}`).toHaveLength(0);
+});
+
+test('notification bell in top-nav is clickable', async ({ page }) => {
+  const errs = collectErrors(page);
+  await login(page);
+  // The bell is an icon button in the top nav with an emoji.
+  const bell = page.locator('app-notification-bell button.bell').first();
+  await expect(bell).toBeVisible();
+  await bell.click();
+  // The panel should appear with the section tabs.
+  await expect(page.locator('app-notification-bell .panel')).toBeVisible();
+  await page.screenshot({ path: 'screenshots/04-bell-open.png', fullPage: true });
+  expect(errs, `Console errors:\n${errs.join('\n')}`).toHaveLength(0);
+});
+
+test('services page loads (recent problem area)', async ({ page }) => {
+  const errs = collectErrors(page);
+  await login(page);
+  await page.goto('admin/services');
+  await expect(page.getByRole('heading', { name: /services/i })).toBeVisible();
+  await page.screenshot({ path: 'screenshots/05-services.png', fullPage: true });
+  expect(errs, `Console errors:\n${errs.join('\n')}`).toHaveLength(0);
+});
+
+test('task board loads (recent problem area)', async ({ page }) => {
+  const errs = collectErrors(page);
+  await login(page);
+  await page.goto('admin/taskboard');
+  await expect(page.getByRole('heading', { name: /task board/i })).toBeVisible();
+  await page.screenshot({ path: 'screenshots/06-taskboard.png', fullPage: true });
+  expect(errs, `Console errors:\n${errs.join('\n')}`).toHaveLength(0);
+});

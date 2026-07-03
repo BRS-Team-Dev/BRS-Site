@@ -1,9 +1,10 @@
 import { Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { RouterLink } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { Api } from '../../core/api';
 import { Lead, LeadStatus } from '../../core/models';
 import { AI_MODELS, AiModel } from '../../core/ai-models';
+import { LeadgenStateService } from './leadgen-state.service';
 
 type LeadField = 'name' | 'email' | 'phone' | 'company' | 'address' | 'url' | 'status' | 'source';
 type Mapping = Record<LeadField, number>; // -1 means unmapped
@@ -50,14 +51,14 @@ const ALLOWED_STATUSES: LeadStatus[] = ['new', 'prospect', 'dead', 'converted'];
   imports: [FormsModule, RouterLink],
   template: `
     <div class="toolbar">
-      <h1>Lead Gen</h1>
+      <h1>{{ mode() === 'import' ? 'Import Leads' : 'Lead Gen' }}</h1>
       <span class="spacer"></span>
       @if (hasInput()) {
         <button class="ghost" (click)="reset()">Start over</button>
       }
     </div>
 
-    @if (!hasInput()) {
+    @if (mode() === 'ai') {
       <div class="card">
         <h2>AI Generated List</h2>
         <p class="muted small">Describe what kind of leads you want. The search model researches with web access (where supported); the format model coerces the result into the lead schema. Generated rows always go through the preview/review step before being saved — verify before contacting.</p>
@@ -90,7 +91,9 @@ const ALLOWED_STATUSES: LeadStatus[] = ['new', 'prospect', 'dead', 'converted'];
         </div>
         @if (aiError()) { <div class="error-msg">{{ aiError() }}</div> }
       </div>
+    }
 
+    @if (mode() === 'import' && !hasInput()) {
       <div class="card upload">
         <h2>Import a list</h2>
         <p class="muted">Upload an Excel (.xlsx, .xls) or CSV file. Each row becomes a lead. Columns are matched automatically — you'll be able to review and override the mapping before importing.</p>
@@ -104,7 +107,9 @@ const ALLOWED_STATUSES: LeadStatus[] = ['new', 'prospect', 'dead', 'converted'];
         </label>
         @if (parseError()) { <div class="error-msg">{{ parseError() }}</div> }
       </div>
-    } @else {
+    }
+
+    @if (mode() === 'import' && hasInput()) {
       <div class="card">
         <h2>{{ aiLeads().length > 0 ? 'AI · ' + aiSearchModel : 'File · ' + filename() }}</h2>
         <div class="meta-row">
@@ -234,7 +239,21 @@ const ALLOWED_STATUSES: LeadStatus[] = ['new', 'prospect', 'dead', 'converted'];
   `],
 })
 export class LeadgenAdmin {
-  private api = inject(Api);
+  private api    = inject(Api);
+  private route  = inject(ActivatedRoute);
+  private router = inject(Router);
+  private state  = inject(LeadgenStateService);
+
+  /** Which page is being rendered. Two routes mount this same
+   *  component:
+   *    /admin/leadgen        → 'ai'     (AI Generated List card)
+   *    /admin/leads/import   → 'import' (file upload card)
+   *  Both share the unified preview/mapping/import flow that fires
+   *  once `hasInput()` is true. Detected from the route's `data.mode`
+   *  property — set per-route in app.routes.ts. */
+  readonly mode = signal<'ai' | 'import'>(
+    (this.route.snapshot.data['mode'] === 'import') ? 'import' : 'ai'
+  );
 
   allFields = ALL_FIELDS;
   allowedStatuses = ALLOWED_STATUSES;
@@ -316,6 +335,21 @@ export class LeadgenAdmin {
       },
       error: () => {/* silent — keep built-in defaults */},
     });
+
+    // When mounted in 'import' mode, check whether the Lead Gen page
+    // handed off a batch of AI-generated leads. The buffer lives in
+    // LeadgenStateService because Angular tears down the component on
+    // route change so the AI page can't pass state directly. Consuming
+    // the buffer flips us straight into the preview/import flow.
+    if (this.mode() === 'import') {
+      const handoff = this.state.consumePendingAiLeads();
+      if (handoff && handoff.length > 0) {
+        this.aiLeads.set(handoff);
+        if (!this.defaultSource) {
+          this.defaultSource = `AI · ${new Date().toISOString().slice(0, 10)}`;
+        }
+      }
+    }
   }
 
   generateAi() {
@@ -326,10 +360,13 @@ export class LeadgenAdmin {
     this.api.aiGenerateLeads(this.aiSearchModel, this.aiFormatModel || null, prompt).subscribe({
       next: r => {
         this.aiGenerating.set(false);
-        this.aiLeads.set(r.leads || []);
-        if (!this.defaultSource) {
-          this.defaultSource = `AI · ${this.aiSearchModel} · ${new Date().toISOString().slice(0, 10)}`;
-        }
+        const leads = r.leads || [];
+        // Drop the result into the cross-route buffer + navigate to
+        // Import Leads, which owns the preview/mapping/import flow.
+        // The receiving component's ngOnInit pulls the buffer and
+        // shows the review UI immediately on landing.
+        this.state.pendingAiLeads.set(leads);
+        this.router.navigate(['/admin/leads/import']);
       },
       error: e => {
         this.aiGenerating.set(false);

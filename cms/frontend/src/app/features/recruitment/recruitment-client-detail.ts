@@ -2,6 +2,7 @@ import { Component, computed, inject, signal } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { Api } from '../../core/api';
+import { DialogService } from '../../core/dialog';
 import { Client, RecruitmentCandidate, RecruitmentPlacement, RecruitmentRole } from '../../core/models';
 
 /**
@@ -578,6 +579,9 @@ import { Client, RecruitmentCandidate, RecruitmentPlacement, RecruitmentRole } f
       display: flex; align-items: center; gap: 10px;
       padding: 8px 12px; background: var(--bg-3); border: 1px solid var(--line);
       border-radius: var(--radius-sm); cursor: pointer; font-size: 13px; color: var(--fg);
+      text-transform: none; letter-spacing: normal;
+      white-space: nowrap;
+      font-weight: 500;
     }
     .inline-toggle input[type="checkbox"] { width: 16px; height: 16px; flex: 0 0 16px; }
     .pct-row { display: flex; align-items: center; gap: 12px; }
@@ -638,6 +642,7 @@ import { Client, RecruitmentCandidate, RecruitmentPlacement, RecruitmentRole } f
 export class RecruitmentClientDetail {
   private api = inject(Api);
   private route = inject(ActivatedRoute);
+  private dialog = inject(DialogService);
 
   clientId = signal<number>(0);
   client = signal<Client | null>(null);
@@ -768,15 +773,18 @@ export class RecruitmentClientDetail {
       this.api.createRecruitmentClientRole(cid, d).subscribe({ next: done, error: fail });
     }
   }
-  delRole(r: RecruitmentRole) {
+  async delRole(r: RecruitmentRole) {
     if (!r.id) return;
     const candCount = r.total_candidates ?? 0;
     const msg = candCount > 0
       ? `Delete role "${r.title}"? ${candCount} candidate placement${candCount === 1 ? '' : 's'} will stay but lose the role link (they become role-less).`
       : `Delete role "${r.title}"?`;
-    if (!confirm(msg)) return;
+    const ok = await this.dialog.confirm(msg, {
+      title: 'Delete role', confirmLabel: 'Delete', variant: 'danger',
+    });
+    if (!ok) return;
     const cid = this.clientId();
-    this.api.deleteRecruitmentClientRole(cid, r.id).subscribe(() => this.refreshRoles());
+    this.api.deleteRecruitmentClientRole(cid, r.id!).subscribe(() => this.refreshRoles());
   }
   /** Open the existing placement modal pre-locked to a specific role —
    *  HR can pick which candidate to pitch for it. The role's negotiated
@@ -879,9 +887,13 @@ export class RecruitmentClientDetail {
       this.api.createRecruitmentPlacement(d.candidate_id, d).subscribe({ next: done, error: fail });
     }
   }
-  delPlacement(p: RecruitmentPlacement) {
+  async delPlacement(p: RecruitmentPlacement) {
     if (!p.id || !p.candidate_id) return;
-    if (!confirm(`Delete this placement for ${p.candidate_name ?? 'this candidate'}?`)) return;
+    const ok = await this.dialog.confirm(
+      `Delete this placement for ${p.candidate_name ?? 'this candidate'}?`,
+      { title: 'Delete placement', confirmLabel: 'Delete', variant: 'danger' }
+    );
+    if (!ok) return;
     const cid = this.clientId();
     this.api.deleteRecruitmentPlacement(p.candidate_id, p.id).subscribe(() => {
       this.api.listRecruitmentClientPlacements(cid).subscribe(r =>

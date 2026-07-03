@@ -1,6 +1,7 @@
 import { Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Api } from '../../core/api';
+import { DialogService } from '../../core/dialog';
 import { HrComplianceNote, HrComplianceTask, HrComplianceTaskType, HrCourse } from '../../core/models';
 
 type DraftTask = {
@@ -605,6 +606,7 @@ const blankDraft = (): DraftTask => {
 })
 export class HrCompliance {
   private api = inject(Api);
+  private dialog = inject(DialogService);
 
   tasks = signal<HrComplianceTask[]>([]);
   showCreate = signal(false);
@@ -662,9 +664,14 @@ export class HrCompliance {
       this.loadAllCourses();
     });
   }
-  unlinkCourse(t: HrComplianceTask, c: HrCourse) {
+  async unlinkCourse(t: HrComplianceTask, c: HrCourse) {
     if (!t.id || !c.id) return;
-    if (!confirm(`Unlink "${c.title}" from this task?`)) return;
+    const ok = await this.dialog.confirm(`Unlink "${c.title}" from this task?`, {
+      title: 'Unlink course',
+      confirmLabel: 'Unlink',
+      variant: 'danger',
+    });
+    if (!ok) return;
     this.api.updateHrCourse(c.id, { compliance_task_id: null as any }).subscribe(() => {
       this.loadCourses(t.id!);
       this.loadAllCourses();
@@ -687,9 +694,14 @@ export class HrCompliance {
       this.loadNotes(t.id!);
     });
   }
-  delNote(t: HrComplianceTask, n: HrComplianceNote) {
+  async delNote(t: HrComplianceTask, n: HrComplianceNote) {
     if (!t.id || !n.id) return;
-    if (!confirm('Delete this note?')) return;
+    const ok = await this.dialog.confirm('Delete this note?', {
+      title: 'Delete note',
+      confirmLabel: 'Delete',
+      variant: 'danger',
+    });
+    if (!ok) return;
     this.api.deleteHrComplianceNote(t.id, n.id).subscribe(() => this.loadNotes(t.id!));
   }
   formatTime(iso?: string): string {
@@ -791,9 +803,14 @@ export class HrCompliance {
     if (!t.id) return;
     this.api.completeHrCompliance(t.id).subscribe(() => this.refresh());
   }
-  del(t: HrComplianceTask) {
+  async del(t: HrComplianceTask) {
     if (!t.id) return;
-    if (!confirm(`Delete "${t.title}"?`)) return;
+    const ok = await this.dialog.confirm(`Delete "${t.title}"?`, {
+      title: 'Delete task',
+      confirmLabel: 'Delete',
+      variant: 'danger',
+    });
+    if (!ok) return;
     this.api.deleteHrCompliance(t.id).subscribe(() => this.refresh());
   }
 }

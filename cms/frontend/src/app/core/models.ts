@@ -1,3 +1,115 @@
+// ─── Notifications (migration 127) ───────────────────────────────
+export type NotificationSection =
+  'crm' | 'hr' | 'operations' | 'recruitment' | 'accounting' | 'management' | 'tasks';
+
+export interface AppNotification {
+  id: number;
+  event_key: string;
+  section: NotificationSection;
+  title: string;
+  body?: string | null;
+  link_url?: string | null;
+  read_at?: string | null;
+  escalated_at?: string | null;
+  created_at: string;
+}
+
+export interface NotificationUnreadCount {
+  total: number;
+  by_section: Partial<Record<NotificationSection, number>>;
+}
+
+/** One row from notification_events_catalog — global registry of every
+ *  triggerable event. Drives the Settings → Notifications rules UI. */
+export interface NotificationEventDef {
+  id: number;
+  event_key: string;
+  section: NotificationSection;
+  label: string;
+  description?: string | null;
+  default_recipient_scope: 'user' | 'team' | 'role' | 'tenant' | 'none';
+  default_recipient_ref?: string | null;
+  default_supervisor_role: string;
+  default_creates_task: 0 | 1;
+  default_escalate_after_minutes?: number | null;
+  default_escalate_to_role?: string | null;
+  is_active: 0 | 1;
+}
+
+/** Per-tenant override of a catalog default. Missing rows mean "use
+ *  the catalog defaults". */
+export interface NotificationRule {
+  id?: number;
+  event_key: string;
+  enabled: 0 | 1;
+  recipient_scope: 'user' | 'team' | 'role' | 'tenant' | 'none';
+  recipient_ref?: string | null;
+  supervisor_user_id?: number | null;
+  supervisor_role?: string | null;
+  creates_task: 0 | 1;
+  escalate_after_minutes?: number | null;
+  escalate_to_user_id?: number | null;
+  escalate_to_role?: string | null;
+}
+
+// ─── Custom tenant themes (migration 126) ────────────────────────
+export interface CustomTheme {
+  id: number;
+  slug: string;
+  label: string;
+  mood?: string | null;
+  /** Map of CSS variable name (e.g. `--primary`) to color value. */
+  vars: Record<string, string>;
+  created_at?: string;
+  updated_at?: string;
+}
+
+// ─── Email providers + routing (migration 122) ───────────────────
+export type EmailProviderKind =
+  | 'postmark' | 'resend' | 'sendgrid' | 'ses' | 'mailgun' | 'brevo' | 'mailersend' | 'smtp';
+
+export type EmailPurpose = 'newsletter' | 'system' | 'invite' | 'internal';
+
+/** One configured provider for a tenant. Secrets are NEVER returned by
+ *  the API — the `has_*` flags tell the UI whether a credential is set
+ *  so it can render "•••• (set)" vs "not set". To update a credential,
+ *  send the new value; to keep it, omit the field / send empty string. */
+export interface EmailProvider {
+  id: number;
+  provider: EmailProviderKind;
+  name: string;
+  is_active: 0 | 1 | boolean;
+  from_email: string;
+  from_name?: string | null;
+  reply_to?: string | null;
+  // Provider-specific config (no secrets — only the has_* flags come back)
+  aws_region?: string | null;
+  mailgun_domain?: string | null;
+  smtp_host?: string | null;
+  smtp_port?: number | null;
+  smtp_user?: string | null;
+  smtp_encryption?: 'none' | 'tls' | 'ssl';
+  /** Advanced: raw JSON string of custom MIME headers. Applied on
+   *  every outbound send by EmailDispatcher (migration 123). */
+  custom_headers_json?: string | null;
+  has_api_key?: boolean;
+  has_api_secret?: boolean;
+  has_smtp_password?: boolean;
+  // Test-send diagnostics
+  last_test_at?: string | null;
+  last_test_ok?: 0 | 1 | null;
+  last_test_error?: string | null;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export type EmailRouting = {
+  newsletter: number | null;
+  system:     number | null;
+  invite:     number | null;
+  internal:   number | null;
+};
+
 export type FieldType =
   | 'text' | 'email' | 'tel' | 'url' | 'number' | 'password'
   | 'textarea'
@@ -35,6 +147,10 @@ export interface FormDef {
   reply_template?: string | null;
   reply_from_field?: string | null;
   is_published: 0 | 1 | boolean;
+  /** Per-form sibling of service_offerings.allow_multiple. Only
+   *  meaningful for STANDALONE onboarding forms — when service_offering_id
+   *  is set, the service's flag is the source of truth. Migration 118. */
+  allow_multiple?: 0 | 1 | boolean;
   // Pricing — currently surfaced only by the onboarding builder. `has_price`
   // toggles paid status; `price` carries the amount. Numbers come back from
   // PHP/PDO as strings on decimal columns, coerce when binding to numeric inputs.
@@ -60,6 +176,15 @@ export interface FormDef {
   // Task team that owns the work this onboarding kicks off (056). When set,
   // qualifying a client auto-creates a task_projects row for that team.
   team_id?: number | null;
+  // Catalogue service this onboarding represents (113). When set, the
+  // qualified client's services view reads pricing live from the
+  // linked service_offerings row instead of the legacy has_price /
+  // price / payment_type / repeat_duration fields on this row.
+  service_offering_id?: number | null;
+  /** Broadcast scope (migration 140). Mutually exclusive with
+   *  `service_offering_id` — enforced server-side on save. */
+  broadcast_to_all_clients?: 0 | 1 | boolean;
+  broadcast_to_all_leads?:   0 | 1 | boolean;
   // When true, the form gets a standalone top-level sidenav entry in addition
   // to whatever sidenav placement it has via Onboarding/Forms grouping.
   show_in_sidenav_root?: 0 | 1 | boolean;
@@ -100,6 +225,11 @@ export interface ServiceOffering {
   payment_type?: 'one_off' | 'recurring';
   repeat_duration?: 'weekly' | 'monthly' | 'quarterly' | 'yearly' | null;
   is_active?: 0 | 1 | boolean;
+  /** When true, the same client can hold multiple instances of this
+   *  service (auto-attach skips its dupe-check). For subscription-
+   *  style services keep this false so re-submission is idempotent.
+   *  Migration 118. */
+  allow_multiple?: 0 | 1 | boolean;
   sort_order?: number;
   created_at?: string;
   updated_at?: string;
@@ -193,6 +323,211 @@ export interface LeadInfo {
   updated_at?: string;
 }
 
+/** 8-state service client workflow.
+ *   onboarding phase: new → onboarding → submitted → qualified
+ *   work phase:       to_do → in_progress → done (+ on_hold)
+ *
+ * Each transition through the onboarding phase auto-creates a CRM
+ * task framing the next action (send link / follow up / approve /
+ * deliver). Hitting qualified server-side immediately bumps the row
+ * to `to_do` so the work phase starts in the same write. */
+// ─── Feedback forms (migration 119) ─────────────────────────────
+export type FeedbackKind = 'questionnaire' | 'form' | 'survey' | 'poll';
+export type FeedbackQuestionType =
+  | 'short_text' | 'long_text' | 'rating' | 'yes_no' | 'single_choice' | 'multi_choice';
+
+export interface FeedbackForm {
+  id: number;
+  kind: FeedbackKind;
+  title: string;
+  description?: string | null;
+  intro_html?: string | null;
+  submit_label?: string;
+  thank_you_message?: string | null;
+  public_token: string;
+  is_published?: 0 | 1 | boolean;
+  /** Attach-to-all flags (migration 121). When set, the form
+   *  surfaces on every client's / lead's feedback tab automatically
+   *  regardless of the per-client junction. */
+  broadcast_to_all_clients?: 0 | 1 | boolean;
+  broadcast_to_all_leads?:   0 | 1 | boolean;
+  client_id?: number | null;
+  lead_id?: number | null;
+  service_offering_id?: number | null;
+  created_by_name?: string | null;
+  question_count?: number;
+  response_count?: number;
+  created_at?: string;
+  updated_at?: string;
+  /** Only set when the list was filtered by ?client=/?lead=. Tells
+   *  the detail tabs why this form surfaced under that person so the
+   *  UI can bucket the list into segments. `match_service_name` is
+   *  populated when match_source === 'service'. */
+  match_source?: 'client' | 'lead' | 'service' | 'broadcast' | null;
+  match_service_name?: string | null;
+}
+
+export interface FeedbackQuestion {
+  id?: number;
+  form_id?: number;
+  type: FeedbackQuestionType;
+  label: string;
+  help_text?: string | null;
+  options_json?: string | string[] | null;
+  options?: string[];
+  is_required?: 0 | 1 | boolean;
+  sort_order?: number;
+}
+
+export interface FeedbackResponse {
+  id: number;
+  form_id: number;
+  client_id?: number | null;
+  client_name?: string | null;
+  lead_id?: number | null;
+  lead_name?: string | null;
+  submitted_at: string;
+  ip_address?: string | null;
+  answers?: FeedbackAnswer[];
+}
+
+export interface FeedbackAnswer {
+  id: number;
+  response_id: number;
+  question_id: number;
+  value: string | null;
+}
+
+export type ServiceClientStatus =
+  | 'new' | 'onboarding' | 'submitted' | 'qualified'
+  | 'to_do' | 'in_progress' | 'done' | 'on_hold';
+
+export type CrmTaskCategory = 'lead' | 'client' | 'service' | 'form' | 'onboarding' | 'other';
+export type CrmTaskPriority = 'low' | 'medium' | 'high' | 'urgent';
+export type CrmTaskStatus   = 'to_do' | 'in_progress' | 'done';
+
+/** A row from `crm_tasks` (migration 115) — joined with assignee +
+ *  creator display names so the table can render without follow-up
+ *  user lookups. */
+export interface CrmTask {
+  id: number;
+  title: string;
+  description?: string | null;
+  category: CrmTaskCategory;
+  assignee_user_id?: number | null;
+  assignee_name?: string | null;
+  priority: CrmTaskPriority;
+  status: CrmTaskStatus;
+  due_at?: string | null;
+  completed_at?: string | null;
+  created_by_user_id?: number | null;
+  created_by_name?: string | null;
+  created_at?: string;
+  updated_at?: string;
+  /** service_client_link_id back-references a client_service_offerings
+   *  row; the list query joins through it to surface the linked client
+   *  so the task card can render a "→ client" navigation link. */
+  service_client_link_id?: number | null;
+  linked_client_id?: number | null;
+  linked_client_name?: string | null;
+}
+
+export interface CrmTaskStats {
+  total: number;
+  to_do: number;
+  in_progress: number;
+  done: number;
+  urgent_open: number;
+}
+
+/** A note in the task's append-only thread. `user_id` can be null
+ *  (admin offboarded) — render as "(deleted user)" in that case. */
+export interface CrmTaskNote {
+  id: number;
+  task_id: number;
+  user_id: number | null;
+  user_name: string | null;
+  user_email: string | null;
+  body: string;
+  created_at: string;
+}
+
+/** Single-client detail returned by GET /api/services/:sid/client/:key.
+ *  Superset of the list-row shape with the canonical client fields
+ *  (catalogue source) or onboarding context (onboarding source) +
+ *  task-project state for the linked project. */
+export interface ServiceClientDetail {
+  link_id: number | string | null;
+  status: ServiceClientStatus;
+  service_offering_id: number | string;
+  client_id: number | string | null;
+  name: string | null;
+  email: string | null;
+  phone: string | null;
+  company: string | null;
+  address: string | null;
+  website: string | null;
+  notes: string | null;
+  client_created_at: string | null;
+  form_id: number | string | null;
+  form_title: string | null;
+  onboarding_client_id: number | string | null;
+  submitted_at: string | null;
+  qualified_at: string | null;
+  project_id: number | string | null;
+  project_slug: string | null;
+  project_team_id: number | string | null;
+  project_status: string | null;
+  source: 'catalogue' | 'onboarding';
+}
+
+/** A client surfaced by GET /api/services/:id/clients — the union of
+ *  the catalogue-attach path (client_service_offerings) and the
+ *  onboarding-attach path (onboarding_clients whose form links to
+ *  this service).
+ *
+ *  `client_id` is the canonical clients.id when the row came from the
+ *  catalogue path; null when it came purely from onboarding and no
+ *  matching clients row exists yet.
+ *
+ *  `link_id` is the client_service_offerings.id and only set on
+ *  catalogue rows — that's the row the status-update endpoint targets.
+ *
+ *  `status` is the unified workflow state — directly stored for
+ *  catalogue rows, computed from qualified_at + task_projects.status
+ *  for onboarding rows.
+ *
+ *  The form/onboarding/project fields drive the "View onboarding" +
+ *  "View task board" links in the per-client tracking panel.
+ */
+export interface ServiceClientLink {
+  client_id: number | string | null;
+  name: string | null;
+  email: string | null;
+  company: string | null;
+  source: 'catalogue' | 'onboarding';
+  link_id: number | string | null;
+  status: ServiceClientStatus;
+  form_id: number | string | null;
+  onboarding_client_id: number | string | null;
+  project_id: number | string | null;
+  project_slug: string | null;
+  project_team_id: number | string | null;
+}
+
+/** A row from `lead_services` joined to its catalogue counterpart. The
+ *  `id` is the junction-row id (what DELETE targets); `service_offering_id`
+ *  is the catalogue id (what the dropdown filters against). */
+export interface LeadServiceLink {
+  id: number;
+  service_offering_id: number;
+  name: string;
+  price?: number | string | null;
+  payment_type?: 'one_off' | 'recurring' | null;
+  repeat_duration?: 'weekly' | 'monthly' | 'quarterly' | 'yearly' | null;
+  created_at?: string;
+}
+
 export interface ClientContactNumber {
   id?: number;
   number: string;
@@ -248,6 +583,11 @@ export interface ClientService {
   kind: 'onboarding' | 'catalog';
   row_key: string;
   service_link_id: number | null;   // client_service_offerings.id for catalog rows
+  /** service_offerings.id when this row is tied to a catalogue service
+   *  (either directly for catalog rows, or via the form's service link
+   *  for onboarding rows). Used to look up related form submissions
+   *  under the Services tab expand-on-click. */
+  service_offering_id: number | null;
   name: string;
   onboarding_client_id: number | null;
   form_id: number | null;
@@ -1337,6 +1677,180 @@ export interface AdminUserRecord {
   created_at?: string;
 }
 
+export type SubscriptionTier = 'trial' | 'starter' | 'growth' | 'scale' | 'business' | 'enterprise_lite' | 'enterprise';
+
+/** Response from GET /api/users/subscription — tenant's tier, cap, and
+ *  live usage so the UI can render "3 of 5 active users" + upgrade CTAs. */
+// ─── Billing (migration 129/130) ─────────────────────────────────
+export interface PaymentMethod {
+  id: number;
+  type: 'card' | 'bank' | 'other';
+  brand?: string | null;
+  last4?: string | null;
+  holder_name?: string | null;
+  expires_month?: number | null;
+  expires_year?: number | null;
+  is_default: 0 | 1;
+  provider?: string | null;
+  external_id?: string | null;
+  created_at?: string;
+}
+
+export interface SubscriptionInvoice {
+  id: number;
+  invoice_number: string;
+  description: string;
+  amount_cents: number;
+  currency: string;
+  status: 'draft' | 'sent' | 'paid' | 'failed' | 'refunded';
+  issued_at?: string | null;
+  due_at?: string | null;
+  paid_at?: string | null;
+  pdf_url?: string | null;
+  provider?: string | null;
+  created_at?: string;
+}
+
+export interface BillingProfile {
+  id: number;
+  brand_name: string;
+  subscription_tier: SubscriptionTier;
+  billing_email?: string | null;
+  billing_address?: string | null;
+  vat_number?: string | null;
+  pending_tier?: SubscriptionTier | null;
+  pending_cadence?: 'monthly' | 'yearly' | null;
+  pending_effective_at?: string | null;
+}
+
+export interface BillingSummary {
+  profile: BillingProfile;
+  payment_methods: PaymentMethod[];
+  invoices: SubscriptionInvoice[];
+}
+
+export interface SubscriptionPlan {
+  id: number;
+  tier: SubscriptionTier;
+  name: string;
+  tagline?: string | null;
+  user_range_label?: string | null;
+  max_users: number | null;
+  price_monthly_cents: number;
+  price_yearly_cents: number;
+  currency: string;
+  is_contact_sales: 0 | 1;
+  is_highlight: 0 | 1;
+  is_active: 0 | 1;
+  features: string[];
+  stripe_price_monthly?: string | null;
+  stripe_price_yearly?: string | null;
+  sort_order: number;
+}
+
+export interface StripeConfig {
+  configured: boolean;
+  publishable_key: string | null;
+  price_ids: Partial<Record<SubscriptionTier, string | null>>;
+  tenant: {
+    stripe_customer_id?: string | null;
+    stripe_subscription_id?: string | null;
+    stripe_status?: string | null;
+    stripe_current_period_end?: string | null;
+    stripe_default_pm_id?: string | null;
+  };
+}
+
+export interface StripeSetupIntent {
+  client_secret: string;
+  setup_intent_id: string;
+  customer_id: string;
+}
+
+export interface StripeSubscribeResult {
+  subscription_id: string;
+  status: string;
+  client_secret: string | null;
+  requires_action: boolean;
+}
+
+export interface UsersSubscription {
+  tier: SubscriptionTier;
+  /** null = enterprise (unlimited). */
+  max_active_users: number | null;
+  active_count: number;
+  at_cap: boolean;
+  tier_ladder: { tier: SubscriptionTier; max_active_users: number | null }[];
+}
+
+/** Grouped form-submission listing for a client / lead / service.
+ *  Backed by `/api/form-submission-links/for/:type/:id`. */
+/** Picker payload for the "+ Attach submission" modal. Returns every
+ *  form in the tenant grouped with its recent submissions, marking
+ *  which are already linked to the current record so the UI can
+ *  disable those rows. */
+export interface FormSubmissionCandidateGroup {
+  form: {
+    id: number;
+    title: string;
+    slug: string;
+    form_type: 'standard' | 'onboarding';
+    submission_table: string;
+  };
+  submissions: {
+    submission_id: number;
+    label: string;
+    submitted_at?: string | null;
+    already_linked: boolean;
+  }[];
+}
+
+/** Invitation record shared by standard forms + multipart onboarding.
+ *  Backed by the `onboarding_clients` table (client_token + parent
+ *  ids). One invite = one tokenised URL for one recipient. */
+export interface FormInvite {
+  id: number;
+  client_email: string;
+  client_name?: string | null;
+  parent_client_id?: number | null;
+  parent_lead_id?: number | null;
+  /** Resolved display name from clients.name / leads.name — nullable. */
+  client_name_resolved?: string | null;
+  lead_name_resolved?: string | null;
+  token: string;
+  url: string;
+  started_at: string;
+  submitted_at?: string | null;
+  status: 'pending' | 'submitted';
+}
+
+export interface FormSubmissionLinkGroup {
+  form: {
+    id: number;
+    title: string;
+    slug: string;
+    form_type: 'standard' | 'onboarding';
+    /** Set when the form is pinned to a catalogue service. Drives the
+     *  "expand a catalog service row to see its onboarding" behaviour
+     *  on the client Services tab. */
+    service_offering_id: number | null;
+  };
+  submissions: {
+    link_id: number;
+    submission_id: number;
+    submitted_at?: string | null;
+    link_source: 'token' | 'manual' | 'auto';
+    linked_at: string;
+    /** true when the link's client/lead is actively on the linked
+     *  service - detach is refused server-side and the UI hides the
+     *  button. Terminal-status service rows (done / on_hold) return
+     *  false so the link becomes detachable once the service closes. */
+    is_compulsory: boolean;
+    data: Record<string, any> | null;
+  }[];
+  bucket: 'service' | 'default' | 'broadcast';
+}
+
 export interface AdminSection {
   id?: number;
   slug: string;
@@ -1377,6 +1891,12 @@ export interface AdminUser {
   id: number;
   email: string;
   display_name: string;
+  role?: 'admin' | 'member' | 'viewer';
+  /** Per-user override for `tenants.color_theme`. NULL/undefined means
+   *  the user inherits the tenant default; set to one of the six theme
+   *  slugs to opt out of org branding for personal viewing only. */
+  color_theme?: string | null;
+  super?: boolean;
   created_at?: string;
 }
 
@@ -1745,6 +2265,13 @@ export interface AppSettings {
   brand_logo_url?: string;
   public_form_bg_color?: string;
   upload_max_mb?: string;
+  // Organisation-level settings surfaced on the General tab. Note:
+  // brand_name + brand_logo_url double as the org identity — they
+  // drive the sidebar header, public forms, onboarding portals, and
+  // any other place the app shows the tenant's name/mark.
+  org_website?: string;
+  org_contact_email?: string;
+  org_timezone?: string;
   [k: string]: string | undefined;
 }
 

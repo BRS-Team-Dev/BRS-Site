@@ -2,6 +2,7 @@ import { Component, computed, inject, signal } from '@angular/core';
 import { Router } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { Api } from '../../core/api';
+import { DialogService } from '../../core/dialog';
 import { HrReview, HrReviewCycle } from '../../core/models';
 
 /**
@@ -130,6 +131,7 @@ import { HrReview, HrReviewCycle } from '../../core/models';
 export class HrReviews {
   private api = inject(Api);
   private router = inject(Router);
+  private dialog = inject(DialogService);
 
   cycles = signal<HrReviewCycle[]>([]);
   selectedId = signal<number | null>(null);
@@ -176,9 +178,14 @@ export class HrReviews {
     this.api.updateHrReviewCycle(id, p).subscribe(() => this.refreshCycles());
   }
 
-  delCycle(c: HrReviewCycle) {
+  async delCycle(c: HrReviewCycle) {
     if (!c.id) return;
-    if (!confirm(`Delete cycle "${c.name}"? All reviews in it will be removed.`)) return;
+    const ok = await this.dialog.confirm(`Delete cycle "${c.name}"? All reviews in it will be removed.`, {
+      title: 'Delete cycle',
+      confirmLabel: 'Delete',
+      variant: 'danger',
+    });
+    if (!ok) return;
     this.api.deleteHrReviewCycle(c.id).subscribe(() => {
       this.selectedId.set(null);
       this.reviews.set([]);
@@ -192,7 +199,7 @@ export class HrReviews {
     this.api.seedHrReviewCycle(c.id).subscribe({
       next: r => {
         this.seeding.set(false);
-        if (r.created === 0) alert('No new reviews — every active employee already has one for this cycle.');
+        if (r.created === 0) this.dialog.alert('No new reviews — every active employee already has one for this cycle.', { title: 'Nothing to seed' });
         this.select(c);
         this.refreshCycles();
       },

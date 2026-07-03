@@ -2,6 +2,7 @@ import { Component, computed, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { Api } from '../../core/api';
+import { DialogService } from '../../core/dialog';
 import { Client } from '../../core/models';
 
 /**
@@ -110,6 +111,7 @@ import { Client } from '../../core/models';
 })
 export class RecruitmentClients {
   private api = inject(Api);
+  private dialog = inject(DialogService);
 
   loading = signal<boolean>(true);
   rows = signal<Client[]>([]);
@@ -145,9 +147,13 @@ export class RecruitmentClients {
     if (!c.id) return;
     this.api.updateClient(c.id, { is_recruitment_client: 1 }).subscribe(() => this.refresh());
   }
-  unflag(c: Client) {
+  async unflag(c: Client) {
     if (!c.id) return;
-    if (!confirm(`Remove "${c.name}" from Recruitment? Their CRM record stays intact.`)) return;
+    const ok = await this.dialog.confirm(
+      `Remove "${c.name}" from Recruitment? Their CRM record stays intact.`,
+      { title: 'Remove from Recruitment', confirmLabel: 'Remove', variant: 'warning' }
+    );
+    if (!ok) return;
     this.api.updateClient(c.id, { is_recruitment_client: 0 }).subscribe(() => this.refresh());
   }
 }

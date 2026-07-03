@@ -161,7 +161,7 @@ final class Newsletter
         foreach ($recipients as $r) {
             $token = bin2hex(random_bytes(24));
             $personalizedBody = self::renderBody((string)$c['body_html'], $r, $token);
-            [$ok, $err] = Mailer::send($r['email'], (string)$c['subject'], $personalizedBody);
+            [$ok, $err] = Mailer::sendVia('newsletter', $r['email'], (string)$c['subject'], $personalizedBody);
 
             $status = $ok ? 'sent' : 'failed';
             $sentAt = $ok ? date('Y-m-d H:i:s') : null;

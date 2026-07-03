@@ -1,6 +1,7 @@
 import { Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Api } from '../../core/api';
+import { DialogService } from '../../core/dialog';
 import { Client, Invoice, InvoiceLine, InvoiceStatus } from '../../core/models';
 
 const STATUSES: InvoiceStatus[] = ['draft', 'sent', 'paid', 'void'];
@@ -307,6 +308,7 @@ const STATUSES: InvoiceStatus[] = ['draft', 'sent', 'paid', 'void'];
 })
 export class AccountingInvoices {
   private api = inject(Api);
+  private dialog = inject(DialogService);
 
   readonly statuses = STATUSES;
 
@@ -442,10 +444,11 @@ export class AccountingInvoices {
     if (!inv?.id || !l.id) return;
     this.api.updateInvoiceLine(inv.id, l.id, p).subscribe(() => this.reloadDetail());
   }
-  deleteLine(l: InvoiceLine) {
+  async deleteLine(l: InvoiceLine) {
     const inv = this.selected();
     if (!inv?.id || !l.id) return;
-    if (!confirm('Remove this line?')) return;
+    const ok = await this.dialog.confirm('Remove this line?', { title: 'Remove line', confirmLabel: 'Remove', variant: 'danger' });
+    if (!ok) return;
     this.api.deleteInvoiceLine(inv.id, l.id).subscribe(() => this.reloadDetail());
   }
   private reloadDetail() {
@@ -475,10 +478,11 @@ export class AccountingInvoices {
       this.refresh();
     });
   }
-  del() {
+  async del() {
     const inv = this.selected();
     if (!inv?.id) return;
-    if (!confirm(`Delete ${inv.invoice_number}?`)) return;
+    const ok = await this.dialog.confirm(`Delete ${inv.invoice_number}?`, { title: 'Delete invoice', confirmLabel: 'Delete', variant: 'danger' });
+    if (!ok) return;
     this.api.deleteInvoice(inv.id).subscribe(() => {
       this.closeDetail();
       this.refresh();

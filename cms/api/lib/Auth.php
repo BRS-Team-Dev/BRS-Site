@@ -146,7 +146,7 @@ final class Auth
 
         // Step 4-5: authenticate against admin_users for that tenant
         $u = Db::pdo()->prepare(
-            'SELECT id, email, password_hash, display_name
+            'SELECT id, email, password_hash, display_name, role, color_theme
                FROM admin_users
               WHERE email = ? AND tenant_id = ?
               LIMIT 1'
@@ -159,6 +159,8 @@ final class Auth
             'id'           => (int)$row['id'],
             'email'        => $row['email'],
             'display_name' => $row['display_name'],
+            'role'         => $row['role'],
+            'color_theme'  => $row['color_theme'],   // per-user override or NULL → tenant default
             'tenant_id'    => $tenantId,
             'super'        => Tenants::isSuperAdmin($email),
         ];

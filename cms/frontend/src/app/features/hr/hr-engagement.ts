@@ -1,6 +1,7 @@
 import { Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Api } from '../../core/api';
+import { DialogService } from '../../core/dialog';
 import { environment } from '@env/environment';
 import { HrFeedbackEntry, HrPulseAggregate, HrPulseSurvey, HrSurveyQuestion } from '../../core/models';
 
@@ -362,6 +363,7 @@ type Tab = 'surveys' | 'feedback';
 })
 export class HrEngagement {
   private api = inject(Api);
+  private dialog = inject(DialogService);
 
   readonly tabs: { key: Tab; label: string }[] = [
     { key: 'surveys',  label: 'Pulse surveys' },
@@ -489,9 +491,14 @@ export class HrEngagement {
     this.api.updateHrPulseSurvey(id, p).subscribe(() => this.refreshSurveys());
   }
 
-  delSurvey(s: HrPulseSurvey) {
+  async delSurvey(s: HrPulseSurvey) {
     if (!s.id) return;
-    if (!confirm(`Delete "${s.title}"? All responses will be lost.`)) return;
+    const ok = await this.dialog.confirm(`Delete "${s.title}"? All responses will be lost.`, {
+      title: 'Delete survey',
+      confirmLabel: 'Delete',
+      variant: 'danger',
+    });
+    if (!ok) return;
     this.api.deleteHrPulseSurvey(s.id).subscribe(() => {
       this.selectedId.set(null);
       this.refreshSurveys();
@@ -553,16 +560,21 @@ export class HrEngagement {
       if (this.copiedTimer) clearTimeout(this.copiedTimer);
       this.copiedTimer = setTimeout(() => this.copiedKey.set(null), 1500);
     };
-    navigator.clipboard?.writeText(text).then(flash, () => alert(text));
+    navigator.clipboard?.writeText(text).then(flash, () => this.dialog.alert(text, { title: 'Copy failed — text below' }));
   }
 
   setFeedbackStatus(f: HrFeedbackEntry, status: 'new'|'reviewed'|'actioned'|'archived') {
     if (!f.id) return;
     this.api.updateHrFeedback(f.id, status).subscribe(() => this.refreshFeedback());
   }
-  delFeedback(f: HrFeedbackEntry) {
+  async delFeedback(f: HrFeedbackEntry) {
     if (!f.id) return;
-    if (!confirm('Delete this feedback entry?')) return;
+    const ok = await this.dialog.confirm('Delete this feedback entry?', {
+      title: 'Delete feedback',
+      confirmLabel: 'Delete',
+      variant: 'danger',
+    });
+    if (!ok) return;
     this.api.deleteHrFeedback(f.id).subscribe(() => this.refreshFeedback());
   }
 }

@@ -1,6 +1,7 @@
 import { Component, EventEmitter, Input, Output, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Api } from '../../core/api';
+import { DialogService } from '../../core/dialog';
 import { environment } from '@env/environment';
 import { ContractAudience, PdfDocBlock, PdfDocBlockKind, PdfDocPage } from '../../core/models';
 import { labelSlug, renderPdfDocBlob } from './pdf-doc-renderer';
@@ -275,6 +276,7 @@ import { labelSlug, renderPdfDocBlob } from './pdf-doc-renderer';
 })
 export class PdfDocBuilder {
   private api = inject(Api);
+  private dialog = inject(DialogService);
 
   /** Document title — used in the page footer. */
   @Input() title = '';
@@ -424,9 +426,10 @@ export class PdfDocBuilder {
     this.lastFocused = null;
     this.emit();
   }
-  removePage() {
+  async removePage() {
     if (this.pages().length <= 1) return;
-    if (!confirm(`Remove page ${this.activeIdx() + 1}?`)) return;
+    const ok = await this.dialog.confirm(`Remove page ${this.activeIdx() + 1}?`, { title: 'Remove page', confirmLabel: 'Remove', variant: 'danger' });
+    if (!ok) return;
     this.pages.update(list => list.filter((_, i) => i !== this.activeIdx()));
     this.activeIdx.update(i => Math.max(0, Math.min(i, this.pages().length - 1)));
     this.emit();
@@ -475,8 +478,9 @@ export class PdfDocBuilder {
     if (kind === 'variable') { block.body = ''; block.label = ''; }
     this.updateActive(p => ({ ...p, blocks: [...p.blocks, block] }));
   }
-  removeBlock(idx: number) {
-    if (!confirm('Remove this block?')) return;
+  async removeBlock(idx: number) {
+    const ok = await this.dialog.confirm('Remove this block?', { title: 'Remove block', confirmLabel: 'Remove', variant: 'danger' });
+    if (!ok) return;
     this.updateActive(p => ({ ...p, blocks: p.blocks.filter((_, i) => i !== idx) }));
   }
   moveBlock(idx: number, dir: -1 | 1) {
@@ -500,7 +504,7 @@ export class PdfDocBuilder {
         }));
         inp.value = '';
       },
-      error: e => { alert(e?.error?.error || 'Image upload failed'); inp.value = ''; },
+      error: e => { this.dialog.alert(e?.error?.error || 'Image upload failed', { title: 'Upload failed', variant: 'danger' }); inp.value = ''; },
     });
   }
 

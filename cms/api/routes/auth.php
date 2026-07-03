@@ -8,7 +8,22 @@ use BRS\Mailer;
 use BRS\Tenant;
 use BRS\Tenants;
 
-return function (string $method, array $segs): void {
+// Look up the registry row the frontend needs to render the tenant's
+// brand (logo, brand name, slug, theme). Returned as part of every
+// auth response so the SPA can apply [data-theme] on boot and on
+// every impersonation swap without an extra round-trip.
+$tenantPayload = static function (int $tenantId): array {
+    $row = Tenants::get($tenantId);
+    return [
+        'id'          => $tenantId,
+        'slug'        => $row['slug']        ?? null,
+        'brand_name'  => $row['brand_name']  ?? null,
+        'color_theme' => $row['color_theme'] ?? 'midnight-gold',
+        'logo_path'   => $row['logo_path']   ?? null,
+    ];
+};
+
+return function (string $method, array $segs) use ($tenantPayload): void {
     // /api/auth/login
     if ($method === 'POST' && ($segs[1] ?? '') === 'login') {
         $body = Json::readBody();
@@ -29,7 +44,11 @@ return function (string $method, array $segs): void {
             (int)$user['tenant_id'],
             !empty($user['super'])
         );
-        Json::send(['token' => $token, 'user' => $user]);
+        Json::send([
+            'token'  => $token,
+            'user'   => $user,
+            'tenant' => $tenantPayload((int)$user['tenant_id']),
+        ]);
     }
 
     // /api/auth/impersonate { tenant_id }
@@ -81,10 +100,11 @@ return function (string $method, array $segs): void {
         );
 
         Json::send([
-            'token'        => $token,
-            'tenant_id'    => $targetTenant,
-            'tenant_slug'  => $row['slug'],
-            'brand_name'   => $row['brand_name'],
+            'token'         => $token,
+            'tenant_id'     => $targetTenant,
+            'tenant_slug'   => $row['slug'],
+            'brand_name'    => $row['brand_name'],
+            'tenant'        => $tenantPayload($targetTenant),
             'impersonating' => ['from' => $fromTenant],
         ]);
     }
@@ -92,11 +112,41 @@ return function (string $method, array $segs): void {
     // /api/auth/me
     if ($method === 'GET' && ($segs[1] ?? '') === 'me') {
         $claims = Auth::require();
-        $u = Db::tpdo()->prepare('SELECT id, email, display_name, created_at FROM admin_users WHERE id = ?');
+        $u = Db::tpdo()->prepare('SELECT id, email, display_name, role, color_theme, created_at FROM admin_users WHERE id = ?');
         $u->execute([$claims['sub']]);
         $row = $u->fetch();
         if (!$row) Json::fail('Unauthorized', 401);
-        Json::send(['user' => $row]);
+        Json::send([
+            'user'   => $row,
+            'tenant' => $tenantPayload((int)$claims['tenant_id']),
+        ]);
+    }
+
+    // /api/auth/me/theme  { color_theme }
+    //
+    // Per-user override. Writes to admin_users.color_theme; NULL clears
+    // the override and falls back to the tenant default on next load.
+    // No cache to invalidate (admin_users is tenant-scoped + per-row,
+    // not registry-cached like tenants).
+    if ($method === 'PUT' && ($segs[1] ?? '') === 'me' && ($segs[2] ?? '') === 'theme') {
+        $claims = Auth::require();
+        $body = Json::readBody();
+        $slug = $body['color_theme'] ?? null;
+        $allowed = ['midnight-gold','frosted-mint','sunrise-coral','indigo-pulse','graphite-rose','forest-amber'];
+        if ($slug !== null && $slug !== '') {
+            $isPreset = in_array($slug, $allowed, true);
+            $isKnownCustom = false;
+            if (!$isPreset && strpos((string)$slug, 'custom-') === 0) {
+                // Custom slugs (migration 126) must belong to this tenant.
+                $chk = Db::tpdo()->prepare('SELECT id FROM tenant_themes WHERE slug = ? LIMIT 1');
+                $chk->execute([$slug]);
+                $isKnownCustom = (bool)$chk->fetchColumn();
+            }
+            if (!$isPreset && !$isKnownCustom) Json::fail('Unknown theme', 400);
+        }
+        $upd = Db::tpdo()->prepare('UPDATE admin_users SET color_theme = ? WHERE id = ?');
+        $upd->execute([$slug ?: null, $claims['sub']]);
+        Json::send(['ok' => true, 'color_theme' => $slug ?: null]);
     }
 
     // /api/auth/change-password
@@ -155,7 +205,7 @@ return function (string $method, array $segs): void {
             // Best-effort send. If SMTP isn't configured, the request still
             // succeeds silently to avoid leaking system state. Log for diag.
             if (Mailer::isConfigured()) {
-                [$ok, $err] = Mailer::send($user['email'], $subject, $html);
+                [$ok, $err] = Mailer::sendVia('system', $user['email'], $subject, $html);
                 if (!$ok) error_log('[forgot-password] mail failed for ' . $user['email'] . ': ' . (string)$err);
             } else {
                 error_log('[forgot-password] SMTP not configured; would send reset URL: ' . $url);

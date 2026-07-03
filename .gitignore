@@ -2,9 +2,18 @@
 
 # Dependencies / build artefacts
 /cms/api/vendor/
+/cms/api/composer.phar
 /cms/frontend/node_modules/
 /cms/frontend/dist/
 /cms/frontend/.angular/
+
+# Playwright e2e — node_modules + runtime artefacts.
+# Chromium binaries live in the user AppData cache (not tracked).
+/cms/e2e/node_modules/
+/cms/e2e/test-results/
+/cms/e2e/playwright-report/
+/cms/e2e/screenshots/
+/cms/e2e/.auth/
 
 # Secrets / per-machine config
 /cms/.env

@@ -2,6 +2,7 @@ import { Component, computed, inject, signal } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { Api } from '../../core/api';
+import { DialogService } from '../../core/dialog';
 import { Client, FormDef, FormSection, OnboardingClient } from '../../core/models';
 import { ComboBox, ComboOption } from '../../shared/combo-box';
 
@@ -319,6 +320,7 @@ import { ComboBox, ComboOption } from '../../shared/combo-box';
 })
 export class OnboardingClients {
   private api = inject(Api);
+  private dialog = inject(DialogService);
   private route = inject(ActivatedRoute);
   private router = inject(Router);
 
@@ -558,9 +560,10 @@ export class OnboardingClients {
   openClient(c: OnboardingClient) {
     this.router.navigate(['/admin/onboarding', c.form_id, 'client', c.id]);
   }
-  del(c: OnboardingClient, e: Event) {
+  async del(c: OnboardingClient, e: Event) {
     e.stopPropagation();
-    if (!confirm(`Delete client ${c.client_email}? This also drops their saved responses.`)) return;
+    const ok = await this.dialog.confirm(`Delete client ${c.client_email}? This also drops their saved responses.`, { title: 'Delete client', confirmLabel: 'Delete', variant: 'danger' });
+    if (!ok) return;
     this.api.deleteOnboardingClient(c.form_id, c.id).subscribe(() => {
       if (this.mode() === 'all') {
         this.api.listAllOnboardingClients().subscribe(r => this.allClients.set(r.clients));
@@ -576,10 +579,11 @@ export class OnboardingClients {
       this.client.set({ ...c, edited_after_submit: 0 });
     });
   }
-  qualify(unqualify: boolean) {
+  async qualify(unqualify: boolean) {
     const c = this.client(); if (!c) return;
     const verb = unqualify ? 'move back to onboarding' : 'qualify';
-    if (!confirm(`Are you sure you want to ${verb} this client?`)) return;
+    const ok = await this.dialog.confirm(`Are you sure you want to ${verb} this client?`, { title: unqualify ? 'Move back to onboarding' : 'Qualify client', confirmLabel: unqualify ? 'Move back' : 'Qualify', variant: 'default' });
+    if (!ok) return;
     this.api.qualifyOnboardingClient(c.form_id, c.id, unqualify).subscribe(() => {
       if (unqualify) {
         this.client.set({ ...c, qualified_at: null });

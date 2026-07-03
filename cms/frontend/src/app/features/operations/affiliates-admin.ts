@@ -2,6 +2,7 @@ import { Component, computed, inject, signal } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { Api } from '../../core/api';
+import { DialogService } from '../../core/dialog';
 import { EntityContracts } from '../../shared/entity-contracts';
 import {
   Affiliate, AffiliateStatus, AffiliateTier, AffiliateType,
@@ -388,6 +389,7 @@ export class AffiliatesAdmin {
   private api = inject(Api);
   private route = inject(ActivatedRoute);
   private router = inject(Router);
+  private dialog = inject(DialogService);
 
   statusOptions: AffiliateStatus[]        = ['pending', 'active', 'paused', 'suspended', 'terminated'];
   tierOptions:   AffiliateTier[]          = ['bronze', 'silver', 'gold', 'platinum'];
@@ -458,14 +460,22 @@ export class AffiliatesAdmin {
     if (this.draft.id) this.router.navigate(['/operations/affiliates', this.draft.id]);
     else this.router.navigate(['/operations/affiliates']);
   }
-  del(a: Affiliate, e: Event) {
+  async del(a: Affiliate, e: Event) {
     e.stopPropagation();
-    if (!confirm(`Delete affiliate "${a.name}"?`)) return;
+    const ok = await this.dialog.confirm(
+      `Delete affiliate "${a.name}"?`,
+      { title: 'Delete affiliate', confirmLabel: 'Delete', variant: 'danger' }
+    );
+    if (!ok) return;
     this.api.deleteAffiliate(a.id!).subscribe(() => this.loadList());
   }
-  delCurrent() {
+  async delCurrent() {
     const a = this.current(); if (!a) return;
-    if (!confirm(`Delete affiliate "${a.name}"?`)) return;
+    const ok = await this.dialog.confirm(
+      `Delete affiliate "${a.name}"?`,
+      { title: 'Delete affiliate', confirmLabel: 'Delete', variant: 'danger' }
+    );
+    if (!ok) return;
     this.api.deleteAffiliate(a.id!).subscribe(() => this.router.navigate(['/operations/affiliates']));
   }
 
@@ -534,10 +544,14 @@ export class AffiliatesAdmin {
         error: e => { this.subSaving.set(false); this.subError.set(e?.error?.error || 'Save failed'); } });
     }
   }
-  deleteNote(n: AffiliateNote) {
+  async deleteNote(n: AffiliateNote) {
     const id = this.current()?.id; if (!id || !n.id) return;
-    if (!confirm(`Delete "${n.title}"?`)) return;
-    this.api.deleteAffiliateNote(id, n.id).subscribe(() => {
+    const ok = await this.dialog.confirm(
+      `Delete "${n.title}"?`,
+      { title: 'Delete note', confirmLabel: 'Delete', variant: 'danger' }
+    );
+    if (!ok) return;
+    this.api.deleteAffiliateNote(id, n.id!).subscribe(() => {
       this.api.listAffiliateNotes(id).subscribe(r => this.notes.set(r.notes));
     });
   }

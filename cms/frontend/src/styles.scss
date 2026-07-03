@@ -1,5 +1,25 @@
-/* BuiltRightStudio CMS — global styles */
-:root {
+/* BuiltRightStudio CMS — global styles.
+ *
+ * THEMING MODEL
+ * ─────────────
+ * Each tenant picks one of six theme slugs at signup (or from the
+ * Settings → Theme page). The slug lives on the registry row
+ * (tenants.color_theme) and is baked into the auth response so the
+ * frontend can apply it on app boot via:
+ *
+ *   document.documentElement.setAttribute('data-theme', '<slug>')
+ *
+ * The 6 themes are full palettes (not light/dark overlays), so each one
+ * defines every CSS variable consumers expect. `:root` (no attribute)
+ * inherits Midnight Gold — the default for backward compatibility with
+ * existing BRS users who don't have a theme set yet.
+ *
+ * The legacy light-mode toggle in top-nav stays available but is now
+ * effectively superseded by the theme picker; future tenants pick a
+ * theme that already matches their preferred lightness.
+ */
+:root,
+:root[data-theme="midnight-gold"] {
   --bg: #0a0a0a;
   --bg-2: #141414;
   --bg-3: #1c1c1c;
@@ -15,6 +35,101 @@
   --radius: 10px;
   --radius-sm: 6px;
   --shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
+}
+
+/* ── Frosted Mint — light, cool greens with a teal accent. ──── */
+:root[data-theme="frosted-mint"] {
+  --bg: #f4fbf8;
+  --bg-2: #ffffff;
+  --bg-3: #e8f4ee;
+  --line: #cfe3d8;
+  --fg: #143828;
+  --muted: #6a857a;
+  --primary: #2fc28b;
+  --primary-2: #1f9e6d;
+  --primary-3: #176f4d;
+  --danger: #e85a6a;
+  --success: #2fc28b;
+  --warning: #f5a51e;
+  --radius: 10px;
+  --radius-sm: 6px;
+  --shadow: 0 12px 40px rgba(47, 194, 139, 0.18);
+}
+
+/* ── Sunrise Coral — warm, light apricot/coral with a coral accent. */
+:root[data-theme="sunrise-coral"] {
+  --bg: #fff4ec;
+  --bg-2: #ffffff;
+  --bg-3: #ffe7d6;
+  --line: #f3c8b1;
+  --fg: #4a1f10;
+  --muted: #936352;
+  --primary: #ff6b50;
+  --primary-2: #e2543b;
+  --primary-3: #b1382a;
+  --danger: #c0392b;
+  --success: #16a085;
+  --warning: #f39c12;
+  --radius: 10px;
+  --radius-sm: 6px;
+  --shadow: 0 12px 40px rgba(255, 107, 80, 0.16);
+}
+
+/* ── Indigo Pulse — moody dark indigo with cyan-blue accent. ── */
+:root[data-theme="indigo-pulse"] {
+  --bg: #1a1b3a;
+  --bg-2: #232556;
+  --bg-3: #2c2e6b;
+  --line: #3b3e85;
+  --fg: #f0f3ff;
+  --muted: #a3a8d4;
+  --primary: #7aa9ff;
+  --primary-2: #5b8ee0;
+  --primary-3: #3e6dbf;
+  --danger: #ff7c7c;
+  --success: #5dd4a6;
+  --warning: #ffc97c;
+  --radius: 10px;
+  --radius-sm: 6px;
+  --shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
+}
+
+/* ── Graphite Rose — soft charcoal with a dusty rose accent. ── */
+:root[data-theme="graphite-rose"] {
+  --bg: #2a2a2e;
+  --bg-2: #34343a;
+  --bg-3: #404048;
+  --line: #525258;
+  --fg: #f4eef0;
+  --muted: #b8a8af;
+  --primary: #e88aa7;
+  --primary-2: #c8718c;
+  --primary-3: #9b566d;
+  --danger: #ff6464;
+  --success: #66c9a3;
+  --warning: #f5b04a;
+  --radius: 10px;
+  --radius-sm: 6px;
+  --shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
+}
+
+/* ── Forest Amber — deep forest green with warm amber accent. ─ */
+:root[data-theme="forest-amber"] {
+  --bg: #0f1a14;
+  --bg-2: #15281e;
+  --bg-3: #1f3a2c;
+  --line: #2d4d3a;
+  --fg: #ecf3ee;
+  --muted: #9fb5a7;
+  --primary: #f5b04a;
+  --primary-2: #d6932f;
+  --primary-3: #a87124;
+  --danger: #ff7c7c;
+  --success: #66d9a3;
+  --warning: #ffd47c;
+  --radius: 10px;
+  --radius-sm: 6px;
+  --shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
 }
 
 /* Standard content-wrapper classes used by every detail/edit page below
@@ -105,6 +220,30 @@ input:focus, textarea:focus, select:focus {
 }
 textarea { min-height: 80px; resize: vertical; font-family: inherit; }
 
+/* Selects: strip the native browser chevron (which flushes to the
+   right border) and paint a custom SVG chevron with real breathing
+   room from the border. `padding-right` reserves space for the icon;
+   `background-position` sets where the chevron sits. Every select
+   across the app inherits this. */
+select {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  padding-right: 28px;
+  /* Small, muted chevron — matches the browser-default look so nothing
+     jumps visually; only the position changes (inset from the border
+     via `background-position: right 10px center`). */
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6' fill='none' stroke='%23888' stroke-width='1.3' stroke-linecap='round' stroke-linejoin='round'><polyline points='1,1 5,5 9,1'/></svg>");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  background-size: 10px 6px;
+}
+select::-ms-expand { display: none; } /* legacy IE / Edge */
+select:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 /* Gold accent on form controls site-wide. */
 input[type="checkbox"], input[type="radio"] {
   accent-color: var(--primary);
@@ -171,7 +310,28 @@ label {
   display: flex; justify-content: flex-end; gap: 8px;
 }
 
-.table-wrap { padding: 16px 24px; min-height: 80vh; }
+/* Lists with many columns (leads, clients, candidates, jobs, …) used to
+   wrap long values inside cells, turning a 40-char company name into
+   three stacked lines and breaking the visual row-as-record metaphor.
+   Tables now stay one-row-per-record; if the row is wider than the
+   wrapper, the wrapper scrolls horizontally instead.
+   If a specific page genuinely needs a wrapping cell (e.g. a notes
+   preview column), override `white-space` on that <td> in the
+   component's local styles.
+
+   Spacing strategy: 24px OUTER margin instead of inner padding. Inner
+   padding lives in the scroll container, so when the user scrolls or
+   when sticky cells pin themselves to the wrapper's content-box edge,
+   the visible padding can collapse. Margin sits outside the scroll
+   container entirely, so the 24px gap on the left + right of the
+   table area is preserved at every scroll position and every sticky-
+   column configuration. */
+.table-wrap {
+  margin: 0 24px;
+  padding: 16px 0;
+  min-height: 80vh;
+  overflow-x: auto;
+}
 
 table.data {
   width: 100%;
@@ -180,6 +340,7 @@ table.data {
 }
 table.data th, table.data td {
   text-align: left;
+  white-space: nowrap;
 }
 table.data thead th {
   padding: 14px 12px;

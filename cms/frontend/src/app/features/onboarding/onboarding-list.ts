@@ -1,21 +1,27 @@
 import { Component, inject, signal } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
 import { Api } from '../../core/api';
+import { DialogService } from '../../core/dialog';
 import { FormDef } from '../../core/models';
+
+/**
+ * Multipart forms admin (URL `/admin/onboarding/multipart`).
+ * Onboarding hub at `/admin/onboarding` shows both this + standard Forms.
+ */
 
 @Component({
   selector: 'app-onboarding-list',
   imports: [RouterLink],
   template: `
     <div class="toolbar">
-      <h1>Onboarding</h1>
+      <h1>Multipart forms</h1>
       <span class="spacer"></span>
-      <button class="primary" routerLink="/admin/onboarding/new">+ New onboarding</button>
+      <button class="primary" routerLink="/admin/onboarding/new">+ New multipart form</button>
     </div>
 
     @if (forms().length === 0) {
       <div class="empty">
-        <p>No onboarding templates yet.</p>
+        <p>No multipart forms yet.</p>
         <button class="primary" routerLink="/admin/onboarding/new">Create your first template</button>
       </div>
     } @else {
@@ -60,8 +66,7 @@ import { FormDef } from '../../core/models';
     td.actions { text-align: right; white-space: nowrap; }
     td.actions .icon-btn + .icon-btn { margin-left: 4px; }
     .icon-btn {
-      width: 32px; height: 32px;
-      padding: 0;
+      width: 32px; height: 32px; padding: 0;
       display: inline-flex; align-items: center; justify-content: center;
       font-size: 15px; line-height: 1;
     }
@@ -77,6 +82,7 @@ import { FormDef } from '../../core/models';
 })
 export class OnboardingList {
   private api = inject(Api);
+  private dialog = inject(DialogService);
   private router = inject(Router);
   forms = signal<FormDef[]>([]);
 
@@ -92,9 +98,13 @@ export class OnboardingList {
     e.stopPropagation();
     this.router.navigate(['/admin/onboarding', f.id, 'clients']);
   }
-  del(f: FormDef, e: Event) {
+  async del(f: FormDef, e: Event) {
     e.stopPropagation();
-    if (!confirm(`Delete template "${f.title}"? This drops the data table form_${f.slug} and removes all clients + responses.`)) return;
+    const ok = await this.dialog.confirm(
+      `Delete template "${f.title}"? This drops the data table form_${f.slug} and removes all clients + responses.`,
+      { title: 'Delete template', confirmLabel: 'Delete', variant: 'danger' }
+    );
+    if (!ok) return;
     this.api.deleteOnboardingForm(f.id!).subscribe(() => {
       this.api.listOnboardingForms().subscribe(r => this.forms.set(r.forms));
     });

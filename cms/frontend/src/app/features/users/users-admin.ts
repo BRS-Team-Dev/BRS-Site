@@ -1,6 +1,7 @@
 import { Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Api } from '../../core/api';
+import { DialogService } from '../../core/dialog';
 import { AdminUserRecord } from '../../core/models';
 
 /**
@@ -153,6 +154,7 @@ import { AdminUserRecord } from '../../core/models';
 })
 export class UsersAdmin {
   private api = inject(Api);
+  private dialog = inject(DialogService);
 
   users = signal<AdminUserRecord[]>([]);
   active = computed(() => this.users().filter(u => u.is_active !== 0));
@@ -210,9 +212,13 @@ export class UsersAdmin {
     });
   }
 
-  deactivate(u: AdminUserRecord) {
+  async deactivate(u: AdminUserRecord) {
     if (!u.id) return;
-    if (!confirm(`Deactivate ${u.display_name}? Their assignments and history are preserved.`)) return;
+    const ok = await this.dialog.confirm(
+      `Deactivate ${u.display_name}? Their assignments and history are preserved.`,
+      { title: 'Deactivate user', confirmLabel: 'Deactivate', variant: 'warning' }
+    );
+    if (!ok) return;
     this.api.deleteAdminUser(u.id).subscribe(() => this.load());
   }
   reactivate(u: AdminUserRecord) {

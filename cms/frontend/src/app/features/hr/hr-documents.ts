@@ -3,6 +3,7 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { environment } from '@env/environment';
 import { Api } from '../../core/api';
+import { DialogService } from '../../core/dialog';
 import { ContractAudience, ContractType, ContractGroup, HrDocument, HrDocumentType, HrEmployee } from '../../core/models';
 
 const AUDIENCE_OPTIONS: { value: ContractAudience; label: string }[] = [
@@ -716,6 +717,7 @@ export class HrDocuments {
   private api = inject(Api);
   private router = inject(Router);
   private route = inject(ActivatedRoute);
+  private dialog = inject(DialogService);
 
   /** Route data flag: true on /operations/contracts. Hides the Signed /
    *  Required-types sections and relabels the page heading. */
@@ -752,9 +754,13 @@ export class HrDocuments {
     if (!c.id || !name.trim() || name === c.name) return;
     this.api.updateContractType(c.id, { name: name.trim() }).subscribe(() => this.refreshContractTypes());
   }
-  removeContractType(c: ContractType) {
+  async removeContractType(c: ContractType) {
     if (!c.id) return;
-    if (!confirm(`Delete "${c.name}"? Existing contract templates lose the type tag but otherwise stay intact.`)) return;
+    const ok = await this.dialog.confirm(
+      `Delete "${c.name}"? Existing contract templates lose the type tag but otherwise stay intact.`,
+      { title: 'Delete category', confirmLabel: 'Delete', variant: 'danger' },
+    );
+    if (!ok) return;
     this.api.deleteContractType(c.id).subscribe(() => this.refreshContractTypes());
   }
   refreshContractTypes() {
@@ -846,9 +852,13 @@ export class HrDocuments {
     if (d.id) this.api.updateContractGroup(d.id, { name }).subscribe(done);
     else      this.api.createContractGroup({ name }).subscribe(done);
   }
-  deleteContractGroup(g: ContractGroup) {
+  async deleteContractGroup(g: ContractGroup) {
     if (!g.id) return;
-    if (!confirm(`Delete group "${g.name}"? Its contracts move to Ungrouped (they are not deleted).`)) return;
+    const ok = await this.dialog.confirm(
+      `Delete group "${g.name}"? Its contracts move to Ungrouped (they are not deleted).`,
+      { title: 'Delete group', confirmLabel: 'Delete', variant: 'danger' },
+    );
+    if (!ok) return;
     this.api.deleteContractGroup(g.id).subscribe(() => { this.refreshContractGroups(); this.refreshTypes(); });
   }
 
@@ -1026,12 +1036,13 @@ export class HrDocuments {
     });
   }
 
-  delType(t: HrDocumentType) {
+  async delType(t: HrDocumentType) {
     if (!t.id) return;
     const extra = t.kind === 'signed'
       ? '\n\nUnsigned copies on each employee will be removed too. Already-signed copies will be kept.'
       : ` Existing uploaded documents won't be deleted, but they'll lose their typed link.`;
-    if (!confirm(`Delete "${t.name}"?${extra}`)) return;
+    const ok = await this.dialog.confirm(`Delete "${t.name}"?${extra}`, { title: 'Delete template', confirmLabel: 'Delete', variant: 'danger' });
+    if (!ok) return;
     this.api.deleteHrDocumentType(t.id).subscribe(() => {
       this.refreshTypes();
       // Refresh org-wide submissions so signed-doc rows disappear immediately.

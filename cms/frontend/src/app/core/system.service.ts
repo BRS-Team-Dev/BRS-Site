@@ -18,12 +18,12 @@ export interface SystemDef {
 
 const SYSTEMS: SystemDef[] = [
   { key: 'cms',        label: 'CRM',        home: '/admin/clients' },
-  { key: 'hr',         label: 'HR',         home: '/hr/dashboard' },
-  { key: 'management', label: 'Management', home: '/management/dashboard' },
-  { key: 'operations', label: 'Operations', home: '/operations/dashboard' },
-  { key: 'recruitment', label: 'Recruitment', home: '/recruitment/dashboard' },
-  { key: 'tasks',      label: 'Tasks',      home: '/tasks/taskboard' },
-  { key: 'accounting', label: 'Accounting', home: '/accounting/dashboard' },
+  { key: 'hr',         label: 'HR',         home: '/hr/dashboard',        placeholder: true },
+  { key: 'management', label: 'Management', home: '/management/dashboard', placeholder: true },
+  { key: 'operations', label: 'Operations', home: '/operations/dashboard', placeholder: true },
+  { key: 'recruitment', label: 'Recruitment', home: '/recruitment/dashboard', placeholder: true },
+  { key: 'tasks',      label: 'Tasks',      home: '/tasks/taskboard',     placeholder: true },
+  { key: 'accounting', label: 'Accounting', home: '/accounting/dashboard', placeholder: true },
   { key: 'crm',        label: 'CMS',        home: '/crm',     placeholder: true },
   { key: 'support',    label: 'Support',    home: '/support', placeholder: true },
   // Per-user area, reached from the user dropdown in the top nav. Hidden from

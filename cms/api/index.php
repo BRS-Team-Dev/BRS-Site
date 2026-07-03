@@ -36,14 +36,20 @@ try {
             // /api/forms              → forms.php
             // /api/forms/:id          → forms.php
             // /api/forms/:id/submissions[/...] → submissions.php
+            // /api/forms/:id/invites[/...]     → form_invites.php
             if (($segs[2] ?? '') === 'submissions') {
                 (require __DIR__ . '/routes/submissions.php')($method, $segs);
+            } elseif (($segs[2] ?? '') === 'invites') {
+                (require __DIR__ . '/routes/form_invites.php')($method, $segs);
             } else {
                 (require __DIR__ . '/routes/forms.php')($method, $segs);
             }
             break;
         case 'settings':
             (require __DIR__ . '/routes/settings.php')($method, $segs);
+            break;
+        case 'themes':
+            (require __DIR__ . '/routes/themes.php')($method, $segs);
             break;
         case 'onboarding':
             (require __DIR__ . '/routes/onboarding.php')($method, $segs);
@@ -74,6 +80,28 @@ try {
             break;
         case 'contracts':
             (require __DIR__ . '/routes/contracts.php')($method, $segs);
+            break;
+        case 'crm-tasks':
+            (require __DIR__ . '/routes/crm_tasks.php')($method, $segs);
+            break;
+        case 'email':
+            (require __DIR__ . '/routes/email.php')($method, $segs);
+            break;
+        case 'notifications':
+            (require __DIR__ . '/routes/notifications.php')($method, $segs);
+            break;
+        case 'billing':
+            (require __DIR__ . '/routes/billing.php')($method, $segs);
+            break;
+        case 'form-submission-links':
+            (require __DIR__ . '/routes/form_submission_links.php')($method, $segs);
+            break;
+        case 'stripe-webhook':
+            // Public — signature verified inside the handler. No Auth::require().
+            (require __DIR__ . '/routes/stripe_webhook.php')($method, $segs);
+            break;
+        case 'feedback-forms':
+            (require __DIR__ . '/routes/feedback.php')($method, $segs);
             break;
         case 'partners':
             (require __DIR__ . '/routes/partners.php')($method, $segs);

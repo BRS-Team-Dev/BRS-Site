@@ -2,8 +2,11 @@ import { Component, computed, inject, signal } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { Api } from '../../core/api';
-import { FIELD_TYPES, FormDef, FormField, HAS_OPTIONS, FieldType } from '../../core/models';
+import { DialogService } from '../../core/dialog';
+import { FIELD_TYPES, FormDef, FormField, HAS_OPTIONS, FieldType, ServiceOffering } from '../../core/models';
 import { SIDENAV_BUILTIN_PARENTS } from '../../core/sidenav-config';
+import { FormInvites } from '../../shared/form-invites';
+import { AttachScopeValue, FormAttachPicker } from '../../shared/form-attach-picker';
 
 interface FieldDraft extends FormField {
   _localId?: number;
@@ -14,7 +17,7 @@ let _localCounter = 1;
 
 @Component({
   selector: 'app-form-builder',
-  imports: [FormsModule],
+  imports: [FormsModule, FormInvites, FormAttachPicker],
   template: `
     <div class="toolbar">
       <button class="ghost" (click)="back()">← Back</button>
@@ -51,21 +54,26 @@ let _localCounter = 1;
         </div>
 
         <hr />
-        <h2>Sidenav placement</h2>
-        <label>Where should this form appear?</label>
-        <select [(ngModel)]="form.sidenav_placement" name="sidenav_placement">
-          <option value="top">Don't show in sidenav (default)</option>
-          <option value="child">As a child of another section</option>
-        </select>
+        <h2>Attach to</h2>
+        <p class="muted small" style="margin-bottom: 8px;">
+          Determines who sees this form as part of their default
+          onboarding. Individual invites (below) stack on top of
+          whichever scope you pick.
+        </p>
+        <app-form-attach-picker [value]="attachValue" (valueChange)="onAttachChange($event)" />
 
-        @if (form.sidenav_placement === 'child') {
-          <label>Parent section</label>
-          <select [(ngModel)]="form.sidenav_parent_key" name="sidenav_parent_key">
-            <option [ngValue]="null">— pick a parent —</option>
-            @for (p of parentChoices(); track p.key) {
-              <option [ngValue]="p.key">{{ p.label }}</option>
-            }
-          </select>
+        <!-- Recipient invitations live in an "Invitations" panel below —
+             the same pattern as multipart onboarding. Rendered once the
+             form has been saved (needs an id + slug for the token URL). -->
+        @if (!isNew() && formId()) {
+          <hr />
+          <h2>Individual invitations</h2>
+          <p class="muted small">
+            On top of any broadcast scope above, invite specific clients
+            or leads with a tokenised URL. Submissions from that URL
+            auto-link to the recipient.
+          </p>
+          <app-form-invites [formId]="formId()!" [formSlug]="form.slug || ''" />
         }
 
         <hr />
@@ -188,12 +196,18 @@ let _localCounter = 1;
     .field-head code { font-size: 11px; }
     .field-body { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
     @media (max-width: 1100px) { .layout { grid-template-columns: 1fr; } }
+    .share-link { display: flex; gap: 6px; align-items: center; }
+    .share-link input {
+      flex: 1; min-width: 0; cursor: pointer;
+      font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 11px;
+    }
   `],
 })
 export class FormBuilder {
   private api = inject(Api);
   private route = inject(ActivatedRoute);
   private router = inject(Router);
+  private dialog = inject(DialogService);
 
   fieldTypes = FIELD_TYPES;
   hasOptions = (t: FieldType) => HAS_OPTIONS.includes(t);
@@ -204,13 +218,46 @@ export class FormBuilder {
   saving = signal(false);
   error = signal<string | null>(null);
   onboardingForms = signal<FormDef[]>([]);
+  serviceOfferings = signal<ServiceOffering[]>([]);
 
   form: Partial<FormDef> = {
     title: '', slug: '', submit_label: 'Submit',
     is_published: false, thank_you_message: '',
     sidenav_placement: 'top', sidenav_parent_key: null,
     parent_process_form_id: null,
+    service_offering_id: null,
+    broadcast_to_all_clients: 0,
+    broadcast_to_all_leads: 0,
   };
+
+  /** Canonical value bound to the <app-form-attach-picker>. Keeps the
+   *  three underlying flags on `form` in sync via `onAttachChange`. */
+  attachValue: AttachScopeValue = {
+    scope: 'none',
+    broadcast_to_all_clients: 0,
+    broadcast_to_all_leads: 0,
+    service_offering_id: null,
+  };
+
+  onAttachChange(v: AttachScopeValue) {
+    this.attachValue = v;
+    this.form.broadcast_to_all_clients = v.broadcast_to_all_clients;
+    this.form.broadcast_to_all_leads   = v.broadcast_to_all_leads;
+    this.form.service_offering_id      = v.service_offering_id;
+  }
+
+  /** Reduce the three flags on a loaded form to the picker's scope. */
+  private hydrateAttach() {
+    const bc = !!this.form.broadcast_to_all_clients;
+    const bl = !!this.form.broadcast_to_all_leads;
+    const sid = this.form.service_offering_id ?? null;
+    this.attachValue = {
+      scope: bc ? 'all_clients' : bl ? 'all_leads' : sid ? 'service' : 'none',
+      broadcast_to_all_clients: bc ? 1 : 0,
+      broadcast_to_all_leads:   bl ? 1 : 0,
+      service_offering_id: sid,
+    };
+  }
 
   emailFields = computed(() => this.fields().filter(f => f.type === 'email'));
 
@@ -227,6 +274,7 @@ export class FormBuilder {
   ngOnInit() {
     // Load onboarding forms so they can be picked as a parent section / parent process.
     this.api.listOnboardingForms().subscribe(r => this.onboardingForms.set(r.forms));
+    this.api.listServiceOfferings().subscribe(r => this.serviceOfferings.set(r.services));
 
     const id = this.route.snapshot.paramMap.get('id');
     if (id && id !== 'new') {
@@ -239,8 +287,12 @@ export class FormBuilder {
           sidenav_placement: res.form.sidenav_placement || 'top',
           sidenav_parent_key: res.form.sidenav_parent_key ?? null,
           parent_process_form_id: res.form.parent_process_form_id ?? null,
+          service_offering_id: res.form.service_offering_id ?? null,
+          broadcast_to_all_clients: res.form.broadcast_to_all_clients ? 1 : 0,
+          broadcast_to_all_leads:   res.form.broadcast_to_all_leads   ? 1 : 0,
         };
         this.fields.set(res.fields.map(f => this.toDraft(f)));
+        this.hydrateAttach();
       });
     }
   }
@@ -276,8 +328,12 @@ export class FormBuilder {
     this.fields.update(arr => [...arr, f]);
   }
 
-  remove(i: number) {
-    if (!confirm('Remove this field? If saved, this will drop the column and lose its data.')) return;
+  async remove(i: number) {
+    const ok = await this.dialog.confirm(
+      'Remove this field? If saved, this will drop the column and lose its data.',
+      { title: 'Remove field', confirmLabel: 'Remove', variant: 'danger' }
+    );
+    if (!ok) return;
     this.fields.update(arr => arr.filter((_, idx) => idx !== i));
   }
 
@@ -349,8 +405,11 @@ export class FormBuilder {
     const payload = {
       ...this.form,
       is_published: this.form.is_published ? 1 : 0,
-      sidenav_placement: this.form.sidenav_placement || 'top',
-      sidenav_parent_key: this.form.sidenav_placement === 'child' ? (this.form.sidenav_parent_key ?? null) : null,
+      // Sidenav placement is no longer user-editable — every form lives
+      // under Onboarding > Forms in the sidenav automatically. Force
+      // 'top' + null parent so old rows normalise on next save.
+      sidenav_placement: 'top',
+      sidenav_parent_key: null,
       parent_process_form_id: this.form.parent_process_form_id ?? null,
       fields: this.fields().map(f => ({
         id: f.id,

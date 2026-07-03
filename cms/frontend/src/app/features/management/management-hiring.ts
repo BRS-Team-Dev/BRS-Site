@@ -1,6 +1,7 @@
 import { Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Api } from '../../core/api';
+import { DialogService } from '../../core/dialog';
 import { HrApplication, HrJob } from '../../core/models';
 
 const STAGES = ['applied', 'screening', 'interview', 'offer', 'hired', 'rejected'] as const;
@@ -123,6 +124,7 @@ const STAGES = ['applied', 'screening', 'interview', 'offer', 'hired', 'rejected
 })
 export class ManagementHiring {
   private api = inject(Api);
+  private dialog = inject(DialogService);
 
   jobs = signal<HrJob[]>([]);
   apps = signal<HrApplication[]>([]);
@@ -161,7 +163,7 @@ export class ManagementHiring {
     }).subscribe(() => {
       this.fbBody[a.id!] = '';
       this.fbRating[a.id!] = 0;
-      alert('Feedback saved.');
+      this.dialog.alert('Feedback saved.', { title: 'Saved', variant: 'success' });
     });
   }
   stageLabel(s: string) { return s.charAt(0).toUpperCase() + s.slice(1); }

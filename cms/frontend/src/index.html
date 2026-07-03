@@ -6,6 +6,11 @@
   <base href="/">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <link rel="icon" type="image/png" href="icon.png">
+  <!-- Stripe.js — required for Payment Element / SetupIntent flows in
+       Settings → Billing. Loading unconditionally is Stripe's own
+       recommendation (they attribute risk-scoring signals from every
+       page load). ~40kb gzipped, cached across the whole app. -->
+  <script src="https://js.stripe.com/v3/"></script>
 </head>
 <body>
   <app-root></app-root>

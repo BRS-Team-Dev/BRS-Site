@@ -1,6 +1,7 @@
 import { Component, computed, inject, signal } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { Api } from '../../core/api';
+import { DialogService } from '../../core/dialog';
 import { FormDef, FormSection, OnboardingClient } from '../../core/models';
 
 @Component({
@@ -68,6 +69,7 @@ import { FormDef, FormSection, OnboardingClient } from '../../core/models';
 })
 export class QualifiedClient {
   private api = inject(Api);
+  private dialog = inject(DialogService);
   private route = inject(ActivatedRoute);
   private router = inject(Router);
 
@@ -100,11 +102,12 @@ export class QualifiedClient {
     });
   }
 
-  del() {
+  async del() {
     const fid = this.formId(), cid = this.clientId();
     if (!fid || !cid) return;
     const c = this.client();
-    if (!confirm(`Delete ${c?.client_email || 'this client'}? This permanently removes their record and saved responses.`)) return;
+    const ok = await this.dialog.confirm(`Delete ${c?.client_email || 'this client'}? This permanently removes their record and saved responses.`, { title: 'Delete client', confirmLabel: 'Delete', variant: 'danger' });
+    if (!ok) return;
     this.api.deleteOnboardingClient(fid, cid).subscribe(() => {
       this.router.navigate(['/admin/main', fid]);
     });

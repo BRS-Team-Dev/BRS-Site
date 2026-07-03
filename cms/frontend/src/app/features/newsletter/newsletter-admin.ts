@@ -3,7 +3,9 @@ import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { Api } from '../../core/api';
-import { NewsletterCampaign, NewsletterRecipient, NewsletterStatus } from '../../core/models';
+import { DialogService } from '../../core/dialog';
+import { environment } from '@env/environment';
+import { FeedbackForm, NewsletterCampaign, NewsletterRecipient, NewsletterStatus } from '../../core/models';
 import {
   BLOCK_LABELS, NewsletterBlock, NewsletterBlockKind,
   makeBlock, parseBlocksJson, renderBlocksToHtml,
@@ -251,6 +253,36 @@ const STATUS_LABELS: Record<NewsletterStatus, string> = {
                     <p class="muted small no-margin">Raw HTML — pasted as-is. Use sparingly; keep styles inline.</p>
                     <textarea rows="6" class="mono" [value]="b.html ?? ''" (input)="patch(b.id, { html: $any($event.target).value })" [disabled]="!canEdit()"></textarea>
                   }
+                  @case ('feedback') {
+                    <label>Feedback form</label>
+                    <select [value]="b.formToken ?? ''"
+                            (change)="pickFeedbackForm(b.id, $any($event.target).value)"
+                            [disabled]="!canEdit()">
+                      <option value="">— pick a form —</option>
+                      @for (f of feedbackForms(); track f.id) {
+                        <option [value]="f.public_token">{{ f.title }} ({{ f.kind }})</option>
+                      }
+                    </select>
+                    @if (feedbackForms().length === 0) {
+                      <p class="muted small">
+                        No feedback forms yet —
+                        <a routerLink="/admin/feedback">create one</a>
+                        to attach it here.
+                      </p>
+                    }
+                    <label>Button text</label>
+                    <input type="text" [value]="b.label ?? 'Give feedback →'"
+                           (input)="patch(b.id, { label: $any($event.target).value })"
+                           [disabled]="!canEdit()" />
+                    <label>Align</label>
+                    <select [value]="b.align ?? 'center'"
+                            (change)="patch(b.id, { align: $any($event.target).value })"
+                            [disabled]="!canEdit()">
+                      <option value="left">Left</option>
+                      <option value="center">Center</option>
+                      <option value="right">Right</option>
+                    </select>
+                  }
                 }
               </div>
             }
@@ -333,8 +365,10 @@ const STATUS_LABELS: Record<NewsletterStatus, string> = {
       display: flex; align-items: center; gap: 6px;
       margin: 0; color: var(--fg);
       font-size: 13px; text-transform: none; letter-spacing: 0;
+      white-space: nowrap;
       cursor: pointer;
     }
+    .audience-row label.check input { width: auto; margin: 0; }
     .recipient-count { display: flex; align-items: center; gap: 12px; margin-top: 10px; }
 
     /* Blocks (mirrors hr-learning's slide-block pattern) */
@@ -443,6 +477,7 @@ export class NewsletterAdmin {
   private route = inject(ActivatedRoute);
   private router = inject(Router);
   private sanitizer = inject(DomSanitizer);
+  private dialog = inject(DialogService);
 
   mode = signal<Mode>('list');
   campaigns = signal<NewsletterCampaign[]>([]);
@@ -475,7 +510,30 @@ export class NewsletterAdmin {
   showSchedule = signal(false);
   scheduleAt = signal('');
 
-  readonly allBlockKinds: NewsletterBlockKind[] = ['heading', 'paragraph', 'image', 'button', 'divider', 'spacer', 'html'];
+  readonly allBlockKinds: NewsletterBlockKind[] = ['heading', 'paragraph', 'image', 'button', 'divider', 'spacer', 'feedback', 'html'];
+
+  /** Feedback forms available for the Feedback CTA block. Loaded once
+   *  per component; the picker filters against `is_published` because
+   *  drafts can't render a working link. */
+  feedbackForms = signal<FeedbackForm[]>([]);
+
+  private loadFeedbackFormsOnce() {
+    if (this.feedbackForms().length > 0) return;
+    this.api.listFeedbackForms().subscribe({
+      next: r => this.feedbackForms.set((r.forms ?? []).filter(f => !!f.is_published)),
+    });
+  }
+
+  /** Selecting a form in the Feedback CTA picker also caches the title
+   *  and origin, so subsequent renders don't need the form list. */
+  pickFeedbackForm(blockId: string, token: string) {
+    const f = this.feedbackForms().find(x => x.public_token === token);
+    this.patch(blockId, {
+      formToken: token,
+      formTitle: f?.title || '',
+      publicBase: window.location.origin + environment.basePath,
+    });
+  }
   blockLabel = (k: NewsletterBlockKind) => BLOCK_LABELS[k];
   statusLabel = (s: NewsletterStatus): string => STATUS_LABELS[s] || s;
 
@@ -511,6 +569,7 @@ export class NewsletterAdmin {
     this.route.url.subscribe(() => this.routeToMode());
     this.route.params.subscribe(() => this.routeToMode());
     this.loadCampaigns();
+    this.loadFeedbackFormsOnce();
   }
 
   private routeToMode() {
@@ -577,9 +636,14 @@ export class NewsletterAdmin {
   }
 
   open(c: NewsletterCampaign) { this.router.navigate(['/admin/newsletter', c.id]); }
-  del(c: NewsletterCampaign, e: Event) {
+  async del(c: NewsletterCampaign, e: Event) {
     e.stopPropagation();
-    if (!confirm(`Delete campaign "${c.subject}"?`)) return;
+    const ok = await this.dialog.confirm(`Delete campaign "${c.subject}"?`, {
+      title: 'Delete campaign',
+      confirmLabel: 'Delete',
+      variant: 'danger',
+    });
+    if (!ok) return;
     this.api.deleteCampaign(c.id!).subscribe(() => this.loadCampaigns());
   }
 
@@ -662,8 +726,13 @@ export class NewsletterAdmin {
     }
   }
 
-  sendNow() {
-    if (!confirm('Send this campaign now? This cannot be undone.')) return;
+  async sendNow() {
+    const ok = await this.dialog.confirm('Send this campaign now? This cannot be undone.', {
+      title: 'Send campaign',
+      confirmLabel: 'Send now',
+      variant: 'warning',
+    });
+    if (!ok) return;
     const dispatch = (id: number) => {
       this.sending.set(true);
       this.errorMsg.set(null);

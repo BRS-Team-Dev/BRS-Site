@@ -1,6 +1,7 @@
 import { Component, Input, inject, signal } from '@angular/core';
 import { Router } from '@angular/router';
 import { Api } from '../../core/api';
+import { DialogService } from '../../core/dialog';
 import { environment } from '@env/environment';
 import { FormDef } from '../../core/models';
 import { SidePanel } from '../../layout/side-panel.service';
@@ -46,6 +47,7 @@ export class FormDetailPanel {
   private api = inject(Api);
   private router = inject(Router);
   private panel = inject(SidePanel);
+  private dialog = inject(DialogService);
   copied = signal(false);
 
   publicUrl = () => `${location.origin}${environment.basePath}/forms/${this.form.slug}`;
@@ -60,8 +62,12 @@ export class FormDetailPanel {
   }
   edit() { this.panel.close(); this.router.navigate(['/admin/forms', this.form.id, 'edit']); }
   viewSubs() { this.panel.close(); this.router.navigate(['/admin/forms', this.form.id, 'submissions']); }
-  del() {
-    if (!confirm(`Delete form "${this.form.title}"? This drops the table form_${this.form.slug} and all submissions.`)) return;
+  async del() {
+    const ok = await this.dialog.confirm(
+      `Delete form "${this.form.title}"? This drops the table form_${this.form.slug} and all submissions.`,
+      { title: 'Delete form', confirmLabel: 'Delete', variant: 'danger' }
+    );
+    if (!ok) return;
     this.api.deleteForm(this.form.id!).subscribe(() => this.onDeleted?.());
   }
 }

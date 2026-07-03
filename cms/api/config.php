@@ -63,4 +63,21 @@ return [
     // tenant_id columns in Phase 1; turning the flag on is what makes
     // login start using them as the source of truth.
     'multi_tenant' => filter_var($env['MULTI_TENANT'] ?? 'false', FILTER_VALIDATE_BOOLEAN),
+    // Stripe billing — everything is nullable so a fresh install without
+    // Stripe credentials keeps working (the manual payment-method form
+    // is the fallback). Presence of `secret` is the runtime toggle for
+    // "Stripe mode".
+    'stripe' => [
+        'secret'          => $env['STRIPE_SECRET']          ?? null,
+        'publishable'     => $env['STRIPE_PUBLISHABLE']     ?? null,
+        'webhook_secret'  => $env['STRIPE_WEBHOOK_SECRET']  ?? null,
+        'trial_requires_card' => filter_var($env['TRIAL_REQUIRES_CARD'] ?? 'false', FILTER_VALIDATE_BOOLEAN),
+        // Tier → Price ID map. Trial has no price (free); others billed.
+        'price_ids' => [
+            'starter'    => $env['STRIPE_PRICE_STARTER']    ?? null,
+            'growth'     => $env['STRIPE_PRICE_GROWTH']     ?? null,
+            'scale'      => $env['STRIPE_PRICE_SCALE']      ?? null,
+            'enterprise' => $env['STRIPE_PRICE_ENTERPRISE'] ?? null,
+        ],
+    ],
 ];

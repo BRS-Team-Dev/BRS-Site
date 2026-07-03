@@ -2,6 +2,7 @@ import { Component, computed, inject, signal } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { Api } from '../../core/api';
+import { DialogService } from '../../core/dialog';
 import {
   Tender, TenderStatus,
   TenderInfo, TenderContact, TenderContactNumber, TenderDocument, TenderNote,
@@ -899,6 +900,7 @@ export class TendersAdmin {
   private api = inject(Api);
   private route = inject(ActivatedRoute);
   private router = inject(Router);
+  private dialog = inject(DialogService);
 
   statusOptions: TenderStatus[] = ['planning', 'drafting', 'submitted', 'awarded', 'rejected', 'withdrawn'];
   currencies = ['GBP', 'USD', 'EUR'];
@@ -1078,15 +1080,23 @@ export class TendersAdmin {
     if (this.draft.id) this.router.navigate(['/operations/tenders', this.draft.id]);
     else this.router.navigate(['/operations/tenders']);
   }
-  del(t: Tender, e: Event) {
+  async del(t: Tender, e: Event) {
     e.stopPropagation();
-    if (!confirm(`Delete tender "${t.title}"?`)) return;
+    const ok = await this.dialog.confirm(
+      `Delete tender "${t.title}"?`,
+      { title: 'Delete tender', confirmLabel: 'Delete', variant: 'danger' }
+    );
+    if (!ok) return;
     this.api.deleteTender(t.id!).subscribe(() => this.loadList());
   }
-  delCurrent() {
+  async delCurrent() {
     const t = this.current();
     if (!t) return;
-    if (!confirm(`Delete tender "${t.title}"?`)) return;
+    const ok = await this.dialog.confirm(
+      `Delete tender "${t.title}"?`,
+      { title: 'Delete tender', confirmLabel: 'Delete', variant: 'danger' }
+    );
+    if (!ok) return;
     this.api.deleteTender(t.id!).subscribe(() => this.router.navigate(['/operations/tenders']));
   }
 
@@ -1185,10 +1195,14 @@ export class TendersAdmin {
         error: e => { this.subSaving.set(false); this.subError.set(e?.error?.error || 'Save failed'); } });
     }
   }
-  deleteInfo(i: TenderInfo) {
+  async deleteInfo(i: TenderInfo) {
     const id = this.current()?.id; if (!id || !i.id) return;
-    if (!confirm(`Delete "${i.name}"?`)) return;
-    this.api.deleteTenderInfo(id, i.id).subscribe(() => this.loadTab('info', id));
+    const ok = await this.dialog.confirm(
+      `Delete "${i.name}"?`,
+      { title: 'Delete info entry', confirmLabel: 'Delete', variant: 'danger' }
+    );
+    if (!ok) return;
+    this.api.deleteTenderInfo(id, i.id!).subscribe(() => this.loadTab('info', id));
   }
 
   // ───────── Contacts tab ─────────
@@ -1226,10 +1240,14 @@ export class TendersAdmin {
         error: e => { this.subSaving.set(false); this.subError.set(e?.error?.error || 'Save failed'); } });
     }
   }
-  deleteContact(c: TenderContact) {
+  async deleteContact(c: TenderContact) {
     const id = this.current()?.id; if (!id || !c.id) return;
-    if (!confirm(`Delete ${c.first_name} ${c.last_name || ''}?`)) return;
-    this.api.deleteTenderContact(id, c.id).subscribe(() => this.loadTab('contacts', id));
+    const ok = await this.dialog.confirm(
+      `Delete ${c.first_name} ${c.last_name || ''}?`,
+      { title: 'Delete contact', confirmLabel: 'Delete', variant: 'danger' }
+    );
+    if (!ok) return;
+    this.api.deleteTenderContact(id, c.id!).subscribe(() => this.loadTab('contacts', id));
   }
 
   // ───────── Application tab — sections ─────────
@@ -1286,10 +1304,14 @@ export class TendersAdmin {
       error: () => this.loadTab('application', id), // revert on failure
     });
   }
-  deleteSection(s: TenderSection) {
+  async deleteSection(s: TenderSection) {
     const id = this.current()?.id; if (!id || !s.id) return;
-    if (!confirm(`Remove the "${s.label}" section? Documents in it become uncategorised but aren't deleted.`)) return;
-    this.api.deleteTenderSection(id, s.id).subscribe(() => this.loadTab('application', id));
+    const ok = await this.dialog.confirm(
+      `Remove the "${s.label}" section? Documents in it become uncategorised but aren't deleted.`,
+      { title: 'Remove section', confirmLabel: 'Remove', variant: 'danger' }
+    );
+    if (!ok) return;
+    this.api.deleteTenderSection(id, s.id!).subscribe(() => this.loadTab('application', id));
   }
 
   // ───────── Documents (now keyed to sections) ─────────
@@ -1353,10 +1375,14 @@ export class TendersAdmin {
         error: e => { this.subSaving.set(false); this.subError.set(e?.error?.error || 'Save failed'); } });
     }
   }
-  deleteDoc(d: TenderDocument) {
+  async deleteDoc(d: TenderDocument) {
     const id = this.current()?.id; if (!id || !d.id) return;
-    if (!confirm(`Delete "${d.title}"?`)) return;
-    this.api.deleteTenderDocument(id, d.id).subscribe(() => this.loadTab('application', id));
+    const ok = await this.dialog.confirm(
+      `Delete "${d.title}"?`,
+      { title: 'Delete document', confirmLabel: 'Delete', variant: 'danger' }
+    );
+    if (!ok) return;
+    this.api.deleteTenderDocument(id, d.id!).subscribe(() => this.loadTab('application', id));
   }
   toggleDocComplete(d: TenderDocument) {
     const id = this.current()?.id; if (!id || !d.id) return;
@@ -1389,10 +1415,14 @@ export class TendersAdmin {
         error: e => { this.subSaving.set(false); this.subError.set(e?.error?.error || 'Save failed'); } });
     }
   }
-  deleteNote(n: TenderNote) {
+  async deleteNote(n: TenderNote) {
     const id = this.current()?.id; if (!id || !n.id) return;
-    if (!confirm(`Delete "${n.title}"?`)) return;
-    this.api.deleteTenderNote(id, n.id).subscribe(() => this.loadTab('notes', id));
+    const ok = await this.dialog.confirm(
+      `Delete "${n.title}"?`,
+      { title: 'Delete note', confirmLabel: 'Delete', variant: 'danger' }
+    );
+    if (!ok) return;
+    this.api.deleteTenderNote(id, n.id!).subscribe(() => this.loadTab('notes', id));
   }
 
   // ───────── Helpers ─────────

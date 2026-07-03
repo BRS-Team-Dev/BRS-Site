@@ -2,6 +2,7 @@ import { Component, computed, inject, signal } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { Api } from '../../core/api';
+import { DialogService } from '../../core/dialog';
 import { HrReview, HrReviewQuestion, HrReviewResponses } from '../../core/models';
 
 /**
@@ -138,6 +139,7 @@ import { HrReview, HrReviewQuestion, HrReviewResponses } from '../../core/models
 export class HrReviewEdit {
   private api = inject(Api);
   private route = inject(ActivatedRoute);
+  private dialog = inject(DialogService);
 
   review = signal<HrReview | null>(null);
   saving = signal(false);
@@ -236,8 +238,13 @@ export class HrReviewEdit {
     });
   }
 
-  sign() {
-    if (!confirm('Sign and complete this review? It will move to "completed" and be visible to the employee.')) return;
+  async sign() {
+    const ok = await this.dialog.confirm('Sign and complete this review? It will move to "completed" and be visible to the employee.', {
+      title: 'Sign & complete review',
+      confirmLabel: 'Sign and complete',
+      variant: 'default',
+    });
+    if (!ok) return;
     this.persist({ sign: true });
   }
 }

@@ -3,6 +3,7 @@ import { Router } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { environment } from '@env/environment';
 import { Api } from '../../core/api';
+import { DialogService } from '../../core/dialog';
 import { HrApplication, HrApplicationNote, HrCandidate, HrInterview, HrJob, TaskTeam } from '../../core/models';
 import { EntityContracts } from '../../shared/entity-contracts';
 
@@ -516,6 +517,7 @@ const STAGES: Array<{ key: HrApplication['stage']; label: string }> = [
 export class HrRecruitment {
   private api = inject(Api);
   private router = inject(Router);
+  private dialog = inject(DialogService);
 
   readonly stages = STAGES;
 
@@ -577,10 +579,11 @@ export class HrRecruitment {
       this.api.getHrApplication(a.id!).subscribe(r => this.viewingNotes.set(r.notes ?? []));
     });
   }
-  deleteNote(n: HrApplicationNote) {
+  async deleteNote(n: HrApplicationNote) {
     const a = this.viewingApp();
     if (!a?.id || !n.id) return;
-    if (!confirm('Delete this note?')) return;
+    const ok = await this.dialog.confirm('Delete this note?', { title: 'Delete note', confirmLabel: 'Delete', variant: 'danger' });
+    if (!ok) return;
     this.api.deleteHrApplicationNote(a.id, n.id).subscribe(() => {
       this.viewingNotes.update(list => list.filter(x => x.id !== n.id));
     });
@@ -731,8 +734,8 @@ export class HrRecruitment {
     const url = this.publicJobUrl(j);
     if (!url) return;
     navigator.clipboard?.writeText(url).then(
-      () => alert('Public job link copied to clipboard:\n' + url),
-      () => alert(url),
+      () => this.dialog.alert('Public job link copied to clipboard:\n' + url, { title: 'Link copied', variant: 'success' }),
+      () => this.dialog.alert(url, { title: 'Public job link' }),
     );
   }
 
@@ -766,9 +769,10 @@ export class HrRecruitment {
     if (!id) return;
     this.api.updateHrJob(id, p).subscribe(() => this.refreshJobs());
   }
-  delJob(j: HrJob) {
+  async delJob(j: HrJob) {
     if (!j.id) return;
-    if (!confirm(`Delete "${j.title}"?`)) return;
+    const ok = await this.dialog.confirm(`Delete "${j.title}"?`, { title: 'Delete job', confirmLabel: 'Delete', variant: 'danger' });
+    if (!ok) return;
     this.api.deleteHrJob(j.id).subscribe(() => {
       this.selectedId.set(null);
       this.pipeline.set([]);
@@ -846,18 +850,23 @@ export class HrRecruitment {
     this.api.updateHrApplication(a.id, { stage }).subscribe(() => this.refreshPipeline());
   }
 
-  hire(a: HrApplication) {
+  async hire(a: HrApplication) {
     if (!a.id) return;
-    if (!confirm(`Hire ${a.first_name} ${a.last_name}? An employee record will be created and linked to a new admin user.`)) return;
+    const ok = await this.dialog.confirm(
+      `Hire ${a.first_name} ${a.last_name}? An employee record will be created and linked to a new admin user.`,
+      { title: 'Hire candidate', confirmLabel: 'Hire', variant: 'success' },
+    );
+    if (!ok) return;
     this.api.hireHrApplication(a.id).subscribe(r => {
       this.refreshPipeline();
       this.refreshJobs();
       this.router.navigate(['/hr/employees', r.employee_id]);
     });
   }
-  delApp(a: HrApplication) {
+  async delApp(a: HrApplication) {
     if (!a.id) return;
-    if (!confirm('Remove this application?')) return;
+    const ok = await this.dialog.confirm('Remove this application?', { title: 'Remove application', confirmLabel: 'Remove', variant: 'danger' });
+    if (!ok) return;
     this.api.deleteHrApplication(a.id).subscribe(() => this.refreshPipeline());
   }
 }

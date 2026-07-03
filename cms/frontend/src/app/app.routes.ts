@@ -30,6 +30,9 @@ export const routes: Routes = [
   // Public Recruitment onboarding portal for candidates (token in URL; no shell, no auth)
   { path: 'recruitment-onboarding/:token', loadComponent: () => import('./features/recruitment/recruitment-onboarding-portal').then(m => m.RecruitmentOnboardingPortal) },
   { path: 'surveys/:token',             loadComponent: () => import('./features/public/public-survey').then(m => m.PublicSurvey) },
+  // Public feedback viewer — handles questionnaires, forms, surveys, polls.
+  // ?client=N / ?lead=N tail is forwarded to the public API for tagging.
+  { path: 'feedback/:token',            loadComponent: () => import('./features/feedback/feedback-public').then(m => m.FeedbackPublic) },
   // Public job board — anonymous, no shell, no auth.
   { path: 'jobs',                       loadComponent: () => import('./features/public/public-jobs').then(m => m.PublicJobs) },
   { path: 'jobs/:slug',                 loadComponent: () => import('./features/public/public-job').then(m => m.PublicJob) },
@@ -57,7 +60,11 @@ export const routes: Routes = [
       { path: 'admin/submissions/:id',           loadComponent: () => import('./features/submissions/submissions-list').then(m => m.SubmissionsList) },
       { path: 'admin/settings',                  loadComponent: () => import('./features/settings/settings').then(m => m.Settings) },
 
-      { path: 'admin/onboarding',                  loadComponent: () => import('./features/onboarding/onboarding-list').then(m => m.OnboardingList) },
+      // Onboarding parent = hub (both surfaces). Multipart list moved
+      // to /admin/onboarding/multipart so the parent link has its own
+      // identity separate from the multipart child link.
+      { path: 'admin/onboarding',                  loadComponent: () => import('./features/onboarding/onboarding-hub').then(m => m.OnboardingHub) },
+      { path: 'admin/onboarding/multipart',        loadComponent: () => import('./features/onboarding/onboarding-list').then(m => m.OnboardingList) },
       { path: 'admin/onboarding/clients',          loadComponent: () => import('./features/onboarding/onboarding-clients').then(m => m.OnboardingClients) },
       { path: 'admin/onboarding/new',              loadComponent: () => import('./features/onboarding/onboarding-builder').then(m => m.OnboardingBuilder) },
       { path: 'admin/onboarding/:id/edit',         loadComponent: () => import('./features/onboarding/onboarding-builder').then(m => m.OnboardingBuilder) },
@@ -71,8 +78,15 @@ export const routes: Routes = [
       { path: 'admin/sections/:id/edit',  loadComponent: () => import('./features/sections/sections-admin').then(m => m.SectionsAdmin) },
       { path: 'admin/section/:id',        loadComponent: () => import('./features/sections/sections-admin').then(m => m.SectionsAdmin) },
 
+      { path: 'admin/taskboard',       loadComponent: () => import('./features/taskboard/taskboard-admin').then(m => m.TaskboardAdmin) },
+
       { path: 'admin/leads',           loadComponent: () => import('./features/leads/leads-admin').then(m => m.LeadsAdmin) },
       { path: 'admin/leads/new',       loadComponent: () => import('./features/leads/leads-admin').then(m => m.LeadsAdmin) },
+      // Static path MUST come before the :id parametrised route so the
+      // router doesn't grab "import" as a lead id and render the list
+      // page. Shares the LeadgenAdmin component in 'import' mode.
+      { path: 'admin/leads/import',    loadComponent: () => import('./features/leadgen/leadgen-admin').then(m => m.LeadgenAdmin),
+        data: { mode: 'import' } },
       { path: 'admin/leads/:id',       loadComponent: () => import('./features/leads/leads-admin').then(m => m.LeadsAdmin) },
       { path: 'admin/leads/:id/edit',  loadComponent: () => import('./features/leads/leads-admin').then(m => m.LeadsAdmin) },
 
@@ -80,6 +94,9 @@ export const routes: Routes = [
       // rather than the initial bundle.
       { path: 'admin/leadgen',           loadComponent: () => import('./features/leadgen/leadgen-admin').then(m => m.LeadgenAdmin) },
       { path: 'admin/leadgen/settings',  loadComponent: () => import('./features/leadgen/leadgen-settings').then(m => m.LeadgenSettings) },
+
+      { path: 'admin/feedback',          loadComponent: () => import('./features/feedback/feedback-admin').then(m => m.FeedbackAdmin) },
+      { path: 'admin/feedback/:id',      loadComponent: () => import('./features/feedback/feedback-builder').then(m => m.FeedbackBuilder) },
 
       { path: 'admin/newsletter',        loadComponent: () => import('./features/newsletter/newsletter-admin').then(m => m.NewsletterAdmin) },
       { path: 'admin/newsletter/new',    loadComponent: () => import('./features/newsletter/newsletter-admin').then(m => m.NewsletterAdmin) },
@@ -91,6 +108,7 @@ export const routes: Routes = [
       { path: 'admin/clients/:id/edit',  loadComponent: () => import('./features/clients/clients-admin').then(m => m.ClientsAdmin) },
 
       { path: 'admin/services',          loadComponent: () => import('./features/services/services-admin').then(m => m.ServicesAdmin) },
+      { path: 'admin/services/:sid/client/:key', loadComponent: () => import('./features/services/service-client-detail').then(m => m.ServiceClientDetail) },
 
       // ────────── Tasks (peer system at /tasks/*) ──────────
       // Tasks is its own top-level system as of the Tasks/Taskboard split.

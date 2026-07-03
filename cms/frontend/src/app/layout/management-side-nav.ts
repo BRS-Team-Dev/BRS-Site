@@ -1,11 +1,12 @@
 import { Component, computed, inject } from '@angular/core';
 import { RouterLink, RouterLinkActive } from '@angular/router';
 import { SettingsService } from '../core/settings.service';
+import { SideNavFooter } from './side-nav-footer';
 import { environment } from '@env/environment';
 
 @Component({
   selector: 'app-management-side-nav',
-  imports: [RouterLink, RouterLinkActive],
+  imports: [RouterLink, RouterLinkActive, SideNavFooter],
   template: `
     <aside>
       <div class="brand">
@@ -62,6 +63,7 @@ import { environment } from '@env/environment';
           <span class="icon">⚖</span> Compliance alerts
         </a>
       </nav>
+      <app-side-nav-footer />
     </aside>
   `,
   styles: [`

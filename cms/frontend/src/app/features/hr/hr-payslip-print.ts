@@ -2,6 +2,7 @@ import { Component, computed, ElementRef, inject, signal, ViewChild } from '@ang
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { DecimalPipe } from '@angular/common';
 import { Api } from '../../core/api';
+import { DialogService } from '../../core/dialog';
 import { HrEmployee, HrPayrollPeriod, HrPayslip } from '../../core/models';
 import { SettingsService } from '../../core/settings.service';
 
@@ -278,6 +279,7 @@ export class HrPayslipPrint {
   private api = inject(Api);
   private route = inject(ActivatedRoute);
   private settings = inject(SettingsService);
+  private dialog = inject(DialogService);
 
   brandName = this.settings.brandName;
   today = new Date().toLocaleDateString();
@@ -328,7 +330,7 @@ export class HrPayslipPrint {
       await html2pdf().set(opts).from(this.payslipEl.nativeElement).save();
     } catch (err) {
       console.error(err);
-      alert('PDF generation failed — falling back to the print dialog.');
+      this.dialog.alert('PDF generation failed — falling back to the print dialog.', { title: 'PDF error', variant: 'danger' });
       window.print();
     } finally {
       this.busy.set(false);

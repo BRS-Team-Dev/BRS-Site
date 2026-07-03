@@ -2,11 +2,14 @@ import { Component, computed, inject, signal } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { Api } from '../../core/api';
+import { DialogService } from '../../core/dialog';
 import {
   FIELD_TYPES, FieldType, FormDef, FormField, FormSection,
-  HAS_OPTIONS, OnboardingFormPayload, TaskTeam,
+  HAS_OPTIONS, OnboardingFormPayload, ServiceOffering, TaskTeam,
 } from '../../core/models';
 import { SIDENAV_BUILTIN_PARENTS } from '../../core/sidenav-config';
+import { AttachScopeValue, FormAttachPicker } from '../../shared/form-attach-picker';
+import { FormInvites } from '../../shared/form-invites';
 
 interface FieldDraft extends FormField {
   _localId?: number;
@@ -26,7 +29,7 @@ let _localCounter = 1;
 
 @Component({
   selector: 'app-onboarding-builder',
-  imports: [FormsModule],
+  imports: [FormsModule, FormAttachPicker, FormInvites],
   template: `
     <div class="toolbar">
       <button class="ghost" (click)="back()">← Back</button>
@@ -68,33 +71,6 @@ let _localCounter = 1;
         <label>Section label (defaults to template title)</label>
         <input [(ngModel)]="form.main_section_label" name="main_section_label" [placeholder]="form.title || ''" />
 
-        <label>Sidenav placement</label>
-        <select [(ngModel)]="form.sidenav_placement" name="sidenav_placement">
-          <option value="top">Top-level item</option>
-          <option value="child">Child of another section</option>
-        </select>
-
-        @if (form.sidenav_placement === 'child') {
-          <label>Parent section</label>
-          <select [(ngModel)]="form.sidenav_parent_key" name="sidenav_parent_key">
-            <option [ngValue]="null">— pick a parent —</option>
-            @for (p of parentChoices(); track p.key) {
-              <option [ngValue]="p.key">{{ p.label }}</option>
-            }
-          </select>
-        }
-
-        <hr />
-        <h2>Independent section</h2>
-        <div class="checkbox-row">
-          <input type="checkbox" id="rootSec"
-            [(ngModel)]="form.show_in_sidenav_root" name="show_in_sidenav_root" />
-          <label for="rootSec">Show this template as its own top-level sidenav section</label>
-        </div>
-        <div class="muted small">
-          Adds a standalone "{{ form.title || 'Section' }}" entry to the sidenav (in addition to the Onboarding dropdown).
-        </div>
-
         <hr />
         <h2>Parent process</h2>
         <div class="muted small" style="margin-bottom: 8px;">
@@ -122,47 +98,59 @@ let _localCounter = 1;
         </select>
 
         <hr />
-        <h2>Pricing</h2>
-        <div class="checkbox-row">
-          <input type="checkbox" id="hasPrice"
-            [(ngModel)]="form.has_price" name="has_price" />
-          <label for="hasPrice">This onboarding has a price</label>
-        </div>
-        @if (form.has_price) {
-          <label>Price</label>
-          <input type="number" min="0" step="0.01"
-            [(ngModel)]="form.price" name="price" placeholder="0.00" />
-
-          <label>Payment type</label>
-          <select [(ngModel)]="form.payment_type" name="payment_type">
-            <option value="one_off">One-off</option>
-            <option value="recurring">Recurring</option>
-          </select>
-
-          @if (form.payment_type === 'recurring') {
-            <label>Repeat duration</label>
-            <select [(ngModel)]="form.repeat_duration" name="repeat_duration">
-              <option [ngValue]="null">— pick a cadence —</option>
-              <option value="weekly">Weekly</option>
-              <option value="monthly">Monthly</option>
-              <option value="quarterly">Quarterly</option>
-              <option value="yearly">Yearly</option>
-            </select>
-
-            <div class="checkbox-row" style="margin-top: 12px;">
-              <input type="checkbox" id="indefinite"
-                [(ngModel)]="form.is_indefinite" name="is_indefinite" />
-              <label for="indefinite">Indefinite (no fixed contract end)</label>
-            </div>
-
-            @if (!form.is_indefinite) {
-              <label>Contract length (months)</label>
-              <input type="number" min="1" step="1"
-                [(ngModel)]="form.contract_length_months" name="contract_length_months"
-                placeholder="12" />
+        <h2>Attach to</h2>
+        <p class="muted small no-notes">
+          Determines who sees this onboarding as part of their default
+          onboarding tab. Individual invites (below) stack on top of
+          whichever scope you pick. Picking a service also inherits its
+          pricing / cadence, same as before.
+        </p>
+        <app-form-attach-picker [value]="attachValue" (valueChange)="onAttachChange($event)" />
+        @if (selectedService(); as svc) {
+          <div class="service-preview muted small">
+            <strong>{{ svc.name }}</strong>
+            @if (svc.price !== null && svc.price !== '' && svc.price !== undefined) {
+              · {{ servicePriceSummary(svc) }}
             }
-          }
+            @if (svc.description) { <div class="desc">{{ svc.description }}</div> }
+          </div>
         }
+
+        @if (!isNew() && formId()) {
+          <hr />
+          <h2>Individual invitations</h2>
+          <p class="muted small">
+            On top of any broadcast scope above, invite specific clients
+            or leads with a tokenised URL. Same mechanism as before —
+            just re-shared here so both builders behave the same way.
+          </p>
+          <app-form-invites [formId]="formId()!" [formSlug]="form.slug || ''" />
+        }
+
+        <!-- Allow-multiple toggle. When a service is linked the
+             service's flag is the source of truth — the input is
+             read-only and shows the inherited value. -->
+        <div class="allow-multiple-row">
+          <label class="check">
+            <input type="checkbox"
+                   [checked]="effectiveAllowMultiple()"
+                   [disabled]="!!selectedService()"
+                   (change)="toggleAllowMultiple($any($event.target).checked)" />
+            <span>Allow multiple submissions per client</span>
+          </label>
+          @if (selectedService(); as svc) {
+            <p class="muted small inh-note">
+              Inherited from <strong>{{ svc.name }}</strong>
+              ({{ svc.allow_multiple ? 'allowed' : 'not allowed' }}).
+              Change the toggle on the service to override.
+            </p>
+          } @else {
+            <p class="muted small inh-note">
+              No service linked — this flag controls the form on its
+              own. Subscription-style flows usually leave it off.
+            </p>
+          }
+        </div>
 
         <hr />
         <h2>Email — admin notification</h2>
@@ -309,6 +297,29 @@ let _localCounter = 1;
     .meta .checkbox-row label { margin-top: 0; }
     .meta hr { border: none; border-top: 1px solid var(--line); margin: 20px 0 16px 0; }
 
+    /* Confirmation chip showing the resolved service after picking
+       one — gives admins visual feedback that pricing is now coming
+       from the catalogue, not the legacy form-level fields. */
+    .service-preview {
+      margin-top: 10px; padding: 10px 12px;
+      background: var(--bg-3); border: 1px solid var(--line);
+      border-radius: var(--radius-sm);
+    }
+    .service-preview .desc { margin-top: 4px; opacity: 0.8; }
+
+    /* Allow-multiple toggle + its inheritance note. Sits right below
+       the service preview so the relationship reads naturally. */
+    .allow-multiple-row { margin-top: 14px; }
+    .allow-multiple-row .check {
+      display: inline-flex; align-items: center; gap: 8px; cursor: pointer;
+      text-transform: none; letter-spacing: normal;
+      font-size: 14px; font-weight: 500; color: var(--fg);
+      white-space: nowrap;
+    }
+    .allow-multiple-row .check span { white-space: nowrap; }
+    .allow-multiple-row .check input:disabled { cursor: not-allowed; }
+    .allow-multiple-row .inh-note { margin: 6px 0 0; line-height: 1.4; }
+
     .sections-pane { display: flex; flex-direction: column; gap: 16px; }
     .section-card { padding: 20px; transition: padding 0.15s; }
     .section-card.collapsed { padding: 14px 20px; }
@@ -338,6 +349,7 @@ let _localCounter = 1;
 })
 export class OnboardingBuilder {
   private api = inject(Api);
+  private dialog = inject(DialogService);
   private route = inject(ActivatedRoute);
   private router = inject(Router);
 
@@ -372,15 +384,98 @@ export class OnboardingBuilder {
     main_section_label: '', sidenav_placement: 'top', sidenav_parent_key: null,
     parent_process_form_id: null, show_in_sidenav_root: false,
     team_id: null,
+    service_offering_id: null,
+    broadcast_to_all_clients: 0,
+    broadcast_to_all_leads: 0,
     has_price: false, price: null,
     payment_type: 'one_off', repeat_duration: null,
     contract_length_months: null, is_indefinite: false,
   };
 
+  /** Catalogue services available to link this onboarding to. Fetched
+   *  once on init; the picker just renders names + a price summary. */
+  services = signal<ServiceOffering[]>([]);
+
+  /** Currently-linked service, resolved off the picker value. NOT a
+   *  computed — the picker writes to `this.form.service_offering_id`
+   *  on a plain object, which doesn't dirty any signal. A computed
+   *  would memoize the initial value forever. A plain method is
+   *  cheap (single Array.find) and re-runs on every CD cycle. */
+  selectedService(): ServiceOffering | null {
+    const id = this.form.service_offering_id;
+    if (id === null || id === undefined) return null;
+    return this.services().find(s => s.id === Number(id)) ?? null;
+  }
+
+  /** Legacy service-picker hook. Kept because save() may reference it
+   *  indirectly (the preview still calls `selectedService`); the shared
+   *  attach picker now drives service_offering_id via `onAttachChange`. */
+  onServiceChange(id: number | null): void {
+    this.form.service_offering_id = id;
+  }
+
+  /** Canonical value bound to <app-form-attach-picker>. Keeps the three
+   *  underlying flags on `form` in sync via `onAttachChange`. */
+  attachValue: AttachScopeValue = {
+    scope: 'none',
+    broadcast_to_all_clients: 0,
+    broadcast_to_all_leads: 0,
+    service_offering_id: null,
+  };
+
+  onAttachChange(v: AttachScopeValue) {
+    this.attachValue = v;
+    this.form.broadcast_to_all_clients = v.broadcast_to_all_clients;
+    this.form.broadcast_to_all_leads   = v.broadcast_to_all_leads;
+    this.form.service_offering_id      = v.service_offering_id;
+  }
+
+  /** Reduce the three flags on a loaded form to the picker's scope. */
+  private hydrateAttach() {
+    const bc = !!this.form.broadcast_to_all_clients;
+    const bl = !!this.form.broadcast_to_all_leads;
+    const sid = this.form.service_offering_id ?? null;
+    this.attachValue = {
+      scope: bc ? 'all_clients' : bl ? 'all_leads' : sid ? 'service' : 'none',
+      broadcast_to_all_clients: bc ? 1 : 0,
+      broadcast_to_all_leads:   bl ? 1 : 0,
+      service_offering_id: sid,
+    };
+  }
+
+  /** Resolved allow_multiple value shown on the toggle. When a
+   *  service is linked the service's flag wins; otherwise the form's
+   *  own flag is the source of truth. */
+  effectiveAllowMultiple(): boolean {
+    const svc = this.selectedService();
+    if (svc) return !!svc.allow_multiple;
+    return !!this.form.allow_multiple;
+  }
+
+  /** Toggle only mutates the form-level flag — when a service is
+   *  linked the input is disabled so this never fires for that case. */
+  toggleAllowMultiple(checked: boolean): void {
+    this.form.allow_multiple = checked ? 1 : 0;
+  }
+
+  /** "£500 · one-off" / "£99/month · 12m contract" / "£99/month · indefinite". */
+  servicePriceSummary(s: ServiceOffering): string {
+    const num = Number(s.price);
+    if (!Number.isFinite(num) || num <= 0) return 'no price';
+    const cur = s.currency || '£';
+    const money = `${cur}${num.toFixed(2).replace(/\.00$/, '')}`;
+    if (s.payment_type === 'recurring') {
+      const cadence = s.repeat_duration || 'period';
+      return `${money}/${cadence.replace(/ly$/, '')}`;
+    }
+    return `${money} · one-off`;
+  }
+
   ngOnInit() {
     // Load every onboarding form so the builder can offer parent-section choices.
     this.api.listOnboardingForms().subscribe(r => this.allForms.set(r.forms));
     this.api.listTaskTeams().subscribe(r => this.teams.set(r.teams));
+    this.api.listServiceOfferings().subscribe(r => this.services.set(r.services));
 
     const id = this.route.snapshot.paramMap.get('id');
     if (id && id !== 'new') {
@@ -390,12 +485,17 @@ export class OnboardingBuilder {
         this.form = {
           ...res.form,
           is_published: !!res.form.is_published,
+          allow_multiple: !!res.form.allow_multiple,
           sidenav_placement: res.form.sidenav_placement || 'top',
           sidenav_parent_key: res.form.sidenav_parent_key ?? null,
           main_section_label: res.form.main_section_label ?? '',
           parent_process_form_id: res.form.parent_process_form_id ?? null,
           team_id: res.form.team_id !== null && res.form.team_id !== undefined
             ? Number(res.form.team_id) : null,
+          service_offering_id: res.form.service_offering_id !== null && res.form.service_offering_id !== undefined
+            ? Number(res.form.service_offering_id) : null,
+          broadcast_to_all_clients: res.form.broadcast_to_all_clients ? 1 : 0,
+          broadcast_to_all_leads:   res.form.broadcast_to_all_leads   ? 1 : 0,
           show_in_sidenav_root: !!res.form.show_in_sidenav_root,
           has_price: !!res.form.has_price,
           // Decimal columns come back as strings from PHP/PDO — coerce so the
@@ -409,9 +509,20 @@ export class OnboardingBuilder {
         };
         this.sections.set(res.sections.map(s => this.toSectionDraft(s)));
         this.expandedSection.set(res.sections.length > 0 ? 0 : null);
+        this.hydrateAttach();
       });
     } else {
       this.expandedSection.set(null); // nothing to expand until first add
+      // Pre-link to a service when the URL carries ?service=<id> — the
+      // service edit modal links here with that param when an admin
+      // clicks "+ Create onboarding for this service".
+      const presetService = this.route.snapshot.queryParamMap.get('service');
+      if (presetService) {
+        const sid = Number(presetService);
+        if (Number.isFinite(sid) && sid > 0) {
+          this.form.service_offering_id = sid;
+        }
+      }
     }
   }
 
@@ -456,8 +567,9 @@ export class OnboardingBuilder {
     }]);
     this.expandedSection.set(this.sections().length - 1); // expand the newly added section
   }
-  removeSection(si: number) {
-    if (!confirm('Remove this section? All its fields will also be removed (and their columns dropped if saved).')) return;
+  async removeSection(si: number) {
+    const ok = await this.dialog.confirm('Remove this section? All its fields will also be removed (and their columns dropped if saved).', { title: 'Remove section', confirmLabel: 'Remove', variant: 'danger' });
+    if (!ok) return;
     this.sections.update(arr => arr.filter((_, i) => i !== si));
     const expanded = this.expandedSection();
     if (expanded === si) this.expandedSection.set(null);
@@ -506,8 +618,9 @@ export class OnboardingBuilder {
       return a;
     });
   }
-  removeField(si: number, fi: number) {
-    if (!confirm('Remove this field? If saved, this will drop the column and lose its data.')) return;
+  async removeField(si: number, fi: number) {
+    const ok = await this.dialog.confirm('Remove this field? If saved, this will drop the column and lose its data.', { title: 'Remove field', confirmLabel: 'Remove', variant: 'danger' });
+    if (!ok) return;
     this.sections.update(arr => {
       const a = [...arr]; a[si] = { ...a[si], fields: a[si].fields.filter((_, i) => i !== fi) }; return a;
     });
@@ -586,11 +699,15 @@ export class OnboardingBuilder {
     const payload: OnboardingFormPayload = {
       ...this.form,
       is_published: this.form.is_published ? 1 : 0,
-      sidenav_placement: this.form.sidenav_placement || 'top',
-      sidenav_parent_key: this.form.sidenav_placement === 'child' ? (this.form.sidenav_parent_key ?? null) : null,
+      allow_multiple: this.form.allow_multiple ? 1 : 0,
+      // Sidenav placement is no longer user-editable — everything
+      // sits under Onboarding > Multipart forms automatically.
+      sidenav_placement: 'top',
+      sidenav_parent_key: null,
       main_section_label: this.form.main_section_label || null,
       parent_process_form_id: this.form.parent_process_form_id ?? null,
       team_id: this.form.team_id ?? null,
+      service_offering_id: this.form.service_offering_id ?? null,
       show_in_sidenav_root: this.form.show_in_sidenav_root ? 1 : 0,
       has_price: this.form.has_price ? 1 : 0,
       price: this.form.has_price && this.form.price != null && this.form.price !== ''

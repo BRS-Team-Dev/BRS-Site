@@ -5,6 +5,7 @@ import { Api } from '../core/api';
 import { TaskTeam } from '../core/models';
 import { environment } from '@env/environment';
 import { SettingsService } from '../core/settings.service';
+import { SideNavFooter } from './side-nav-footer';
 
 /**
  * Tasks system sidenav (`/tasks/*`).
@@ -15,7 +16,7 @@ import { SettingsService } from '../core/settings.service';
  */
 @Component({
   selector: 'app-tasks-side-nav',
-  imports: [RouterLink],
+  imports: [RouterLink, SideNavFooter],
   template: `
     <aside>
       <div class="brand">
@@ -50,6 +51,7 @@ import { SettingsService } from '../core/settings.service';
           </a>
         </div>
       </nav>
+      <app-side-nav-footer />
     </aside>
   `,
   styles: [`

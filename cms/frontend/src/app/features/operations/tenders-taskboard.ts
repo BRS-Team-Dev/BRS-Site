@@ -2,6 +2,7 @@ import { Component, computed, inject, signal } from '@angular/core';
 import { Router } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { Api } from '../../core/api';
+import { DialogService } from '../../core/dialog';
 import {
   TenderTracker, TenderTrackerRow, Tender,
   OperationTask, OperationTaskStatus,
@@ -325,6 +326,7 @@ const blankTask = (): OperationTask => ({
 export class TendersTaskboard {
   private api = inject(Api);
   private router = inject(Router);
+  private dialog = inject(DialogService);
 
   bucketKeys: Bucket[] = ['overdue', 'due_soon', 'awaiting_decision', 'incomplete', 'stale', 'manual'];
   bucketLabel = (b: Bucket): string => BUCKET_LABELS[b];
@@ -531,10 +533,14 @@ export class TendersTaskboard {
       });
     }
   }
-  deleteTask(t: TaskRow) {
+  async deleteTask(t: TaskRow) {
     if (!t.manual?.id) return;
-    if (!confirm(`Delete task "${t.manual.title}"?`)) return;
-    this.api.deleteOperationTask(t.manual.id).subscribe(() => {
+    const ok = await this.dialog.confirm(
+      `Delete task "${t.manual.title}"?`,
+      { title: 'Delete task', confirmLabel: 'Delete', variant: 'danger' }
+    );
+    if (!ok) return;
+    this.api.deleteOperationTask(t.manual.id!).subscribe(() => {
       this.api.listOperationTasks().subscribe(r => this.manualTasks.set(r.tasks));
     });
   }

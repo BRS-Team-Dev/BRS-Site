@@ -317,7 +317,7 @@ type Stage = 'sign' | 'general' | 'cv' | 'documents';
     .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 16px; }
     .grid-2 .full { grid-column: 1 / -1; }
     .grid-2 label { margin-bottom: 4px; display: block; }
-    .grid-2 label.check { display: flex; align-items: center; gap: 8px; text-transform: none; letter-spacing: 0; font-size: 13px; color: var(--fg); }
+    .grid-2 label.check { display: flex; align-items: center; gap: 8px; text-transform: none; letter-spacing: 0; font-size: 13px; color: var(--fg); white-space: nowrap; }
     .grid-2 label.check input[type="checkbox"] { width: auto; }
     h3.lh { font-size: 13px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; margin: 16px 0 4px; }
 

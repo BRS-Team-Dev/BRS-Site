@@ -2,6 +2,7 @@ import { Component, computed, inject, signal } from '@angular/core';
 import { Router } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { Api } from '../../core/api';
+import { DialogService } from '../../core/dialog';
 import { HrCourseAssignment, HrDocument, HrEmployee, HrOnboardingProgress, HrOnboardingSection, HrOnboardingTask, HrReference } from '../../core/models';
 
 /**
@@ -435,6 +436,7 @@ const SECTIONS: { key: HrOnboardingSection; label: string; optional?: boolean }[
 export class HrOnboarding {
   private api = inject(Api);
   private router = inject(Router);
+  private dialog = inject(DialogService);
 
   readonly sections = SECTIONS;
 
@@ -549,8 +551,8 @@ export class HrOnboarding {
   copyLink(e: HrEmployee) {
     const url = this.portalUrl(e);
     navigator.clipboard?.writeText(url).then(
-      () => alert('Onboarding link copied to clipboard:\n' + url),
-      () => alert(url),
+      () => this.dialog.alert('Onboarding link copied to clipboard:\n' + url, { title: 'Link copied', variant: 'success' }),
+      () => this.dialog.alert(url, { title: 'Onboarding link' }),
     );
   }
 
@@ -593,9 +595,10 @@ export class HrOnboarding {
     if (!t.id) return;
     this.api.updateHrOnboarding(empId, t.id, p).subscribe();
   }
-  delTask(empId: number, t: HrOnboardingTask) {
+  async delTask(empId: number, t: HrOnboardingTask) {
     if (!t.id) return;
-    if (!confirm(`Remove "${t.title}"?`)) return;
+    const ok = await this.dialog.confirm(`Remove "${t.title}"?`, { title: 'Remove task', confirmLabel: 'Remove', variant: 'danger' });
+    if (!ok) return;
     this.api.deleteHrOnboarding(empId, t.id).subscribe(() => this.loadTasks(empId));
   }
 

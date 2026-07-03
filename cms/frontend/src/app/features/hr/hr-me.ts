@@ -5,6 +5,7 @@ import { environment } from '@env/environment';
 import { DecimalPipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Api } from '../../core/api';
+import { DialogService } from '../../core/dialog';
 import { HrCertification, HrChangeRequest, HrCourseAssignment, HrDocument, HrDocumentType, HrEmployee, HrEmployeeSkill, HrFeedbackNote, HrGoal, HrPayslip, HrPulseSurvey, HrReview, HrReviewQuestion, HrReviewResponses, HrShift, HrSkill, HrSurveyQuestion, HrTimeOffEntry } from '../../core/models';
 import { SignaturePad } from './signature-pad';
 import { HrCoursePlayer } from './hr-course-player';
@@ -878,6 +879,7 @@ type Tab = 'profile' | 'payslips' | 'time' | 'shifts' | 'documents' | 'reviews' 
       margin: 0; padding: 8px 10px;
       background: var(--bg-2); border: 1px solid var(--line); border-radius: var(--radius-sm);
       cursor: pointer; white-space: nowrap;
+      text-transform: none; letter-spacing: normal; font-weight: 500;
       color: var(--fg); font-size: 13px;
       width: 100%;
     }
@@ -1053,6 +1055,7 @@ type Tab = 'profile' | 'payslips' | 'time' | 'shifts' | 'documents' | 'reviews' 
 export class HrMe {
   private api = inject(Api);
   private router = inject(Router);
+  private dialog = inject(DialogService);
 
   readonly tabs: { key: Tab; label: string }[] = [
     { key: 'profile',   label: 'My profile' },
@@ -1143,7 +1146,7 @@ export class HrMe {
     const file = files[0];
     this.api.uploadHrMyDocument(file, { title: t.name, doc_type_id: t.id, category: 'general' }).subscribe({
       next: () => this.refreshDocs(),
-      error: e => alert(e?.error?.error || 'Upload failed'),
+      error: e => this.dialog.alert(e?.error?.error || 'Upload failed', { title: 'Upload failed', variant: 'danger' }),
     });
   }
   /** Free-form upload (Other documents). */
@@ -1166,9 +1169,10 @@ export class HrMe {
     });
   }
   /** Delete a self-uploaded (non-signed) document. */
-  delMyDoc(d: HrDocument) {
+  async delMyDoc(d: HrDocument) {
     if (!d.id) return;
-    if (!confirm(`Delete "${d.title}"?`)) return;
+    const ok = await this.dialog.confirm(`Delete "${d.title}"?`, { title: 'Delete document', confirmLabel: 'Delete', variant: 'danger' });
+    if (!ok) return;
     this.api.deleteHrMyDocument(d.id).subscribe(() => this.refreshDocs());
   }
   private refreshDocs() {
@@ -1268,9 +1272,10 @@ export class HrMe {
       this.api.listMyGoals().subscribe(rr => this.myGoals.set(rr.goals));
     });
   }
-  delMyGoal(g: HrGoal) {
+  async delMyGoal(g: HrGoal) {
     if (!g.id) return;
-    if (!confirm(`Delete goal "${g.title}"?`)) return;
+    const ok = await this.dialog.confirm(`Delete goal "${g.title}"?`, { title: 'Delete goal', confirmLabel: 'Delete', variant: 'danger' });
+    if (!ok) return;
     this.api.deleteMyGoal(g.id).subscribe(() => {
       this.api.listMyGoals().subscribe(rr => this.myGoals.set(rr.goals));
     });
@@ -1322,9 +1327,10 @@ export class HrMe {
       },
     });
   }
-  delMySkill(s: HrEmployeeSkill) {
+  async delMySkill(s: HrEmployeeSkill) {
     if (!s.skill_id) return;
-    if (!confirm(`Remove "${s.skill_name}" from your skill assessments?`)) return;
+    const ok = await this.dialog.confirm(`Remove "${s.skill_name}" from your skill assessments?`, { title: 'Remove skill', confirmLabel: 'Remove', variant: 'danger' });
+    if (!ok) return;
     this.api.deleteMyOwnSkill(s.skill_id).subscribe(() => {
       this.api.listMyOwnSkills().subscribe(rr => this.myOwnSkills.set(rr.rows));
     });
@@ -1433,9 +1439,12 @@ export class HrMe {
     return new Date(c.expires_at) < new Date();
   }
 
-  saveReview(r: HrReview, sign: boolean) {
+  async saveReview(r: HrReview, sign: boolean) {
     if (!r.id) return;
-    if (sign && !confirm('Submit your self review? Your manager will be notified to complete their part.')) return;
+    if (sign) {
+      const ok = await this.dialog.confirm('Submit your self review? Your manager will be notified to complete their part.', { title: 'Submit self review', confirmLabel: 'Submit' });
+      if (!ok) return;
+    }
     this.api.submitHrMyReviewResponse(r.id, {
       responses: this.reviewResponses(),
       overall: this.myOverall() ?? undefined,

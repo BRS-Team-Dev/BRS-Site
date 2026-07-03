@@ -1,7 +1,8 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, Input, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { Api } from '../../core/api';
+import { DialogService } from '../../core/dialog';
 import { AppSettings } from '../../core/models';
 import { SettingsService } from '../../core/settings.service';
 import {
@@ -34,10 +35,12 @@ const BLANK_DRAFT = (): NewModelDraft => ({
   selector: 'app-leadgen-settings',
   imports: [FormsModule, RouterLink],
   template: `
-    <div class="toolbar">
-      <button class="ghost" routerLink="/admin/leadgen">← Back to Lead Gen</button>
-      <h1>Lead Gen · Settings</h1>
-    </div>
+    @if (!embedded) {
+      <div class="toolbar">
+        <button class="ghost" routerLink="/admin/leadgen">← Back to Lead Gen</button>
+        <h1>Lead Gen · Settings</h1>
+      </div>
+    }
 
     @if (!loaded()) {
       <div class="empty">Loading settings…</div>
@@ -183,6 +186,13 @@ const BLANK_DRAFT = (): NewModelDraft => ({
 export class LeadgenSettings {
   private api = inject(Api);
   private svc = inject(SettingsService);
+  private dialog = inject(DialogService);
+
+  /** When true, hide the page-level toolbar so this component renders
+   *  cleanly inside another page's tab (e.g. /admin/settings → Lead
+   *  Gen tab). Routed standalone usage at /admin/leadgen/settings
+   *  leaves this false so the back button + h1 still appear. */
+  @Input() embedded = false;
 
   s: AppSettings = {};
   loaded = signal(false);
@@ -263,8 +273,13 @@ export class LeadgenSettings {
     });
   }
 
-  deleteModel(m: CustomAiModel) {
-    if (!confirm(`Remove custom model "${m.label}" (${m.model_id})?`)) return;
+  async deleteModel(m: CustomAiModel) {
+    const ok = await this.dialog.confirm(`Remove custom model "${m.label}" (${m.model_id})?`, {
+      title: 'Remove custom model',
+      confirmLabel: 'Remove',
+      variant: 'danger',
+    });
+    if (!ok) return;
     this.api.deleteCustomAiModel(m.id).subscribe(() => this.loadCustomModels());
   }
 }

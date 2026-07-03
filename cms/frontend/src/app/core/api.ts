@@ -2,8 +2,8 @@ import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import {
-  AdminSection, AdminUser, AdminUserRecord, AppSettings,
-  Client, ClientAccount, ClientContact, ClientInfo, ClientNote, ClientService, ClientServicesTotals, CrmDashboardOverview, Invoice, InvoiceLine, Lead, LeadIndustrySummary, LeadInfo, LeadNote, ServicePoolEntry,
+  AdminSection, AdminUser, AdminUserRecord, AppSettings, BillingProfile, BillingSummary, FormInvite, FormSubmissionCandidateGroup, FormSubmissionLinkGroup, PaymentMethod, StripeConfig, StripeSetupIntent, StripeSubscribeResult, SubscriptionInvoice, SubscriptionPlan, SubscriptionTier, UsersSubscription,
+  AppNotification, Client, ClientAccount, ClientContact, ClientInfo, ClientNote, ClientService, ClientServicesTotals, CrmDashboardOverview, CrmTask, CrmTaskNote, CrmTaskStats, CustomTheme, EmailProvider, EmailRouting, FeedbackForm, FeedbackQuestion, FeedbackResponse, Invoice, InvoiceLine, Lead, LeadIndustrySummary, LeadInfo, LeadNote, LeadServiceLink, NotificationEventDef, NotificationRule, NotificationSection, NotificationUnreadCount, ServiceClientDetail, ServiceClientLink, ServicePoolEntry,
   FormDef, FormField, FormSection,
   HrCertification, HrChangeRequest, HrComplianceNote, HrComplianceTask, HrCourse, HrCourseAssignment,
   HrEmployeeNote,
@@ -40,6 +40,19 @@ export interface PublicBranding {
   logo_url?: string;
 }
 
+/** The slice of the tenants registry row the SPA needs at runtime —
+ *  brand name for the top-nav, logo path for the dashboard header,
+ *  and the colour-theme slug for the [data-theme] attribute. Returned
+ *  by every auth endpoint (/auth/login, /auth/me, /auth/impersonate)
+ *  so the frontend never needs a separate registry round-trip. */
+export interface TenantBranding {
+  id: number;
+  slug: string | null;
+  brand_name: string | null;
+  color_theme: string;
+  logo_path: string | null;
+}
+
 const BASE = `${environment.basePath}/api`;
 
 @Injectable({ providedIn: 'root' })
@@ -47,22 +60,33 @@ export class Api {
   private http = inject(HttpClient);
 
   // auth
-  login(email: string, password: string): Observable<{ token: string; user: AdminUser }> {
-    return this.http.post<{ token: string; user: AdminUser }>(`${BASE}/auth/login`, { email, password });
+  login(email: string, password: string): Observable<{ token: string; user: AdminUser; tenant: TenantBranding }> {
+    return this.http.post<{ token: string; user: AdminUser; tenant: TenantBranding }>(`${BASE}/auth/login`, { email, password });
   }
-  me(): Observable<{ user: AdminUser }> {
-    return this.http.get<{ user: AdminUser }>(`${BASE}/auth/me`);
+  me(): Observable<{ user: AdminUser; tenant: TenantBranding }> {
+    return this.http.get<{ user: AdminUser; tenant: TenantBranding }>(`${BASE}/auth/me`);
   }
   /** Super-admin: hand the current session's identity to another tenant.
    *  Returns a NEW JWT scoped to the target tenant. */
   impersonate(tenantId: number): Observable<{
     token: string; tenant_id: number; tenant_slug: string; brand_name: string;
-    impersonating: { from: number };
+    tenant: TenantBranding; impersonating: { from: number };
   }> {
     return this.http.post<{
       token: string; tenant_id: number; tenant_slug: string; brand_name: string;
-      impersonating: { from: number };
+      tenant: TenantBranding; impersonating: { from: number };
     }>(`${BASE}/auth/impersonate`, { tenant_id: tenantId });
+  }
+  /** Persist a new colour-theme slug for the current tenant. The
+   *  backend writes `tenants.color_theme` + flushes the APCu row cache
+   *  so /auth/me reflects the change immediately. */
+  updateThemeSetting(slug: string): Observable<{ ok: boolean; color_theme: string }> {
+    return this.http.put<{ ok: boolean; color_theme: string }>(`${BASE}/settings/theme`, { color_theme: slug });
+  }
+  /** Per-user theme override. Pass `null` to clear and fall back to the
+   *  tenant default. */
+  updateMyTheme(slug: string | null): Observable<{ ok: boolean; color_theme: string | null }> {
+    return this.http.put<{ ok: boolean; color_theme: string | null }>(`${BASE}/auth/me/theme`, { color_theme: slug });
   }
 
   // ── Super-admin (cross-tenant) ────────────────────────────────────
@@ -85,6 +109,139 @@ export class Api {
     return this.http.post<{ ok: boolean }>(`${BASE}/auth/change-password`, { current_password, new_password });
   }
 
+  // ── CRM tasks ────────────────────────────────────────────────────
+  listCrmTasks(): Observable<{ tasks: CrmTask[]; stats: CrmTaskStats }> {
+    return this.http.get<{ tasks: CrmTask[]; stats: CrmTaskStats }>(`${BASE}/crm-tasks`);
+  }
+  createCrmTask(payload: Partial<CrmTask>): Observable<{ id: number }> {
+    return this.http.post<{ id: number }>(`${BASE}/crm-tasks`, payload);
+  }
+  updateCrmTask(id: number, payload: Partial<CrmTask>): Observable<{ ok: boolean }> {
+    return this.http.put<{ ok: boolean }>(`${BASE}/crm-tasks/${id}`, payload);
+  }
+  deleteCrmTask(id: number): Observable<{ ok: boolean }> {
+    return this.http.delete<{ ok: boolean }>(`${BASE}/crm-tasks/${id}`);
+  }
+
+  // ── Feedback forms (questionnaire / form / survey / poll) ──
+  listFeedbackForms(filter?: { kind?: string; client?: number; lead?: number; service?: number; published?: number | boolean }): Observable<{ forms: FeedbackForm[] }> {
+    const q = new URLSearchParams();
+    if (filter?.kind)    q.set('kind', filter.kind);
+    if (filter?.client)  q.set('client', String(filter.client));
+    if (filter?.lead)    q.set('lead',   String(filter.lead));
+    if (filter?.service) q.set('service', String(filter.service));
+    if (filter?.published) q.set('published', '1');
+    const qs = q.toString();
+    return this.http.get<{ forms: FeedbackForm[] }>(`${BASE}/feedback-forms${qs ? '?' + qs : ''}`);
+  }
+  getFeedbackForm(id: number): Observable<{ form: FeedbackForm; questions: FeedbackQuestion[]; response_count: number }> {
+    return this.http.get<{ form: FeedbackForm; questions: FeedbackQuestion[]; response_count: number }>(`${BASE}/feedback-forms/${id}`);
+  }
+  createFeedbackForm(payload: Partial<FeedbackForm>): Observable<{ id: number; public_token: string }> {
+    return this.http.post<{ id: number; public_token: string }>(`${BASE}/feedback-forms`, payload);
+  }
+  updateFeedbackForm(id: number, payload: Partial<FeedbackForm>): Observable<{ ok: boolean }> {
+    return this.http.put<{ ok: boolean }>(`${BASE}/feedback-forms/${id}`, payload);
+  }
+  cloneFeedbackForm(id: number, opts?: { service_offering_id?: number; service_name?: string }): Observable<{ id: number; public_token: string }> {
+    return this.http.post<{ id: number; public_token: string }>(
+      `${BASE}/feedback-forms/${id}/clone`,
+      opts ?? {},
+    );
+  }
+  deleteFeedbackForm(id: number): Observable<{ ok: boolean }> {
+    return this.http.delete<{ ok: boolean }>(`${BASE}/feedback-forms/${id}`);
+  }
+  addFeedbackQuestion(formId: number, payload: Partial<FeedbackQuestion>): Observable<{ id: number }> {
+    return this.http.post<{ id: number }>(`${BASE}/feedback-forms/${formId}/questions`, payload);
+  }
+  updateFeedbackQuestion(formId: number, qid: number, payload: Partial<FeedbackQuestion>): Observable<{ ok: boolean }> {
+    return this.http.put<{ ok: boolean }>(`${BASE}/feedback-forms/${formId}/questions/${qid}`, payload);
+  }
+  deleteFeedbackQuestion(formId: number, qid: number): Observable<{ ok: boolean }> {
+    return this.http.delete<{ ok: boolean }>(`${BASE}/feedback-forms/${formId}/questions/${qid}`);
+  }
+  listFeedbackResponses(formId: number, filter?: { client?: number; lead?: number }): Observable<{ responses: FeedbackResponse[] }> {
+    const q = new URLSearchParams();
+    if (filter?.client) q.set('client', String(filter.client));
+    if (filter?.lead)   q.set('lead',   String(filter.lead));
+    const qs = q.toString();
+    return this.http.get<{ responses: FeedbackResponse[] }>(
+      `${BASE}/feedback-forms/${formId}/responses${qs ? '?' + qs : ''}`,
+    );
+  }
+  attachFeedbackFormToClient(formId: number, clientId: number): Observable<{ ok: boolean }> {
+    return this.http.post<{ ok: boolean }>(`${BASE}/feedback-forms/${formId}/clients`, { client_id: clientId });
+  }
+  detachFeedbackFormFromClient(formId: number, clientId: number): Observable<{ ok: boolean }> {
+    return this.http.delete<{ ok: boolean }>(`${BASE}/feedback-forms/${formId}/clients/${clientId}`);
+  }
+  attachFeedbackFormToLead(formId: number, leadId: number): Observable<{ ok: boolean }> {
+    return this.http.post<{ ok: boolean }>(`${BASE}/feedback-forms/${formId}/leads`, { lead_id: leadId });
+  }
+  detachFeedbackFormFromLead(formId: number, leadId: number): Observable<{ ok: boolean }> {
+    return this.http.delete<{ ok: boolean }>(`${BASE}/feedback-forms/${formId}/leads/${leadId}`);
+  }
+
+  // ─── Email providers + routing (migration 122) ───────────────
+  listEmailProviders(): Observable<{ providers: EmailProvider[] }> {
+    return this.http.get<{ providers: EmailProvider[] }>(`${BASE}/email/providers`);
+  }
+  createEmailProvider(payload: Partial<EmailProvider> & { api_key?: string; api_secret?: string; smtp_password?: string }): Observable<{ id: number }> {
+    return this.http.post<{ id: number }>(`${BASE}/email/providers`, payload);
+  }
+  updateEmailProvider(id: number, payload: Partial<EmailProvider> & { api_key?: string; api_secret?: string; smtp_password?: string }): Observable<{ ok: boolean }> {
+    return this.http.put<{ ok: boolean }>(`${BASE}/email/providers/${id}`, payload);
+  }
+  deleteEmailProvider(id: number): Observable<{ ok: boolean }> {
+    return this.http.delete<{ ok: boolean }>(`${BASE}/email/providers/${id}`);
+  }
+  testEmailProvider(id: number, to: string): Observable<{ ok: boolean; sent_to?: string; error?: string }> {
+    return this.http.post<{ ok: boolean; sent_to?: string; error?: string }>(
+      `${BASE}/email/providers/${id}/test`, { to }
+    );
+  }
+  // ─── Custom themes (migration 126) ───────────────────────────
+  listCustomThemes(): Observable<{ themes: CustomTheme[] }> {
+    return this.http.get<{ themes: CustomTheme[] }>(`${BASE}/themes`);
+  }
+  createCustomTheme(payload: Partial<CustomTheme>): Observable<{ id: number; slug: string }> {
+    return this.http.post<{ id: number; slug: string }>(`${BASE}/themes`, payload);
+  }
+  updateCustomTheme(id: number, payload: Partial<CustomTheme>): Observable<{ ok: boolean }> {
+    return this.http.put<{ ok: boolean }>(`${BASE}/themes/${id}`, payload);
+  }
+  deleteCustomTheme(id: number): Observable<{ ok: boolean }> {
+    return this.http.delete<{ ok: boolean }>(`${BASE}/themes/${id}`);
+  }
+
+  getEmailSystemStatus(): Observable<{
+    system_fallback_enabled: boolean;
+    grace_days_left: number | null;
+    in_grace: boolean;
+    expired: boolean;
+  }> {
+    return this.http.get<{
+      system_fallback_enabled: boolean;
+      grace_days_left: number | null;
+      in_grace: boolean;
+      expired: boolean;
+    }>(`${BASE}/email/system`);
+  }
+  getEmailRouting(): Observable<{ routing: EmailRouting }> {
+    return this.http.get<{ routing: EmailRouting }>(`${BASE}/email/routing`);
+  }
+  updateEmailRouting(payload: Partial<EmailRouting>): Observable<{ ok: boolean }> {
+    return this.http.put<{ ok: boolean }>(`${BASE}/email/routing`, payload);
+  }
+
+  listCrmTaskNotes(taskId: number): Observable<{ notes: CrmTaskNote[] }> {
+    return this.http.get<{ notes: CrmTaskNote[] }>(`${BASE}/crm-tasks/${taskId}/notes`);
+  }
+  addCrmTaskNote(taskId: number, body: string): Observable<{ id: number }> {
+    return this.http.post<{ id: number }>(`${BASE}/crm-tasks/${taskId}/notes`, { body });
+  }
+
   // forms
   listForms(): Observable<{ forms: FormDef[] }> {
     return this.http.get<{ forms: FormDef[] }>(`${BASE}/forms`);
@@ -105,6 +262,37 @@ export class Api {
   // service offerings (CRM Services catalogue — standalone, not onboarding)
   listServiceOfferings(): Observable<{ services: ServiceOffering[] }> {
     return this.http.get<{ services: ServiceOffering[] }>(`${BASE}/services`);
+  }
+  /** Clients currently tied to a catalogue service — either via a
+   *  direct client_service_offerings row OR via a qualified
+   *  onboarding_clients entry whose form links to this service. */
+  listClientsOnService(serviceId: number): Observable<{ clients: ServiceClientLink[] }> {
+    return this.http.get<{ clients: ServiceClientLink[] }>(`${BASE}/services/${serviceId}/clients`);
+  }
+  /** Update the workflow status on a catalogue-attached service link
+   *  row. Onboarding-derived rows reject this (their status is read
+   *  from task_projects). */
+  updateServiceClientStatus(serviceId: number, linkId: number, status: string) {
+    return this.http.put<{ ok: boolean; status: string }>(
+      `${BASE}/services/${serviceId}/clients/${linkId}/status`,
+      { status }
+    );
+  }
+  /** Single-row detail for the full-page tracking view. `key` is
+   *  `cat-<linkId>` (catalogue attach) or `onb-<ocId>` (onboarding). */
+  getServiceClientDetail(serviceId: number, key: string): Observable<{ client: ServiceClientDetail; service: ServiceOffering }> {
+    return this.http.get<{ client: ServiceClientDetail; service: ServiceOffering }>(
+      `${BASE}/services/${serviceId}/client/${key}`
+    );
+  }
+  /** The onboarding form (if any) linked to a catalogue service via
+   *  forms.service_offering_id. Returns `{ form: null }` when nothing
+   *  is linked yet — the modal uses that to show "+ Create
+   *  onboarding". */
+  getServiceOnboardingForm(serviceId: number): Observable<{ form: { id: number; slug: string; title: string; is_published: 0 | 1; created_at?: string } | null }> {
+    return this.http.get<{ form: { id: number; slug: string; title: string; is_published: 0 | 1; created_at?: string } | null }>(
+      `${BASE}/services/${serviceId}/onboarding`
+    );
   }
   createServiceOffering(payload: Partial<ServiceOffering>): Observable<{ id: number }> {
     return this.http.post<{ id: number }>(`${BASE}/services`, payload);
@@ -138,6 +326,36 @@ export class Api {
   }
   testMail(to: string): Observable<{ ok: boolean; error?: string }> {
     return this.http.post<{ ok: boolean; error?: string }>(`${BASE}/settings/test-mail`, { to });
+  }
+  // ─── Notifications (migration 127) ───────────────────────────
+  listNotifications(section?: string): Observable<{ notifications: AppNotification[] }> {
+    const qs = section ? `?section=${encodeURIComponent(section)}` : '';
+    return this.http.get<{ notifications: AppNotification[] }>(`${BASE}/notifications${qs}`);
+  }
+  notificationUnreadCount(): Observable<NotificationUnreadCount> {
+    return this.http.get<NotificationUnreadCount>(`${BASE}/notifications/unread-count`);
+  }
+  markNotificationRead(id: number): Observable<{ ok: boolean }> {
+    return this.http.put<{ ok: boolean }>(`${BASE}/notifications/${id}/read`, {});
+  }
+  markAllNotificationsRead(section?: string): Observable<{ ok: boolean }> {
+    const qs = section ? `?section=${encodeURIComponent(section)}` : '';
+    return this.http.post<{ ok: boolean }>(`${BASE}/notifications/read-all${qs}`, {});
+  }
+  listNotificationEvents(): Observable<{ events: NotificationEventDef[] }> {
+    return this.http.get<{ events: NotificationEventDef[] }>(`${BASE}/notifications/events`);
+  }
+  listNotificationRules(): Observable<{ rules: NotificationRule[] }> {
+    return this.http.get<{ rules: NotificationRule[] }>(`${BASE}/notifications/rules`);
+  }
+  updateNotificationRule(eventKey: string, rule: Partial<NotificationRule>): Observable<{ ok: boolean }> {
+    return this.http.put<{ ok: boolean }>(`${BASE}/notifications/rules/${encodeURIComponent(eventKey)}`, rule);
+  }
+
+  uploadBrandLogo(file: File): Observable<{ url: string }> {
+    const fd = new FormData();
+    fd.append('file', file);
+    return this.http.post<{ url: string }>(`${BASE}/settings/logo`, fd);
   }
 
   // onboarding (admin)
@@ -726,6 +944,21 @@ export class Api {
     return this.http.delete<{ ok: boolean }>(`${BASE}/leads/${leadId}/info/${infoId}`);
   }
 
+  // lead → services (junction via migration 111). Returned rows carry a
+  // flat `service_offering_id` + the joined catalogue `name`/`price` so
+  // the badge list can render without a second round-trip.
+  listLeadServices(leadId: number): Observable<{ services: LeadServiceLink[] }> {
+    return this.http.get<{ services: LeadServiceLink[] }>(`${BASE}/leads/${leadId}/services`);
+  }
+  addLeadService(leadId: number, serviceOfferingId: number): Observable<{ id: number; service_offering_id: number }> {
+    return this.http.post<{ id: number; service_offering_id: number }>(
+      `${BASE}/leads/${leadId}/services`, { service_offering_id: serviceOfferingId }
+    );
+  }
+  removeLeadService(leadId: number, linkId: number): Observable<{ ok: boolean }> {
+    return this.http.delete<{ ok: boolean }>(`${BASE}/leads/${leadId}/services/${linkId}`);
+  }
+
   // taskboard
   listTaskTeams(): Observable<{ teams: TaskTeam[] }> {
     return this.http.get<{ teams: TaskTeam[] }>(`${BASE}/tasks/teams`);
@@ -845,6 +1078,113 @@ export class Api {
   }
   deleteAdminUser(id: number): Observable<{ ok: boolean }> {
     return this.http.delete<{ ok: boolean }>(`${BASE}/users/${id}`);
+  }
+  deactivateAdminUser(id: number): Observable<{ ok: boolean }> {
+    return this.http.post<{ ok: boolean }>(`${BASE}/users/${id}/deactivate`, {});
+  }
+  reinstateAdminUser(id: number): Observable<{ ok: boolean }> {
+    return this.http.post<{ ok: boolean }>(`${BASE}/users/${id}/reinstate`, {});
+  }
+  getUsersSubscription(): Observable<UsersSubscription> {
+    return this.http.get<UsersSubscription>(`${BASE}/users/subscription`);
+  }
+  updateUsersSubscription(tier: SubscriptionTier): Observable<{ ok: boolean; tier: SubscriptionTier }> {
+    return this.http.put<{ ok: boolean; tier: SubscriptionTier }>(`${BASE}/users/subscription`, { tier });
+  }
+
+  // ─── Billing (migration 129/130) ─────────────────────────────
+  getBillingSummary(): Observable<BillingSummary> {
+    return this.http.get<BillingSummary>(`${BASE}/billing`);
+  }
+  updateBillingProfile(p: Partial<BillingProfile>): Observable<{ ok: boolean }> {
+    return this.http.put<{ ok: boolean }>(`${BASE}/billing/profile`, p);
+  }
+  createPaymentMethod(p: Partial<PaymentMethod>): Observable<{ id: number }> {
+    return this.http.post<{ id: number }>(`${BASE}/billing/payment-methods`, p);
+  }
+  updatePaymentMethod(id: number, p: Partial<PaymentMethod>): Observable<{ ok: boolean }> {
+    return this.http.put<{ ok: boolean }>(`${BASE}/billing/payment-methods/${id}`, p);
+  }
+  makePaymentMethodDefault(id: number): Observable<{ ok: boolean }> {
+    return this.http.post<{ ok: boolean }>(`${BASE}/billing/payment-methods/${id}/default`, {});
+  }
+  deletePaymentMethod(id: number): Observable<{ ok: boolean }> {
+    return this.http.delete<{ ok: boolean }>(`${BASE}/billing/payment-methods/${id}`);
+  }
+  listSubscriptionInvoices(): Observable<{ invoices: SubscriptionInvoice[] }> {
+    return this.http.get<{ invoices: SubscriptionInvoice[] }>(`${BASE}/billing/invoices`);
+  }
+
+  // ─── Stripe ──────────────────────────────────────────────────
+  getStripeConfig(): Observable<StripeConfig> {
+    return this.http.get<StripeConfig>(`${BASE}/billing/stripe/config`);
+  }
+  createStripeSetupIntent(types: string[] = ['card']): Observable<StripeSetupIntent> {
+    return this.http.post<StripeSetupIntent>(`${BASE}/billing/stripe/setup-intent`, { payment_method_types: types });
+  }
+  syncStripePaymentMethod(pm_id: string, make_default: boolean): Observable<{ ok: boolean }> {
+    return this.http.post<{ ok: boolean }>(`${BASE}/billing/stripe/sync-payment-method`,
+      { payment_method_id: pm_id, make_default });
+  }
+  stripeSubscribe(tier: SubscriptionTier, cadence: 'monthly' | 'yearly' = 'monthly'): Observable<StripeSubscribeResult | { deferred: true; effective_at: string; message: string }> {
+    return this.http.post<StripeSubscribeResult | { deferred: true; effective_at: string; message: string }>(`${BASE}/billing/stripe/subscribe`, { tier, cadence });
+  }
+
+  listPlans(): Observable<{ plans: SubscriptionPlan[] }> {
+    return this.http.get<{ plans: SubscriptionPlan[] }>(`${BASE}/billing/plans`);
+  }
+  updatePlan(id: number, patch: Partial<SubscriptionPlan> & { features?: string[] }): Observable<{ ok: boolean }> {
+    return this.http.put<{ ok: boolean }>(`${BASE}/billing/plans/${id}`, patch);
+  }
+  stripeCancel(): Observable<{ ok: boolean }> {
+    return this.http.post<{ ok: boolean }>(`${BASE}/billing/stripe/cancel`, {});
+  }
+  stripeCancelPending(): Observable<{ ok: boolean }> {
+    return this.http.post<{ ok: boolean }>(`${BASE}/billing/stripe/cancel-pending`, {});
+  }
+  stripePortal(): Observable<{ url: string }> {
+    return this.http.post<{ url: string }>(`${BASE}/billing/stripe/portal`, {});
+  }
+
+  // ─── Form submission linkage ─────────────────────────────
+  listFormSubmissionsFor(type: 'client' | 'lead' | 'service', id: number): Observable<{ groups: FormSubmissionLinkGroup[] }> {
+    return this.http.get<{ groups: FormSubmissionLinkGroup[] }>(`${BASE}/form-submission-links/for/${type}/${id}`);
+  }
+  attachFormSubmission(payload: {
+    form_id: number;
+    submission_id: number;
+    client_id?: number;
+    lead_id?: number;
+    service_offering_id?: number;
+  }): Observable<{ id: number }> {
+    return this.http.post<{ id: number }>(`${BASE}/form-submission-links`, payload);
+  }
+  listAttachCandidates(excludeType: 'client'|'lead'|'service', excludeId: number): Observable<{ forms: FormSubmissionCandidateGroup[] }> {
+    return this.http.get<{ forms: FormSubmissionCandidateGroup[] }>(
+      `${BASE}/form-submission-links/candidates?exclude_type=${excludeType}&exclude_id=${excludeId}`
+    );
+  }
+
+  // ─── Form invitations (client/lead + token URLs) ─────────────
+  listFormInvites(formId: number): Observable<{ invites: FormInvite[] }> {
+    return this.http.get<{ invites: FormInvite[] }>(`${BASE}/forms/${formId}/invites`);
+  }
+  createFormInvite(formId: number, payload: {
+    parent_client_id?: number;
+    parent_lead_id?:   number;
+    client_email?:     string;
+    client_name?:      string;
+  }): Observable<{ id: number; token: string; url: string }> {
+    return this.http.post<{ id: number; token: string; url: string }>(
+      `${BASE}/forms/${formId}/invites`, payload,
+    );
+  }
+  deleteFormInvite(formId: number, inviteId: number): Observable<{ ok: boolean }> {
+    return this.http.delete<{ ok: boolean }>(`${BASE}/forms/${formId}/invites/${inviteId}`);
+  }
+  detachFormSubmission(id: number, force = false): Observable<{ ok: boolean }> {
+    const url = `${BASE}/form-submission-links/${id}` + (force ? '?force=1' : '');
+    return this.http.delete<{ ok: boolean }>(url);
   }
 
   // ====================================================================

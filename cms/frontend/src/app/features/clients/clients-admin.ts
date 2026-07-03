@@ -3,10 +3,13 @@ import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { Observable } from 'rxjs';
 import { Api } from '../../core/api';
-import { Client, ClientAccount, ClientContact, ClientInfo, ClientNote, ClientService, ClientServicesTotals, FormDef, ServiceOffering, TaskItem } from '../../core/models';
+import { DialogService } from '../../core/dialog';
+import { environment } from '@env/environment';
+import { Client, ClientAccount, ClientContact, ClientInfo, ClientNote, ClientService, ClientServicesTotals, FeedbackForm, FeedbackQuestion, FeedbackResponse, FormDef, FormSubmissionLinkGroup, ServiceOffering, TaskItem } from '../../core/models';
 import { EntityContracts } from '../../shared/entity-contracts';
+import { FormSubmissionsList } from '../../shared/form-submissions-list';
 
-type TabKey = 'info' | 'contacts' | 'services' | 'accounts' | 'contracts' | 'notes';
+type TabKey = 'info' | 'contacts' | 'services' | 'accounts' | 'contracts' | 'onboarding' | 'feedback' | 'notes';
 
 /**
  * Standalone Clients section.
@@ -17,38 +20,42 @@ type TabKey = 'info' | 'contacts' | 'services' | 'accounts' | 'contracts' | 'not
  */
 @Component({
   selector: 'app-clients-admin',
-  imports: [RouterLink, FormsModule, EntityContracts],
+  imports: [RouterLink, FormsModule, EntityContracts, FormSubmissionsList],
   template: `
     @if (mode() === 'list') {
       <div class="toolbar">
         <h1>Clients</h1>
         <span class="spacer"></span>
-        <button class="primary" routerLink="/admin/clients/new">+ New client</button>
+        <button class="primary" routerLink="/admin/clients/new" data-testid="client-btn-add">+ New client</button>
       </div>
 
       @if (clients().length === 0) {
         <div class="empty">
           <p class="muted">No clients yet.</p>
-          <button class="primary" routerLink="/admin/clients/new">Add your first client</button>
+          <button class="primary" routerLink="/admin/clients/new" data-testid="client-btn-add-empty">Add your first client</button>
         </div>
       } @else {
         <div class="table-wrap">
-          <table class="data">
+          <table class="data" data-testid="client-list">
             <thead><tr>
               <th>Name</th><th>Email</th><th>Phone</th><th>Company</th><th></th>
             </tr></thead>
             <tbody>
               @for (c of clients(); track c.id) {
-                <tr (click)="view(c)">
+                <tr (click)="view(c)" [attr.data-testid]="'client-row-' + c.id">
                   <td><strong>{{ c.name }}</strong></td>
                   <td>{{ c.email || '—' }}</td>
                   <td>{{ c.phone || '—' }}</td>
                   <td>{{ c.company || '—' }}</td>
                   <td class="actions">
-                    <button class="ghost icon-btn" (click)="view(c, $event)" title="View" aria-label="View">👁</button>
-                    <button class="ghost icon-btn" (click)="edit(c, $event)" title="Edit" aria-label="Edit">✎</button>
-                    <button class="ghost icon-btn relegate" (click)="relegate(c, $event)" title="Send back to leads" aria-label="Send back to leads">↓</button>
-                    <button class="ghost icon-btn danger" (click)="del(c, $event)" title="Delete" aria-label="Delete">✕</button>
+                    <button class="ghost icon-btn" (click)="view(c, $event)" title="View" aria-label="View"
+                            [attr.data-testid]="'client-row-' + c.id + '-view'">👁</button>
+                    <button class="ghost icon-btn" (click)="edit(c, $event)" title="Edit" aria-label="Edit"
+                            [attr.data-testid]="'client-row-' + c.id + '-edit'">✎</button>
+                    <button class="ghost icon-btn relegate" (click)="relegate(c, $event)" title="Send back to leads" aria-label="Send back to leads"
+                            [attr.data-testid]="'client-row-' + c.id + '-relegate'">↓</button>
+                    <button class="ghost icon-btn danger" (click)="del(c, $event)" title="Delete" aria-label="Delete"
+                            [attr.data-testid]="'client-row-' + c.id + '-delete'">✕</button>
                   </td>
                 </tr>
               }
@@ -60,12 +67,12 @@ type TabKey = 'info' | 'contacts' | 'services' | 'accounts' | 'contracts' | 'not
 
     @if (mode() === 'view') {
       <div class="toolbar">
-        <button class="ghost" (click)="back()">← Back</button>
-        <h1>{{ current()?.name || 'Client' }}</h1>
+        <button class="ghost" (click)="back()" data-testid="client-view-back">← Back</button>
+        <h1 data-testid="client-view-name">{{ current()?.name || 'Client' }}</h1>
         <span class="spacer"></span>
-        <button class="ghost" (click)="goEdit()" title="Edit">✎ Edit</button>
-        <button class="ghost" (click)="relegateCurrent()" title="Send back to leads">↓ Send to leads</button>
-        <button class="danger" (click)="delCurrent()">Delete</button>
+        <button class="ghost" (click)="goEdit()" title="Edit" data-testid="client-view-edit">✎ Edit</button>
+        <button class="ghost" (click)="relegateCurrent()" title="Send back to leads" data-testid="client-view-relegate">↓ Send to leads</button>
+        <button class="danger" (click)="delCurrent()" data-testid="client-view-delete">Delete</button>
       </div>
 
       @if (current(); as c) {
@@ -96,7 +103,8 @@ type TabKey = 'info' | 'contacts' | 'services' | 'accounts' | 'contracts' | 'not
                 <button
                   class="tab-btn"
                   [class.active]="activeTab() === t.key"
-                  (click)="activeTab.set(t.key)">
+                  (click)="onTabClick(t.key, c.id!)"
+                  [attr.data-testid]="'client-tab-' + t.key">
                   {{ t.label }}
                 </button>
               }
@@ -108,7 +116,7 @@ type TabKey = 'info' | 'contacts' | 'services' | 'accounts' | 'contracts' | 'not
                   <div class="tab-head">
                     <h3>Information</h3>
                     <span class="spacer"></span>
-                    <button class="primary" (click)="toggleInfoForm()">
+                    <button class="primary" (click)="toggleInfoForm()" data-testid="client-info-btn-add">
                       {{ infoFormOpen() ? '× Cancel' : '+ Add info' }}
                     </button>
                   </div>
@@ -116,17 +124,20 @@ type TabKey = 'info' | 'contacts' | 'services' | 'accounts' | 'contracts' | 'not
                   @if (infoFormOpen()) {
                     <div class="info-form">
                       <label>Name <span class="req">★</span></label>
-                      <input [(ngModel)]="infoDraft.name" name="if_name" placeholder="e.g. Industry" />
+                      <input [(ngModel)]="infoDraft.name" name="if_name" placeholder="e.g. Industry"
+                             data-testid="client-info-input-name" />
 
                       <label>Value</label>
-                      <textarea [(ngModel)]="infoDraft.value" name="if_value" rows="3" placeholder="e.g. SaaS / Fintech"></textarea>
+                      <textarea [(ngModel)]="infoDraft.value" name="if_value" rows="3" placeholder="e.g. SaaS / Fintech"
+                                data-testid="client-info-input-value"></textarea>
 
                       @if (infoError()) { <div class="error-msg">{{ infoError() }}</div> }
                       <div class="row" style="margin-top: 16px; gap: 8px;">
-                        <button class="primary" (click)="saveInfo()" [disabled]="infoSaving()">
+                        <button class="primary" (click)="saveInfo()" [disabled]="infoSaving()"
+                                data-testid="client-info-btn-save">
                           {{ infoSaving() ? 'Saving…' : (infoDraft.id ? 'Update' : 'Save info') }}
                         </button>
-                        <button class="ghost" (click)="closeInfoForm()">Done</button>
+                        <button class="ghost" (click)="closeInfoForm()" data-testid="client-info-btn-done">Done</button>
                       </div>
                     </div>
                   }
@@ -136,12 +147,14 @@ type TabKey = 'info' | 'contacts' | 'services' | 'accounts' | 'contracts' | 'not
                   } @else if (infoEntries().length > 0) {
                     <div class="info-list">
                       @for (i of infoEntries(); track i.id) {
-                        <div class="kv info-row">
+                        <div class="kv info-row" [attr.data-testid]="'client-info-row-' + i.id">
                           <label>{{ i.name }}</label>
                           <div>{{ i.value || '—' }}</div>
                           <div class="info-actions">
-                            <button class="ghost icon-btn" (click)="editInfo(i)" title="Edit">✎</button>
-                            <button class="ghost icon-btn danger" (click)="deleteInfo(i)" title="Delete">✕</button>
+                            <button class="ghost icon-btn" (click)="editInfo(i)" title="Edit"
+                                    [attr.data-testid]="'client-info-row-' + i.id + '-edit'">✎</button>
+                            <button class="ghost icon-btn danger" (click)="deleteInfo(i)" title="Delete"
+                                    [attr.data-testid]="'client-info-row-' + i.id + '-delete'">✕</button>
                           </div>
                         </div>
                       }
@@ -152,7 +165,7 @@ type TabKey = 'info' | 'contacts' | 'services' | 'accounts' | 'contracts' | 'not
                   <div class="tab-head">
                     <h3>Contacts</h3>
                     <span class="spacer"></span>
-                    <button class="primary" (click)="toggleContactForm()">
+                    <button class="primary" (click)="toggleContactForm()" data-testid="client-contact-btn-add">
                       {{ contactFormOpen() ? '× Cancel' : '+ Add contact' }}
                     </button>
                   </div>
@@ -162,39 +175,48 @@ type TabKey = 'info' | 'contacts' | 'services' | 'accounts' | 'contracts' | 'not
                       <div class="row two-col">
                         <div>
                           <label>First name <span class="req">★</span></label>
-                          <input [(ngModel)]="contactDraft.first_name" name="cd_first" placeholder="Jane" />
+                          <input [(ngModel)]="contactDraft.first_name" name="cd_first" placeholder="Jane"
+                                 data-testid="client-contact-input-first" />
                         </div>
                         <div>
                           <label>Last name</label>
-                          <input [(ngModel)]="contactDraft.last_name" name="cd_last" placeholder="Doe" />
+                          <input [(ngModel)]="contactDraft.last_name" name="cd_last" placeholder="Doe"
+                                 data-testid="client-contact-input-last" />
                         </div>
                       </div>
                       <label>Position</label>
-                      <input [(ngModel)]="contactDraft.position" name="cd_pos" placeholder="CEO" />
+                      <input [(ngModel)]="contactDraft.position" name="cd_pos" placeholder="CEO"
+                             data-testid="client-contact-input-position" />
                       <label>Email</label>
-                      <input type="email" [(ngModel)]="contactDraft.email" name="cd_email" placeholder="jane@example.com" />
+                      <input type="email" [(ngModel)]="contactDraft.email" name="cd_email" placeholder="jane@example.com"
+                             data-testid="client-contact-input-email" />
 
                       <label>Numbers</label>
                       @for (n of contactNumbers(); track $index; let i = $index) {
                         <div class="number-row">
-                          <input [(ngModel)]="n.number" [name]="'num_' + i" placeholder="+1 555 123 4567" />
-                          <input [(ngModel)]="n.label" [name]="'lbl_' + i" placeholder="mobile / office" class="num-label" />
-                          <button class="ghost icon-btn danger" (click)="removeNumber(i)" title="Remove">✕</button>
+                          <input [(ngModel)]="n.number" [name]="'num_' + i" placeholder="+1 555 123 4567"
+                                 [attr.data-testid]="'client-contact-number-' + i" />
+                          <input [(ngModel)]="n.label" [name]="'lbl_' + i" placeholder="mobile / office" class="num-label"
+                                 [attr.data-testid]="'client-contact-number-label-' + i" />
+                          <button class="ghost icon-btn danger" (click)="removeNumber(i)" title="Remove"
+                                  [attr.data-testid]="'client-contact-number-' + i + '-remove'">✕</button>
                         </div>
                       }
-                      <button class="ghost" (click)="addNumber()">+ Add number</button>
+                      <button class="ghost" (click)="addNumber()" data-testid="client-contact-btn-add-number">+ Add number</button>
 
                       <div class="checkbox-row" style="margin-top: 12px;">
-                        <input type="checkbox" id="verified" [(ngModel)]="contactDraft.verified" name="cd_verified" />
+                        <input type="checkbox" id="verified" [(ngModel)]="contactDraft.verified" name="cd_verified"
+                               data-testid="client-contact-input-verified" />
                         <label for="verified">Verified</label>
                       </div>
 
                       @if (contactError()) { <div class="error-msg">{{ contactError() }}</div> }
                       <div class="row" style="margin-top: 16px; gap: 8px;">
-                        <button class="primary" (click)="saveContact()" [disabled]="contactSaving()">
+                        <button class="primary" (click)="saveContact()" [disabled]="contactSaving()"
+                                data-testid="client-contact-btn-save">
                           {{ contactSaving() ? 'Saving…' : (contactDraft.id ? 'Update' : 'Save contact') }}
                         </button>
-                        <button class="ghost" (click)="closeContactForm()">Done</button>
+                        <button class="ghost" (click)="closeContactForm()" data-testid="client-contact-btn-done">Done</button>
                       </div>
                     </div>
                   }
@@ -204,7 +226,8 @@ type TabKey = 'info' | 'contacts' | 'services' | 'accounts' | 'contracts' | 'not
                   } @else {
                     <div class="contact-list">
                       @for (ct of contacts(); track ct.id) {
-                        <div class="contact-card" [class.expanded]="expandedContact() === ct.id" [class.primary]="!!ct.is_primary">
+                        <div class="contact-card" [class.expanded]="expandedContact() === ct.id" [class.primary]="!!ct.is_primary"
+                             [attr.data-testid]="'client-contact-row-' + ct.id">
                           <div class="contact-head" (click)="toggleContact(ct)">
                             <span class="caret">›</span>
                             <div class="contact-name">
@@ -214,14 +237,17 @@ type TabKey = 'info' | 'contacts' | 'services' | 'accounts' | 'contracts' | 'not
                             @if (ct.is_primary) {
                               <span class="badge primary">Primary</span>
                             } @else {
-                              <button class="ghost small make-primary" (click)="makePrimary(ct); $event.stopPropagation()" title="Set as primary contact">
+                              <button class="ghost small make-primary" (click)="makePrimary(ct); $event.stopPropagation()" title="Set as primary contact"
+                                      [attr.data-testid]="'client-contact-row-' + ct.id + '-make-primary'">
                                 Set as primary
                               </button>
                             }
                             @if (ct.verified) { <span class="badge success">Verified</span> }
                             <span class="spacer"></span>
-                            <button class="ghost icon-btn" (click)="editContact(ct); $event.stopPropagation()" title="Edit">✎</button>
-                            <button class="ghost icon-btn danger" (click)="deleteContact(ct); $event.stopPropagation()" title="Delete">✕</button>
+                            <button class="ghost icon-btn" (click)="editContact(ct); $event.stopPropagation()" title="Edit"
+                                    [attr.data-testid]="'client-contact-row-' + ct.id + '-edit'">✎</button>
+                            <button class="ghost icon-btn danger" (click)="deleteContact(ct); $event.stopPropagation()" title="Delete"
+                                    [attr.data-testid]="'client-contact-row-' + ct.id + '-delete'">✕</button>
                           </div>
                           @if (expandedContact() === ct.id) {
                             <div class="contact-body">
@@ -240,7 +266,7 @@ type TabKey = 'info' | 'contacts' | 'services' | 'accounts' | 'contracts' | 'not
                   <div class="tab-head">
                     <h3>Services</h3>
                     <span class="spacer"></span>
-                    <button class="primary" (click)="toggleAddService()">
+                    <button class="primary" (click)="toggleAddService()" data-testid="client-service-btn-add">
                       {{ addServiceOpen() ? '× Cancel' : '+ Add service' }}
                     </button>
                   </div>
@@ -255,7 +281,7 @@ type TabKey = 'info' | 'contacts' | 'services' | 'accounts' | 'contracts' | 'not
                         own record.
                       </div>
                       <label>Service <span class="req">★</span></label>
-                      <select [(ngModel)]="addServiceSel" name="add_svc_form">
+                      <select [(ngModel)]="addServiceSel" name="add_svc_form" data-testid="client-service-select">
                         <option [ngValue]="null">— pick a service —</option>
                         @if (serviceOfferings().length) {
                           <optgroup label="Catalogue services">
@@ -274,10 +300,11 @@ type TabKey = 'info' | 'contacts' | 'services' | 'accounts' | 'contracts' | 'not
                       </select>
                       @if (addServiceError()) { <div class="error-msg">{{ addServiceError() }}</div> }
                       <div class="row" style="margin-top: 14px; gap: 8px;">
-                        <button class="primary" (click)="addService()" [disabled]="addServiceSaving() || !addServiceSel">
+                        <button class="primary" (click)="addService()" [disabled]="addServiceSaving() || !addServiceSel"
+                                data-testid="client-service-btn-save">
                           {{ addServiceSaving() ? 'Adding…' : 'Add service' }}
                         </button>
-                        <button class="ghost" (click)="closeAddService()">Cancel</button>
+                        <button class="ghost" (click)="closeAddService()" data-testid="client-service-btn-cancel">Cancel</button>
                       </div>
                     </div>
                   }
@@ -312,11 +339,17 @@ type TabKey = 'info' | 'contacts' | 'services' | 'accounts' | 'contracts' | 'not
                       </div>
                     </div>
 
-                    <ul class="slot-list services-list">
+                    <ul class="slot-list services-list" data-testid="client-service-list">
                       @for (s of services(); track s.row_key) {
-                        <li class="slot" [class.filled]="s.status !== 'ended'" [class.missing]="s.status === 'ended'" [class.expanded]="s.kind === 'onboarding' && isServiceExpanded(s.onboarding_client_id!)">
-                          <div class="slot-head" [class.no-caret]="s.kind === 'catalog'" (click)="s.kind === 'onboarding' && toggleService(s)">
-                            @if (s.kind === 'onboarding') { <span class="caret">›</span> }
+                        <li class="slot"
+                            [class.filled]="s.status !== 'ended'"
+                            [class.missing]="s.status === 'ended'"
+                            [class.expanded]="isServiceExpanded(s.row_key)"
+                            [attr.data-testid]="'client-service-row-' + s.row_key">
+                          <div class="slot-head"
+                               [class.no-caret]="!isExpandable(s)"
+                               (click)="toggleService(s)">
+                            @if (isExpandable(s)) { <span class="caret">›</span> }
                             <strong>{{ s.form_title }}</strong>
                             @if (s.kind === 'catalog') {
                               <span class="pill" data-pstatus="catalog">Service</span>
@@ -343,7 +376,8 @@ type TabKey = 'info' | 'contacts' | 'services' | 'accounts' | 'contracts' | 'not
                             <span class="spacer"></span>
                             <span class="monthly-chip"><strong>{{ formatMoney(s.monthly_value) }}</strong> /mo</span>
                             @if (s.kind === 'catalog') {
-                              <button class="ghost icon-btn danger" (click)="removeCatalogService(s, $event)" title="Remove service">✕</button>
+                              <button class="ghost icon-btn danger" (click)="removeCatalogService(s, $event)" title="Remove service"
+                                      [attr.data-testid]="'client-service-row-' + s.row_key + '-delete'">✕</button>
                             }
                           </div>
                           <div class="slot-meta service-breakdown">
@@ -361,42 +395,96 @@ type TabKey = 'info' | 'contacts' | 'services' | 'accounts' | 'contracts' | 'not
                             </span>
                           </div>
 
-                          @if (s.kind === 'onboarding' && isServiceExpanded(s.onboarding_client_id!)) {
-                            <div class="service-items">
-                              @if (!s.project_id) {
-                                <p class="muted small">No project linked — work items appear here when one is created.</p>
-                              } @else if (serviceItemsLoading().has(s.project_id)) {
-                                <p class="muted small">Loading work items…</p>
-                              } @else if ((serviceItems().get(s.project_id)?.length ?? 0) === 0) {
-                                <p class="muted small">No work items in this project yet.</p>
-                              } @else {
+                          @if (isServiceExpanded(s.row_key)) {
+                            <!-- Onboarding rows: show linked work items -->
+                            @if (s.kind === 'onboarding') {
+                              <div class="service-items">
+                                @if (!s.project_id) {
+                                  <p class="muted small">No project linked — work items appear here when one is created.</p>
+                                } @else if (serviceItemsLoading().has(s.project_id)) {
+                                  <p class="muted small">Loading work items…</p>
+                                } @else if ((serviceItems().get(s.project_id)?.length ?? 0) === 0) {
+                                  <p class="muted small">No work items in this project yet.</p>
+                                } @else {
+                                  <div class="items-head">
+                                    <strong>Work items</strong>
+                                    <span class="spacer"></span>
+                                    <a class="ghost small" [routerLink]="['/tasks/taskboard/projects', s.project_id]">Open project →</a>
+                                  </div>
+                                  <ul class="items-list">
+                                    @for (it of serviceItems().get(s.project_id)!; track it.id) {
+                                      <li>
+                                        @if (it.type_color) { <span class="type-dot" [style.background]="it.type_color"></span> }
+                                        <span class="it-id">#{{ it.id }}</span>
+                                        <a class="it-title" [routerLink]="['/tasks/taskboard/projects', s.project_id]" [queryParams]="{ item: it.id }">
+                                          {{ it.title }}
+                                        </a>
+                                        <span class="spacer"></span>
+                                        @if (it.state_name) {
+                                          <span class="it-state" [style.color]="it.state_color || ''" [style.borderColor]="it.state_color || ''">
+                                            {{ it.state_name }}
+                                          </span>
+                                        }
+                                        @if (it.assignee_name) {
+                                          <span class="muted small">{{ it.assignee_name }}</span>
+                                        }
+                                      </li>
+                                    }
+                                  </ul>
+                                }
+                              </div>
+                            }
+
+                            <!-- Any row (catalog or onboarding) with linked
+                                 form submissions on the same service: show
+                                 the captured data inline, collapsible per
+                                 submission so multiple entries don't
+                                 dominate the row. -->
+                            @if (hasLinkedOnboarding(s)) {
+                              <div class="service-onboarding">
                                 <div class="items-head">
-                                  <strong>Work items</strong>
+                                  <strong>Onboarding captured</strong>
                                   <span class="spacer"></span>
-                                  <a class="ghost small" [routerLink]="['/tasks/taskboard/projects', s.project_id]">Open project →</a>
+                                  <a class="ghost small" (click)="activeTab.set('onboarding'); $event.preventDefault()">Open Onboarding tab →</a>
                                 </div>
-                                <ul class="items-list">
-                                  @for (it of serviceItems().get(s.project_id)!; track it.id) {
-                                    <li>
-                                      @if (it.type_color) { <span class="type-dot" [style.background]="it.type_color"></span> }
-                                      <span class="it-id">#{{ it.id }}</span>
-                                      <a class="it-title" [routerLink]="['/tasks/taskboard/projects', s.project_id]" [queryParams]="{ item: it.id }">
-                                        {{ it.title }}
-                                      </a>
-                                      <span class="spacer"></span>
-                                      @if (it.state_name) {
-                                        <span class="it-state" [style.color]="it.state_color || ''" [style.borderColor]="it.state_color || ''">
-                                          {{ it.state_name }}
-                                        </span>
-                                      }
-                                      @if (it.assignee_name) {
-                                        <span class="muted small">{{ it.assignee_name }}</span>
-                                      }
-                                    </li>
-                                  }
-                                </ul>
-                              }
-                            </div>
+                                @for (g of linkedOnboardingFor(s); track g.form.id) {
+                                  <div class="ob-form">
+                                    <span class="ob-form-type" [class.multipart]="g.form.form_type === 'onboarding'">
+                                      {{ g.form.form_type === 'onboarding' ? 'Multipart' : 'Form' }}
+                                    </span>
+                                    <strong>{{ g.form.title }}</strong>
+                                    <span class="muted small">{{ g.submissions.length }} submission{{ g.submissions.length === 1 ? '' : 's' }}</span>
+                                  </div>
+                                  <ul class="ob-subs">
+                                    @for (sub of g.submissions; track sub.link_id) {
+                                      <li>
+                                        <button type="button" class="ob-toggle" (click)="toggleServiceSub(sub.link_id, $event)">
+                                          <span class="ob-caret">{{ isServiceSubOpen(sub.link_id) ? '▾' : '▸' }}</span>
+                                          <span class="ob-when">{{ formatDate(sub.submitted_at) }}</span>
+                                          @if (sub.is_compulsory) {
+                                            <span class="ob-required">🔒 Required</span>
+                                          }
+                                        </button>
+                                        @if (isServiceSubOpen(sub.link_id)) {
+                                          @if (!sub.data) {
+                                            <p class="muted small">Submission data missing.</p>
+                                          } @else {
+                                            <table class="ob-fields">
+                                              @for (row of submissionRows(sub.data); track row.key) {
+                                                <tr>
+                                                  <th>{{ prettyFieldName(row.key) }}</th>
+                                                  <td>{{ formatValue(row.value) }}</td>
+                                                </tr>
+                                              }
+                                            </table>
+                                          }
+                                        }
+                                      </li>
+                                    }
+                                  </ul>
+                                }
+                              </div>
+                            }
                           }
                         </li>
                       }
@@ -407,7 +495,7 @@ type TabKey = 'info' | 'contacts' | 'services' | 'accounts' | 'contracts' | 'not
                   <div class="tab-head">
                     <h3>Accounts</h3>
                     <span class="spacer"></span>
-                    <button class="primary" (click)="toggleAccountForm()">
+                    <button class="primary" (click)="toggleAccountForm()" data-testid="client-account-btn-add">
                       {{ accountFormOpen() ? '× Cancel' : '+ Add account' }}
                     </button>
                   </div>
@@ -415,13 +503,16 @@ type TabKey = 'info' | 'contacts' | 'services' | 'accounts' | 'contracts' | 'not
                   @if (accountFormOpen()) {
                     <div class="contact-form">
                       <label>Account name <span class="req">★</span></label>
-                      <input [(ngModel)]="accountDraft.account_name" name="ad_name" placeholder="Cloudflare, Mailchimp, etc." />
+                      <input [(ngModel)]="accountDraft.account_name" name="ad_name" placeholder="Cloudflare, Mailchimp, etc."
+                             data-testid="client-account-input-name" />
 
                       <label>Login URL</label>
-                      <input [(ngModel)]="accountDraft.login_url" name="ad_url" placeholder="https://example.com/login" />
+                      <input [(ngModel)]="accountDraft.login_url" name="ad_url" placeholder="https://example.com/login"
+                             data-testid="client-account-input-url" />
 
                       <label>Username / email</label>
-                      <input [(ngModel)]="accountDraft.username" name="ad_user" placeholder="user@example.com" />
+                      <input [(ngModel)]="accountDraft.username" name="ad_user" placeholder="user@example.com"
+                             data-testid="client-account-input-username" />
 
                       <label>Password</label>
                       <div class="number-row" style="grid-template-columns: 1fr 32px;">
@@ -429,7 +520,8 @@ type TabKey = 'info' | 'contacts' | 'services' | 'accounts' | 'contracts' | 'not
                           [type]="passwordFieldVisible() ? 'text' : 'password'"
                           [(ngModel)]="accountDraft.password"
                           name="ad_pw"
-                          placeholder="••••••••" />
+                          placeholder="••••••••"
+                          data-testid="client-account-input-password" />
                         <button class="ghost icon-btn" (click)="passwordFieldVisible.set(!passwordFieldVisible())" [title]="passwordFieldVisible() ? 'Hide' : 'Show'">
                           @if (passwordFieldVisible()) {
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -449,10 +541,11 @@ type TabKey = 'info' | 'contacts' | 'services' | 'accounts' | 'contracts' | 'not
 
                       @if (accountError()) { <div class="error-msg">{{ accountError() }}</div> }
                       <div class="row" style="margin-top: 16px; gap: 8px;">
-                        <button class="primary" (click)="saveAccount()" [disabled]="accountSaving()">
+                        <button class="primary" (click)="saveAccount()" [disabled]="accountSaving()"
+                                data-testid="client-account-btn-save">
                           {{ accountSaving() ? 'Saving…' : (accountDraft.id ? 'Update' : 'Save account') }}
                         </button>
-                        <button class="ghost" (click)="closeAccountForm()">Done</button>
+                        <button class="ghost" (click)="closeAccountForm()" data-testid="client-account-btn-done">Done</button>
                       </div>
                     </div>
                   }
@@ -462,7 +555,8 @@ type TabKey = 'info' | 'contacts' | 'services' | 'accounts' | 'contracts' | 'not
                   } @else {
                     <div class="contact-list">
                       @for (acc of accounts(); track acc.id) {
-                        <div class="contact-card" [class.expanded]="expandedAccount() === acc.id">
+                        <div class="contact-card" [class.expanded]="expandedAccount() === acc.id"
+                             [attr.data-testid]="'client-account-row-' + acc.id">
                           <div class="contact-head" (click)="toggleAccount(acc)">
                             <span class="caret">›</span>
                             <div class="contact-name">
@@ -470,8 +564,10 @@ type TabKey = 'info' | 'contacts' | 'services' | 'accounts' | 'contracts' | 'not
                               @if (acc.username) { <span class="position">{{ acc.username }}</span> }
                             </div>
                             <span class="spacer"></span>
-                            <button class="ghost icon-btn" (click)="editAccount(acc); $event.stopPropagation()" title="Edit">✎</button>
-                            <button class="ghost icon-btn danger" (click)="deleteAccount(acc); $event.stopPropagation()" title="Delete">✕</button>
+                            <button class="ghost icon-btn" (click)="editAccount(acc); $event.stopPropagation()" title="Edit"
+                                    [attr.data-testid]="'client-account-row-' + acc.id + '-edit'">✎</button>
+                            <button class="ghost icon-btn danger" (click)="deleteAccount(acc); $event.stopPropagation()" title="Delete"
+                                    [attr.data-testid]="'client-account-row-' + acc.id + '-delete'">✕</button>
                           </div>
                           @if (expandedAccount() === acc.id) {
                             <div class="contact-body">
@@ -521,11 +617,136 @@ type TabKey = 'info' | 'contacts' | 'services' | 'accounts' | 'contracts' | 'not
                   <div class="tab-head"><h3>Contracts</h3></div>
                   <app-entity-contracts audience="client" [entityId]="c.id!"></app-entity-contracts>
                 }
+                @case ('onboarding') {
+                  <div class="tab-head">
+                    <h3>Onboarding</h3>
+                    <span class="spacer"></span>
+                  </div>
+                  <p class="muted small">
+                    Every form + multipart-form submission linked to this client,
+                    grouped by form. Click a submission to see the captured
+                    fields. Detach removes the link but keeps the submission.
+                  </p>
+                  <app-form-submissions-list type="client" [recordId]="c.id!" />
+                }
+                @case ('feedback') {
+                  <div class="tab-head">
+                    <h3>Feedback</h3>
+                    <span class="spacer"></span>
+                  </div>
+
+                  <!-- Inline attach: pick a published form from the
+                       dropdown and click Attach. Options list is the
+                       full published catalogue minus already-attached
+                       forms so we can't create a duplicate row. -->
+                  <div class="attach-row">
+                    <select [(ngModel)]="feedbackToAttach" name="fb_attach" data-testid="client-feedback-select">
+                      <option [ngValue]="null">— pick a form to attach —</option>
+                      @for (f of attachableFeedback(); track f.id) {
+                        <option [ngValue]="f.id">{{ f.title }} ({{ f.kind }})</option>
+                      }
+                    </select>
+                    <button class="primary"
+                            [disabled]="!feedbackToAttach || attachingFeedback()"
+                            (click)="attachFeedback(c.id!)"
+                            data-testid="client-feedback-btn-attach">
+                      {{ attachingFeedback() ? 'Attaching…' : 'Attach' }}
+                    </button>
+                    <a class="ghost small" routerLink="/admin/feedback">
+                      Manage forms →
+                    </a>
+                  </div>
+
+                  @if (loadingFeedback()) {
+                    <p class="muted">Loading…</p>
+                  } @else if (clientFeedback().length === 0) {
+                    <p class="muted">No feedback forms linked to this client yet.</p>
+                  } @else {
+                    <div class="fb-list">
+                      @for (group of clientFeedbackGroups(); track group.key) {
+                        <div class="fb-section-head">
+                          <span class="fb-section-title">{{ group.label }}</span>
+                          <span class="muted small">· {{ group.forms.length }}</span>
+                        </div>
+                        @for (f of group.forms; track f.id) {
+                        <div class="fb-row" [class.open]="expandedFeedback() === f.id"
+                             [attr.data-testid]="'client-feedback-row-' + f.id">
+                          <div class="fb-head" (click)="toggleFeedbackRow(f.id!)"
+                               [attr.data-testid]="'client-feedback-row-' + f.id + '-toggle'">
+                            <span class="caret">›</span>
+                            <div class="fb-meta">
+                              <strong>{{ f.updated_at || f.created_at || '—' }}</strong>
+                              <span class="fb-title">{{ f.title }}</span>
+                              <span class="kind-pill" [attr.data-kind]="f.kind">{{ f.kind }}</span>
+                              @if (group.key === 'service' && f.match_service_name) {
+                                <span class="svc-tag">{{ f.match_service_name }}</span>
+                              }
+                            </div>
+                            <span class="muted small">#{{ f.id }}</span>
+                          </div>
+                          @if (expandedFeedback() === f.id) {
+                            <div class="fb-body">
+                              @if (f.description) {
+                                <p class="muted small" style="margin-top: 0;">{{ f.description }}</p>
+                              }
+
+                              @if (loadingFeedbackDetail()) {
+                                <p class="muted small">Loading submissions…</p>
+                              } @else if (feedbackDetailResponses().length === 0) {
+                                <p class="muted small">This client hasn't submitted yet. Share the link to invite them.</p>
+                              } @else {
+                                <!-- Every response this client has made to this form,
+                                     newest first. Each answer is labelled with its
+                                     question so context is obvious inline. -->
+                                @for (r of feedbackDetailResponses(); track r.id) {
+                                  <div class="submission" [class.open]="isSubmissionOpen(r.id)">
+                                    <div class="submission-head" (click)="toggleSubmission(r.id)">
+                                      <span class="caret">›</span>
+                                      <strong>{{ r.submitted_at }}</strong>
+                                      @if (r.ip_address) { <span class="muted small">{{ r.ip_address }}</span> }
+                                    </div>
+                                    @if (isSubmissionOpen(r.id)) {
+                                      @for (a of (r.answers || []); track a.id) {
+                                        <div class="answer-row">
+                                          <label>{{ feedbackQuestionLabel(a.question_id) }}</label>
+                                          <div>{{ formatFeedbackAnswer(a.value) }}</div>
+                                        </div>
+                                      }
+                                      @if ((r.answers || []).length === 0) {
+                                        <p class="muted small">No answers recorded.</p>
+                                      }
+                                    }
+                                  </div>
+                                }
+                              }
+
+                              <div class="fb-actions">
+                                <button class="ghost small" (click)="openFeedback(f); $event.stopPropagation()">Open builder →</button>
+                                <button class="ghost small" (click)="copyFeedbackLink(f, c.id!, $event)">Copy link</button>
+                                <span class="spacer"></span>
+                                @if (group.key === 'client') {
+                                  <button class="ghost small danger fb-detach"
+                                          (click)="detachFeedback(f, c.id!, $event)"
+                                          title="Detach — removes every link between this client and the form (junction + legacy + response tags).">✕ Detach</button>
+                                } @else if (group.key === 'broadcast') {
+                                  <span class="muted small">Broadcast — edit on form builder to disable.</span>
+                                } @else if (group.key === 'service') {
+                                  <span class="muted small">Via service — remove the client from the service to detach.</span>
+                                }
+                              </div>
+                            </div>
+                          }
+                        </div>
+                        }
+                      }
+                    </div>
+                  }
+                }
                 @case ('notes') {
                   <div class="tab-head">
                     <h3>Notes</h3>
                     <span class="spacer"></span>
-                    <button class="primary" (click)="toggleNoteForm()">
+                    <button class="primary" (click)="toggleNoteForm()" data-testid="client-note-btn-add">
                       {{ noteFormOpen() ? '× Cancel' : '+ Add note' }}
                     </button>
                   </div>
@@ -533,17 +754,20 @@ type TabKey = 'info' | 'contacts' | 'services' | 'accounts' | 'contracts' | 'not
                   @if (noteFormOpen()) {
                     <div class="contact-form">
                       <label>Title <span class="req">★</span></label>
-                      <input [(ngModel)]="noteDraft.title" name="nd_title" placeholder="What's this note about?" />
+                      <input [(ngModel)]="noteDraft.title" name="nd_title" placeholder="What's this note about?"
+                             data-testid="client-note-input-title" />
 
                       <label>Body</label>
-                      <textarea [(ngModel)]="noteDraft.body" name="nd_body" rows="6" placeholder="Type the note here…"></textarea>
+                      <textarea [(ngModel)]="noteDraft.body" name="nd_body" rows="6" placeholder="Type the note here…"
+                                data-testid="client-note-input-body"></textarea>
 
                       @if (noteError()) { <div class="error-msg">{{ noteError() }}</div> }
                       <div class="row" style="margin-top: 16px; gap: 8px;">
-                        <button class="primary" (click)="saveNote()" [disabled]="noteSaving()">
+                        <button class="primary" (click)="saveNote()" [disabled]="noteSaving()"
+                                data-testid="client-note-btn-save">
                           {{ noteSaving() ? 'Saving…' : (noteDraft.id ? 'Update' : 'Save note') }}
                         </button>
-                        <button class="ghost" (click)="closeNoteForm()">Done</button>
+                        <button class="ghost" (click)="closeNoteForm()" data-testid="client-note-btn-done">Done</button>
                       </div>
                     </div>
                   }
@@ -553,7 +777,8 @@ type TabKey = 'info' | 'contacts' | 'services' | 'accounts' | 'contracts' | 'not
                   } @else {
                     <div class="contact-list">
                       @for (n of notes(); track n.id) {
-                        <div class="contact-card" [class.expanded]="expandedNote() === n.id">
+                        <div class="contact-card" [class.expanded]="expandedNote() === n.id"
+                             [attr.data-testid]="'client-note-row-' + n.id">
                           <div class="contact-head" (click)="toggleNote(n)">
                             <span class="caret">›</span>
                             <div class="contact-name">
@@ -561,8 +786,10 @@ type TabKey = 'info' | 'contacts' | 'services' | 'accounts' | 'contracts' | 'not
                               @if (n.updated_at) { <span class="position">{{ n.updated_at }}</span> }
                             </div>
                             <span class="spacer"></span>
-                            <button class="ghost icon-btn" (click)="editNote(n); $event.stopPropagation()" title="Edit">✎</button>
-                            <button class="ghost icon-btn danger" (click)="deleteNote(n); $event.stopPropagation()" title="Delete">✕</button>
+                            <button class="ghost icon-btn" (click)="editNote(n); $event.stopPropagation()" title="Edit"
+                                    [attr.data-testid]="'client-note-row-' + n.id + '-edit'">✎</button>
+                            <button class="ghost icon-btn danger" (click)="deleteNote(n); $event.stopPropagation()" title="Delete"
+                                    [attr.data-testid]="'client-note-row-' + n.id + '-delete'">✕</button>
                           </div>
                           @if (expandedNote() === n.id) {
                             <div class="contact-body">
@@ -677,6 +904,69 @@ type TabKey = 'info' | 'contacts' | 'services' | 'accounts' | 'contracts' | 'not
     .tab-head h3 { margin: 0; }
     .tab-head .spacer { flex: 1; }
 
+    .attach-row { display: flex; align-items: center; gap: 8px; margin-bottom: 16px; }
+    .attach-row select { flex: 1; }
+    .attach-row a { padding: 6px 10px; font-size: 12px; }
+
+    /* Feedback tab — card-list matching the response-viewer look:
+       collapsed row shows date/time + title + kind tag + form id,
+       clicking anywhere on the head expands to reveal actions. */
+    .fb-list { display: flex; flex-direction: column; gap: 6px; }
+    .fb-section-head { display: flex; align-items: baseline; gap: 8px;
+      margin: 14px 0 4px; padding: 0; }
+    .fb-list > .fb-section-head:first-child { margin-top: 0; }
+    .fb-section-title { color: var(--muted); font-size: 11px;
+      text-transform: uppercase; letter-spacing: 0.5px; font-weight: 700; }
+    .svc-tag { padding: 2px 8px; border-radius: 999px;
+      font-size: 11px; font-weight: 600;
+      background: color-mix(in oklab, var(--primary), transparent 82%);
+      color: var(--primary); white-space: nowrap; }
+    .fb-row  { border: 1px solid var(--line); border-radius: var(--radius-sm);
+      background: var(--bg); overflow: hidden; }
+    .fb-head { display: flex; align-items: center; gap: 10px;
+      padding: 10px 14px; cursor: pointer; }
+    .fb-head:hover { background: var(--bg-2); }
+    .fb-head .caret { display: inline-block; transition: transform .12s;
+      color: var(--muted); font-size: 14px; }
+    .fb-row.open .fb-head .caret { transform: rotate(90deg); }
+    .fb-meta { flex: 1; display: flex; align-items: center; gap: 10px;
+      min-width: 0; }
+    .fb-meta strong { font-variant-numeric: tabular-nums; }
+    .fb-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .kind-pill { padding: 2px 10px; border-radius: 999px;
+      font-size: 11px; font-weight: 600; letter-spacing: 0.3px;
+      background: var(--bg-3); color: var(--muted); text-transform: capitalize; }
+    .kind-pill[data-kind="questionnaire"] { background: color-mix(in oklab, #8aa9ff, transparent 80%); color: #8aa9ff; }
+    .kind-pill[data-kind="form"]          { background: color-mix(in oklab, var(--primary), transparent 78%); color: var(--primary); }
+    .kind-pill[data-kind="survey"]        { background: color-mix(in oklab, var(--success), transparent 78%); color: var(--success); }
+    .kind-pill[data-kind="poll"]          { background: color-mix(in oklab, var(--warning), transparent 78%); color: var(--warning); }
+
+    .fb-body { padding: 10px 14px 14px; border-top: 1px solid var(--line);
+      background: var(--bg-2); }
+    .fb-actions { display: flex; gap: 8px; align-items: center; margin-top: 10px;
+      padding-top: 10px; border-top: 1px dashed var(--line); }
+    .fb-actions .spacer { flex: 1; }
+    .fb-actions button { white-space: nowrap; }
+
+    /* Individual submission card inside an expanded feedback row —
+       one per client submission. Answer rows use the same label +
+       value shape as the builder's response viewer for consistency. */
+    .submission { padding: 8px 0; border-top: 1px solid var(--line); }
+    .submission:first-of-type { border-top: 0; padding-top: 0; }
+    .submission-head { display: flex; align-items: center; gap: 10px;
+      cursor: pointer; user-select: none; padding: 4px 0; }
+    .submission-head:hover strong { color: var(--primary); }
+    .submission-head strong { font-variant-numeric: tabular-nums;
+      transition: color .12s; }
+    .submission-head .caret { display: inline-block; transition: transform .12s;
+      color: var(--muted); font-size: 14px; }
+    .submission.open .submission-head { margin-bottom: 6px; }
+    .submission.open .submission-head .caret { transform: rotate(90deg); }
+    .answer-row { padding: 4px 0; }
+    .answer-row label { display: block; color: var(--muted);
+      font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px;
+      margin: 0 0 3px 0; }
+
     /* ----- Services tab ------------------------------------------------ */
     .totals-grid {
       display: grid; grid-template-columns: repeat(4, 1fr);
@@ -735,6 +1025,63 @@ type TabKey = 'info' | 'contacts' | 'services' | 'accounts' | 'contracts' | 'not
       white-space: nowrap;
     }
     .items-list .spacer { flex: 1; }
+
+    /* Onboarding-captured block inside an expanded service row. */
+    .service-onboarding {
+      margin-top: 12px; padding-top: 12px;
+      border-top: 1px dashed var(--line);
+    }
+    .ob-form {
+      display: flex; align-items: center; gap: 10px;
+      margin: 4px 0;
+    }
+    .ob-form strong { font-size: 13px; }
+    .ob-form-type {
+      padding: 2px 8px; border-radius: 999px;
+      background: var(--bg-3); color: var(--muted);
+      font-size: 10px; font-weight: 700; letter-spacing: 0.5px;
+      text-transform: uppercase; white-space: nowrap;
+    }
+    .ob-form-type.multipart {
+      background: color-mix(in oklab, var(--primary), transparent 78%);
+      color: var(--primary);
+    }
+    .ob-subs {
+      list-style: none; padding: 0; margin: 0 0 6px;
+      display: flex; flex-direction: column; gap: 4px;
+    }
+    .ob-subs li {
+      background: var(--bg-3); border-radius: var(--radius-sm);
+      overflow: hidden;
+    }
+    .ob-toggle {
+      display: flex; align-items: center; gap: 10px;
+      width: 100%; padding: 6px 10px;
+      background: transparent; border: none; color: var(--fg);
+      cursor: pointer; text-align: left; font: inherit; font-size: 12px;
+    }
+    .ob-toggle:hover { background: color-mix(in oklab, var(--primary), transparent 92%); }
+    .ob-caret { width: 12px; opacity: 0.6; }
+    .ob-when { font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 12px; }
+    .ob-required {
+      padding: 1px 8px; border-radius: 999px;
+      font-size: 10px; font-weight: 600; letter-spacing: 0.3px;
+      background: var(--bg); color: var(--muted);
+      border: 1px solid var(--line);
+    }
+    .ob-fields {
+      width: 100%; border-collapse: collapse;
+      padding: 6px 10px 8px; font-size: 12px;
+      background: var(--bg);
+    }
+    .ob-fields th, .ob-fields td {
+      padding: 4px 10px; border-bottom: 1px dashed var(--line);
+      vertical-align: top;
+    }
+    .ob-fields th {
+      color: var(--muted); font-weight: 600; text-align: left; width: 30%; white-space: nowrap;
+    }
+    .ob-fields td { color: var(--fg); word-break: break-word; }
     .services-list .pill {
       padding: 1px 6px; border-radius: 4px; font-size: 10px;
       text-transform: uppercase; letter-spacing: 0.5px; font-weight: 700;
@@ -905,6 +1252,7 @@ export class ClientsAdmin {
   private api = inject(Api);
   private route = inject(ActivatedRoute);
   private router = inject(Router);
+  private dialog = inject(DialogService);
 
   mode = signal<'list' | 'view' | 'edit'>('list');
   isNew = signal(false);
@@ -917,14 +1265,178 @@ export class ClientsAdmin {
   formReady = signal(false);
 
   readonly tabs: { key: TabKey; label: string }[] = [
-    { key: 'info',     label: 'Info' },
-    { key: 'contacts', label: 'Contacts' },
-    { key: 'services', label: 'Services' },
-    { key: 'accounts', label: 'Accounts' },
-    { key: 'contracts', label: 'Contracts' },
-    { key: 'notes',    label: 'Notes' },
+    { key: 'info',       label: 'Info' },
+    { key: 'contacts',   label: 'Contacts' },
+    { key: 'services',   label: 'Services' },
+    { key: 'accounts',   label: 'Accounts' },
+    { key: 'contracts',  label: 'Contracts' },
+    { key: 'onboarding', label: 'Onboarding' },
+    { key: 'feedback',   label: 'Feedback' },
+    { key: 'notes',      label: 'Notes' },
   ];
   activeTab = signal<TabKey>('info');
+
+  // Feedback tab state — forms with client_id = current client, loaded lazily
+  // the first time the tab is opened per detail view.
+  clientFeedback     = signal<FeedbackForm[]>([]);
+  loadingFeedback    = signal(false);
+  allFeedbackForms   = signal<FeedbackForm[]>([]);
+  feedbackToAttach: number | null = null;
+  attachingFeedback  = signal(false);
+  /** Currently-expanded feedback row on the tab (form id, or null). */
+  expandedFeedback   = signal<number | null>(null);
+  /** Questions (labels) + responses for the currently-expanded form.
+   *  Loaded lazily on toggle so we don't fan out API calls per row. */
+  feedbackDetailQuestions = signal<FeedbackQuestion[]>([]);
+  feedbackDetailResponses = signal<FeedbackResponse[]>([]);
+  loadingFeedbackDetail   = signal(false);
+  private feedbackLoadedForClient: number | null = null;
+
+  toggleFeedbackRow(id: number) {
+    if (this.expandedFeedback() === id) {
+      this.expandedFeedback.set(null);
+      return;
+    }
+    this.expandedFeedback.set(id);
+    this.loadFeedbackDetail(id);
+    this.openSubmissions.set(new Set());
+  }
+
+  /** Per-submission expand state — default collapsed. */
+  openSubmissions = signal<Set<number>>(new Set<number>());
+  isSubmissionOpen(id: number): boolean { return this.openSubmissions().has(id); }
+  toggleSubmission(id: number) {
+    this.openSubmissions.update(set => {
+      const next = new Set(set);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }
+
+  /** Load form questions + this-client-only responses so the expanded
+   *  row can render answers inline. Two-request pattern: questions
+   *  come with the form, responses hit the ?client=N filter. */
+  private loadFeedbackDetail(formId: number) {
+    const clientId = this.current()?.id;
+    if (!clientId) return;
+    this.loadingFeedbackDetail.set(true);
+    this.feedbackDetailResponses.set([]);
+    this.feedbackDetailQuestions.set([]);
+    this.api.getFeedbackForm(formId).subscribe({
+      next: r => this.feedbackDetailQuestions.set(r.questions ?? []),
+    });
+    this.api.listFeedbackResponses(formId, { client: clientId }).subscribe({
+      next: r => {
+        this.feedbackDetailResponses.set(r.responses ?? []);
+        this.loadingFeedbackDetail.set(false);
+      },
+      error: () => this.loadingFeedbackDetail.set(false),
+    });
+  }
+
+  feedbackQuestionLabel(qid: number): string {
+    return this.feedbackDetailQuestions().find(q => q.id === qid)?.label ?? `Q#${qid}`;
+  }
+
+  /** Multi-choice answers are stored as JSON arrays; unpack for display. */
+  formatFeedbackAnswer(value: string | null): string {
+    const raw = (value ?? '').toString();
+    if (!raw) return '—';
+    if (raw.startsWith('[') && raw.endsWith(']')) {
+      try {
+        const arr = JSON.parse(raw);
+        if (Array.isArray(arr)) return arr.length ? arr.join(', ') : '—';
+      } catch {}
+    }
+    return raw;
+  }
+
+  /** Attach dropdown = published forms not already attached to this client. */
+  attachableFeedback = () => {
+    const attached = new Set(this.clientFeedback().map(f => f.id));
+    return this.allFeedbackForms().filter(f => !attached.has(f.id));
+  };
+
+  /** Split the flat feedback list into three sections keyed off the
+   *  backend's match_source annotation. Empty groups are dropped so
+   *  the header + row doesn't render for a bucket with nothing in it. */
+  clientFeedbackGroups(): { key: string; label: string; forms: FeedbackForm[] }[] {
+    const forms = this.clientFeedback();
+    const client    = forms.filter(f => f.match_source === 'client'    || !f.match_source);
+    const service   = forms.filter(f => f.match_source === 'service');
+    const broadcast = forms.filter(f => f.match_source === 'broadcast');
+    const groups: { key: string; label: string; forms: FeedbackForm[] }[] = [];
+    if (client.length)    groups.push({ key: 'client',    label: 'Client-specific',    forms: client });
+    if (service.length)   groups.push({ key: 'service',   label: 'Via a service',      forms: service });
+    if (broadcast.length) groups.push({ key: 'broadcast', label: 'Default — all clients', forms: broadcast });
+    return groups;
+  }
+
+  onTabClick(key: TabKey, clientId: number) {
+    this.activeTab.set(key);
+    if (key === 'feedback') this.loadFeedback(clientId);
+  }
+
+  loadFeedback(clientId: number) {
+    if (this.feedbackLoadedForClient === clientId) return;
+    this.feedbackLoadedForClient = clientId;
+    this.loadingFeedback.set(true);
+    this.api.listFeedbackForms({ client: clientId }).subscribe({
+      next: r => { this.clientFeedback.set(r.forms ?? []); this.loadingFeedback.set(false); },
+      error: () => { this.clientFeedback.set([]); this.loadingFeedback.set(false); },
+    });
+    // Populate the attach dropdown with every published form so the
+    // user can pick from the catalogue. Published-only — you can't
+    // share a draft.
+    if (this.allFeedbackForms().length === 0) {
+      this.api.listFeedbackForms({ published: 1 } as any).subscribe({
+        next: r => this.allFeedbackForms.set(r.forms ?? []),
+      });
+    }
+  }
+
+  attachFeedback(clientId: number) {
+    const fid = this.feedbackToAttach;
+    if (!fid) return;
+    this.attachingFeedback.set(true);
+    this.api.attachFeedbackFormToClient(fid, clientId).subscribe({
+      next: () => {
+        this.attachingFeedback.set(false);
+        this.feedbackToAttach = null;
+        this.feedbackLoadedForClient = null;
+        this.loadFeedback(clientId);
+      },
+      error: () => this.attachingFeedback.set(false),
+    });
+  }
+
+  async detachFeedback(f: FeedbackForm, clientId: number, e: Event) {
+    e.stopPropagation();
+    if (!f.id) return;
+    const ok = await this.dialog.confirm(
+      `Detach "${f.title}" from this client?`,
+      { title: 'Detach form', confirmLabel: 'Detach', variant: 'warning' }
+    );
+    if (!ok) return;
+    this.api.detachFeedbackFormFromClient(f.id, clientId).subscribe(() => {
+      this.feedbackLoadedForClient = null;
+      this.loadFeedback(clientId);
+    });
+  }
+
+  openFeedback(f: FeedbackForm) {
+    if (!f.id) return;
+    this.router.navigate(['/admin/feedback', f.id]);
+  }
+
+  copyFeedbackLink(f: FeedbackForm, clientId: number, e: Event) {
+    e.stopPropagation();
+    // Attribution scheme: `?id=c{N}` for clients, `?id=l{N}` for leads,
+    // `?id=0` for anonymous / public share. Public API parses the prefix
+    // to tag the response row.
+    const url = `${window.location.origin}${environment.basePath}/feedback/${f.public_token}?id=c${clientId}`;
+    navigator.clipboard.writeText(url);
+  }
 
   // Contacts tab state
   contacts = signal<ClientContact[]>([]);
@@ -1015,43 +1527,100 @@ export class ClientsAdmin {
   // Collapsible service rows — keyed by onboarding_client_id (per memory.md
   // collapsible-section pattern: Set signal + caret + conditional body).
   // Items are cached by project_id once fetched so re-expanding is instant.
-  expandedServices = signal<Set<number>>(new Set());
+  /** Keyed by ClientService.row_key so both onboarding + catalog rows
+   *  can expand. Previously keyed by onboarding_client_id (numeric),
+   *  which meant catalog rows couldn't expand at all. */
+  expandedServices = signal<Set<string>>(new Set());
   serviceItems = signal<Map<number, TaskItem[]>>(new Map());
   serviceItemsLoading = signal<Set<number>>(new Set());
 
-  isServiceExpanded(ocid: number): boolean {
-    return this.expandedServices().has(ocid);
+  /** Onboarding submissions grouped by service_offering_id, so a
+   *  catalog service row can display "the onboarding data captured
+   *  for this client on this service" without hitting the API again.
+   *  Loaded once alongside the Services tab data. */
+  clientSubmissionsBySvc = signal<Map<number, FormSubmissionLinkGroup[]>>(new Map());
+  /** Which submission (link_id) is currently open under a service row. */
+  openServiceSubs = signal<Set<number>>(new Set());
+
+  isServiceExpanded(rowKey: string): boolean {
+    return this.expandedServices().has(rowKey);
+  }
+  /** Any onboarding data captured for this catalog service row? */
+  hasLinkedOnboarding(s: ClientService): boolean {
+    const sid = s.service_offering_id;
+    if (sid == null) return false;
+    const g = this.clientSubmissionsBySvc().get(sid);
+    return !!g && g.length > 0;
+  }
+  /** Groups (form → submissions) for the row's linked onboarding. */
+  linkedOnboardingFor(s: ClientService): FormSubmissionLinkGroup[] {
+    const sid = s.service_offering_id;
+    if (sid == null) return [];
+    return this.clientSubmissionsBySvc().get(sid) ?? [];
+  }
+  /** True when the row has expansion content — either work items
+   *  (onboarding rows with a project) OR linked onboarding data
+   *  (catalog rows). Drives caret visibility + click behaviour. */
+  isExpandable(s: ClientService): boolean {
+    if (s.kind === 'onboarding') return true;
+    return this.hasLinkedOnboarding(s);
   }
   toggleService(s: ClientService) {
-    const ocid = s.onboarding_client_id;
-    if (ocid == null) return; // only onboarding rows expand (have work items)
+    if (!this.isExpandable(s)) return;
     const cur = new Set(this.expandedServices());
-    if (cur.has(ocid)) {
-      cur.delete(ocid);
+    if (cur.has(s.row_key)) {
+      cur.delete(s.row_key);
     } else {
-      cur.add(ocid);
-      // Lazy-load work items the first time the row is expanded.
-      const pid = s.project_id;
-      if (pid && !this.serviceItems().has(pid) && !this.serviceItemsLoading().has(pid)) {
-        const loading = new Set(this.serviceItemsLoading()); loading.add(pid);
-        this.serviceItemsLoading.set(loading);
-        this.api.listTaskItems({ project_id: pid }).subscribe({
-          next: r => {
-            const map = new Map(this.serviceItems()); map.set(pid, r.items);
-            this.serviceItems.set(map);
-            const ld = new Set(this.serviceItemsLoading()); ld.delete(pid);
-            this.serviceItemsLoading.set(ld);
-          },
-          error: () => {
-            const map = new Map(this.serviceItems()); map.set(pid, []);
-            this.serviceItems.set(map);
-            const ld = new Set(this.serviceItemsLoading()); ld.delete(pid);
-            this.serviceItemsLoading.set(ld);
-          },
-        });
+      cur.add(s.row_key);
+      // Onboarding rows: lazy-load work items the first time.
+      if (s.kind === 'onboarding') {
+        const pid = s.project_id;
+        if (pid && !this.serviceItems().has(pid) && !this.serviceItemsLoading().has(pid)) {
+          const loading = new Set(this.serviceItemsLoading()); loading.add(pid);
+          this.serviceItemsLoading.set(loading);
+          this.api.listTaskItems({ project_id: pid }).subscribe({
+            next: r => {
+              const map = new Map(this.serviceItems()); map.set(pid, r.items);
+              this.serviceItems.set(map);
+              const ld = new Set(this.serviceItemsLoading()); ld.delete(pid);
+              this.serviceItemsLoading.set(ld);
+            },
+            error: () => {
+              const map = new Map(this.serviceItems()); map.set(pid, []);
+              this.serviceItems.set(map);
+              const ld = new Set(this.serviceItemsLoading()); ld.delete(pid);
+              this.serviceItemsLoading.set(ld);
+            },
+          });
+        }
       }
     }
     this.expandedServices.set(cur);
+  }
+
+  toggleServiceSub(linkId: number, ev: Event) {
+    ev.stopPropagation();
+    const cur = new Set(this.openServiceSubs());
+    if (cur.has(linkId)) cur.delete(linkId); else cur.add(linkId);
+    this.openServiceSubs.set(cur);
+  }
+  isServiceSubOpen(linkId: number): boolean {
+    return this.openServiceSubs().has(linkId);
+  }
+  submissionRows(data: Record<string, any> | null): { key: string; value: any }[] {
+    if (!data) return [];
+    const skip = new Set(['ip_address', 'submitted_at', 'created_at', 'updated_at']);
+    return Object.entries(data)
+      .filter(([k, v]) => !skip.has(k) && v !== null && v !== '')
+      .map(([key, value]) => ({ key, value }));
+  }
+  prettyFieldName(k: string): string {
+    return k.replace(/_/g, ' ').replace(/^./, c => c.toUpperCase());
+  }
+  formatValue(v: any): string {
+    if (v == null) return '—';
+    if (typeof v === 'object') return JSON.stringify(v);
+    return String(v);
   }
 
   formatMoney(v: number | null | undefined): string {
@@ -1174,38 +1743,60 @@ export class ClientsAdmin {
     this.router.navigate(['/admin/clients', id, 'edit']);
   }
 
-  del(c: Client, e: Event) {
+  async del(c: Client, e: Event) {
     e.stopPropagation();
-    if (!confirm(`Delete "${c.name}"?`)) return;
+    const ok = await this.dialog.confirm(
+      `Delete "${c.name}"?`,
+      { title: 'Delete client', confirmLabel: 'Delete', variant: 'danger' }
+    );
+    if (!ok) return;
     this.api.deleteClient(c.id!).subscribe(() => this.api.listClients().subscribe(r => this.clients.set(r.clients)));
   }
-  delCurrent() {
+  async delCurrent() {
     const c = this.current() ?? this.draft;
     if (!c.id) return;
-    if (!confirm(`Delete "${c.name}"?`)) return;
+    const ok = await this.dialog.confirm(
+      `Delete "${c.name}"?`,
+      { title: 'Delete client', confirmLabel: 'Delete', variant: 'danger' }
+    );
+    if (!ok) return;
     this.api.deleteClient(c.id).subscribe(() => this.router.navigateByUrl('/admin/clients'));
   }
 
   /** Demote a client back into the leads pipeline. Mirrors `del` for the
    *  list row — the underlying endpoint copies the basic fields into a
    *  new leads row, then deletes the client (FK cascades sub-tables). */
-  relegate(c: Client, e: Event) {
+  async relegate(c: Client, e: Event) {
     e.stopPropagation();
     if (!c.id) return;
-    if (!confirm(`Send "${c.name}" back to leads? Their contacts, accounts and services on this client will be discarded.`)) return;
+    const ok = await this.dialog.confirm(
+      `Send "${c.name}" back to leads? Their contacts, accounts and services on this client will be discarded.`,
+      { title: 'Send back to leads', confirmLabel: 'Send back', variant: 'warning' }
+    );
+    if (!ok) return;
     this.api.relegateClientToLead(c.id).subscribe({
       next: r => this.router.navigate(['/admin/leads', r.lead_id]),
-      error: err => alert(err?.error?.error || 'Failed to relegate'),
+      error: err => this.dialog.alert(
+        err?.error?.error || 'Failed to relegate',
+        { title: 'Relegate failed', variant: 'danger' }
+      ),
     });
   }
   /** Same action triggered from the client-detail toolbar. */
-  relegateCurrent() {
+  async relegateCurrent() {
     const c = this.current() ?? this.draft;
     if (!c.id) return;
-    if (!confirm(`Send "${c.name}" back to leads? Their contacts, accounts and services on this client will be discarded.`)) return;
+    const ok = await this.dialog.confirm(
+      `Send "${c.name}" back to leads? Their contacts, accounts and services on this client will be discarded.`,
+      { title: 'Send back to leads', confirmLabel: 'Send back', variant: 'warning' }
+    );
+    if (!ok) return;
     this.api.relegateClientToLead(c.id).subscribe({
       next: r => this.router.navigate(['/admin/leads', r.lead_id]),
-      error: err => alert(err?.error?.error || 'Failed to relegate'),
+      error: err => this.dialog.alert(
+        err?.error?.error || 'Failed to relegate',
+        { title: 'Relegate failed', variant: 'danger' }
+      ),
     });
   }
 
@@ -1280,10 +1871,14 @@ export class ClientsAdmin {
       this.api.createClientContact(cid, payload).subscribe({ next: done, error: fail });
     }
   }
-  deleteContact(c: ClientContact) {
+  async deleteContact(c: ClientContact) {
     const clientId = this.current()?.id;
     if (!clientId || !c.id) return;
-    if (!confirm(`Delete contact "${c.first_name} ${c.last_name || ''}"?`)) return;
+    const ok = await this.dialog.confirm(
+      `Delete contact "${c.first_name} ${c.last_name || ''}"?`,
+      { title: 'Delete contact', confirmLabel: 'Delete', variant: 'danger' }
+    );
+    if (!ok) return;
     this.api.deleteClientContact(clientId, c.id).subscribe(() => this.loadContacts(clientId));
   }
   /** Promote this contact to primary; backend demotes any existing primary
@@ -1341,10 +1936,14 @@ export class ClientsAdmin {
       this.api.createClientAccount(cid, this.accountDraft).subscribe({ next: done, error: fail });
     }
   }
-  deleteAccount(a: ClientAccount) {
+  async deleteAccount(a: ClientAccount) {
     const clientId = this.current()?.id;
     if (!clientId || !a.id) return;
-    if (!confirm(`Delete account "${a.account_name}"?`)) return;
+    const ok = await this.dialog.confirm(
+      `Delete account "${a.account_name}"?`,
+      { title: 'Delete account', confirmLabel: 'Delete', variant: 'danger' }
+    );
+    if (!ok) return;
     this.api.deleteClientAccount(clientId, a.id).subscribe(() => this.loadAccounts(clientId));
   }
 
@@ -1391,10 +1990,14 @@ export class ClientsAdmin {
       this.api.createClientNote(cid, this.noteDraft).subscribe({ next: done, error: fail });
     }
   }
-  deleteNote(n: ClientNote) {
+  async deleteNote(n: ClientNote) {
     const clientId = this.current()?.id;
     if (!clientId || !n.id) return;
-    if (!confirm(`Delete note "${n.title}"?`)) return;
+    const ok = await this.dialog.confirm(
+      `Delete note "${n.title}"?`,
+      { title: 'Delete note', confirmLabel: 'Delete', variant: 'danger' }
+    );
+    if (!ok) return;
     this.api.deleteClientNote(clientId, n.id).subscribe(() => this.loadNotes(clientId));
   }
 
@@ -1445,10 +2048,14 @@ export class ClientsAdmin {
       this.api.createClientInfo(clientId, this.infoDraft).subscribe({ next: done, error: fail });
     }
   }
-  deleteInfo(i: ClientInfo) {
+  async deleteInfo(i: ClientInfo) {
     const clientId = this.current()?.id;
     if (!clientId || !i.id) return;
-    if (!confirm(`Delete "${i.name}"?`)) return;
+    const ok = await this.dialog.confirm(
+      `Delete "${i.name}"?`,
+      { title: 'Delete entry', confirmLabel: 'Delete', variant: 'danger' }
+    );
+    if (!ok) return;
     this.api.deleteClientInfo(clientId, i.id).subscribe(() => this.loadInfoEntries(clientId));
   }
 
@@ -1463,6 +2070,37 @@ export class ClientsAdmin {
         this.services.set([]);
         this.servicesTotals.set(null);
       },
+    });
+
+    // Also pull the form-submission linkage for this client so each
+    // catalog service row can surface the onboarding data captured
+    // for the same service_offering_id.
+    this.api.listFormSubmissionsFor('client', clientId).subscribe({
+      next: r => {
+        // Group by service_offering_id. A group with no service link
+        // (bucket==='default') is not surfaced under any service row.
+        const map = new Map<number, FormSubmissionLinkGroup[]>();
+        for (const g of r.groups ?? []) {
+          if (g.bucket !== 'service') continue;
+          // The endpoint carries service_offering_id on the form node
+          // when the link resolved via forms.service_offering_id.
+          const anySub = g.submissions[0];
+          if (!anySub) continue;
+          // The form's service link is available via a per-form lookup
+          // that came through the join in the endpoint. Backend already
+          // ensured every "service" bucket has a service_offering_id;
+          // pull from the first submission's link row.
+          const svcId = (g as any).form?.service_offering_id
+            ?? (g as any).service_offering_id
+            ?? null;
+          if (svcId == null) continue;
+          const arr = map.get(svcId) ?? [];
+          arr.push(g);
+          map.set(svcId, arr);
+        }
+        this.clientSubmissionsBySvc.set(map);
+      },
+      error: () => this.clientSubmissionsBySvc.set(new Map()),
     });
   }
 
@@ -1519,11 +2157,15 @@ export class ClientsAdmin {
       },
     });
   }
-  removeCatalogService(s: ClientService, e?: Event) {
+  async removeCatalogService(s: ClientService, e?: Event) {
     e?.stopPropagation();
     const clientId = this.current()?.id;
     if (!clientId || s.service_link_id == null) return;
-    if (!confirm(`Remove "${s.name}" from this client?`)) return;
+    const ok = await this.dialog.confirm(
+      `Remove "${s.name}" from this client?`,
+      { title: 'Remove service', confirmLabel: 'Remove', variant: 'danger' }
+    );
+    if (!ok) return;
     this.api.removeClientServiceOffering(clientId, s.service_link_id).subscribe({
       next: () => this.loadServices(clientId),
     });

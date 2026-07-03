@@ -2,6 +2,7 @@ import { Component, computed, inject, signal } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { Api } from '../../core/api';
+import { DialogService } from '../../core/dialog';
 import { EntityContracts } from '../../shared/entity-contracts';
 import {
   Partner, PartnerStatus, PartnerType, PartnerTier,
@@ -544,6 +545,7 @@ export class PartnersAdmin {
   private api = inject(Api);
   private route = inject(ActivatedRoute);
   private router = inject(Router);
+  private dialog = inject(DialogService);
 
   statusOptions: PartnerStatus[] = ['prospective', 'active', 'paused', 'terminated'];
   typeOptions:   PartnerType[]   = ['strategic', 'reseller', 'technology', 'channel', 'referral', 'other'];
@@ -645,14 +647,22 @@ export class PartnersAdmin {
     if (this.draft.id) this.router.navigate(['/operations/partners', this.draft.id]);
     else this.router.navigate(['/operations/partners']);
   }
-  del(p: Partner, e: Event) {
+  async del(p: Partner, e: Event) {
     e.stopPropagation();
-    if (!confirm(`Delete partner "${p.legal_name}"?`)) return;
+    const ok = await this.dialog.confirm(
+      `Delete partner "${p.legal_name}"?`,
+      { title: 'Delete partner', confirmLabel: 'Delete', variant: 'danger' }
+    );
+    if (!ok) return;
     this.api.deletePartner(p.id!).subscribe(() => this.loadList());
   }
-  delCurrent() {
+  async delCurrent() {
     const p = this.current(); if (!p) return;
-    if (!confirm(`Delete partner "${p.legal_name}"?`)) return;
+    const ok = await this.dialog.confirm(
+      `Delete partner "${p.legal_name}"?`,
+      { title: 'Delete partner', confirmLabel: 'Delete', variant: 'danger' }
+    );
+    if (!ok) return;
     this.api.deletePartner(p.id!).subscribe(() => this.router.navigate(['/operations/partners']));
   }
 
@@ -712,10 +722,14 @@ export class PartnersAdmin {
         error: e => { this.subSaving.set(false); this.subError.set(e?.error?.error || 'Save failed'); } });
     }
   }
-  deleteContact(c: PartnerContact) {
+  async deleteContact(c: PartnerContact) {
     const id = this.current()?.id; if (!id || !c.id) return;
-    if (!confirm(`Delete ${c.first_name} ${c.last_name || ''}?`)) return;
-    this.api.deletePartnerContact(id, c.id).subscribe(() => {
+    const ok = await this.dialog.confirm(
+      `Delete ${c.first_name} ${c.last_name || ''}?`,
+      { title: 'Delete contact', confirmLabel: 'Delete', variant: 'danger' }
+    );
+    if (!ok) return;
+    this.api.deletePartnerContact(id, c.id!).subscribe(() => {
       this.api.listPartnerContacts(id).subscribe(r => this.contacts.set(r.contacts));
     });
   }
@@ -745,10 +759,14 @@ export class PartnersAdmin {
         error: e => { this.subSaving.set(false); this.subError.set(e?.error?.error || 'Save failed'); } });
     }
   }
-  deleteAccount(a: PartnerAccount) {
+  async deleteAccount(a: PartnerAccount) {
     const id = this.current()?.id; if (!id || !a.id) return;
-    if (!confirm(`Delete account "${a.account_name}"?`)) return;
-    this.api.deletePartnerAccount(id, a.id).subscribe(() => {
+    const ok = await this.dialog.confirm(
+      `Delete account "${a.account_name}"?`,
+      { title: 'Delete account', confirmLabel: 'Delete', variant: 'danger' }
+    );
+    if (!ok) return;
+    this.api.deletePartnerAccount(id, a.id!).subscribe(() => {
       this.api.listPartnerAccounts(id).subscribe(r => this.accounts.set(r.accounts));
     });
   }
@@ -787,10 +805,14 @@ export class PartnersAdmin {
         error: e => { this.subSaving.set(false); this.subError.set(e?.error?.error || 'Save failed'); } });
     }
   }
-  deleteNote(n: PartnerNote) {
+  async deleteNote(n: PartnerNote) {
     const id = this.current()?.id; if (!id || !n.id) return;
-    if (!confirm(`Delete "${n.title}"?`)) return;
-    this.api.deletePartnerNote(id, n.id).subscribe(() => {
+    const ok = await this.dialog.confirm(
+      `Delete "${n.title}"?`,
+      { title: 'Delete note', confirmLabel: 'Delete', variant: 'danger' }
+    );
+    if (!ok) return;
+    this.api.deletePartnerNote(id, n.id!).subscribe(() => {
       this.api.listPartnerNotes(id).subscribe(r => this.notes.set(r.notes));
     });
   }

@@ -1,6 +1,7 @@
 import { Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Api } from '../../core/api';
+import { DialogService } from '../../core/dialog';
 import { RecruitmentDocGroup, RecruitmentDocType, RecruitmentSkill } from '../../core/models';
 
 type SettingsTab = 'doc-types' | 'skills';
@@ -303,6 +304,9 @@ type SettingsTab = 'doc-types' | 'skills';
       display: flex; align-items: center; gap: 10px;
       padding: 8px 12px; background: var(--bg-3); border: 1px solid var(--line);
       border-radius: var(--radius-sm); cursor: pointer; font-size: 13px; color: var(--fg);
+      text-transform: none; letter-spacing: normal;
+      white-space: nowrap;
+      font-weight: 500;
     }
     .inline-toggle input[type="checkbox"] { width: 16px; height: 16px; flex: 0 0 16px; }
 
@@ -353,6 +357,7 @@ type SettingsTab = 'doc-types' | 'skills';
 })
 export class RecruitmentSettings {
   private api = inject(Api);
+  private dialog = inject(DialogService);
 
   activeTab = signal<SettingsTab>('doc-types');
 
@@ -471,9 +476,13 @@ export class RecruitmentSettings {
     if (d.id) this.api.updateRecruitmentDocType(d.id, payload).subscribe({ next: done });
     else      this.api.createRecruitmentDocType(payload).subscribe({ next: done });
   }
-  del(t: RecruitmentDocType) {
+  async del(t: RecruitmentDocType) {
     if (!t.id) return;
-    if (!confirm(`Delete "${t.name}"? Existing candidate uploads tagged with this type lose the tag but stay intact.`)) return;
+    const ok = await this.dialog.confirm(
+      `Delete "${t.name}"? Existing candidate uploads tagged with this type lose the tag but stay intact.`,
+      { title: 'Delete document type', confirmLabel: 'Delete', variant: 'danger' }
+    );
+    if (!ok) return;
     this.api.deleteRecruitmentDocType(t.id).subscribe(() => this.refresh());
   }
 
@@ -509,13 +518,16 @@ export class RecruitmentSettings {
       error: e => this.groupRenameError.set(e?.error?.error ?? 'Failed to rename group.'),
     });
   }
-  delGroup(g: { id: number | null; name: string; types: RecruitmentDocType[] }, ev: Event) {
+  async delGroup(g: { id: number | null; name: string; types: RecruitmentDocType[] }, ev: Event) {
     ev.stopPropagation();
     if (g.id === null) return;
     const msg = g.types.length
       ? `Delete "${g.name}"? Its ${g.types.length} document type${g.types.length === 1 ? '' : 's'} will become Ungrouped (not deleted).`
       : `Delete "${g.name}"?`;
-    if (!confirm(msg)) return;
+    const ok = await this.dialog.confirm(msg, {
+      title: 'Delete group', confirmLabel: 'Delete', variant: 'danger',
+    });
+    if (!ok) return;
     this.api.deleteRecruitmentDocGroup(g.id).subscribe(() => this.refresh());
   }
 
@@ -560,12 +572,15 @@ export class RecruitmentSettings {
     this.skillError.set(null);
     this.showSkillForm.set(true);
   }
-  delSkill(s: RecruitmentSkill) {
+  async delSkill(s: RecruitmentSkill) {
     if (!s.id) return;
     const msg = s.doc_type_id
       ? `Delete "${s.name}"? It is linked to a document type — the type's "Add as skill" checkbox will also un-tick.`
       : `Delete "${s.name}"?`;
-    if (!confirm(msg)) return;
+    const ok = await this.dialog.confirm(msg, {
+      title: 'Delete skill', confirmLabel: 'Delete', variant: 'danger',
+    });
+    if (!ok) return;
     // After delete, refresh both the skill list AND the doc-types so
     // the corresponding "Add as skill" toggle on Document types reflects
     // the unlink (the GET re-derives the flag from EXISTS).

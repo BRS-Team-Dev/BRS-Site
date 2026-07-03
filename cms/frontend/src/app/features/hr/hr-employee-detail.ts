@@ -3,6 +3,7 @@ import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { environment } from '@env/environment';
 import { Api } from '../../core/api';
+import { DialogService } from '../../core/dialog';
 import { HrCertification, HrCourseAssignment, HrDocument, HrDocumentType, HrEmployee, HrEmployeeNote, HrPtoSummary, HrTimeOffEntry } from '../../core/models';
 import { DocumentViewer, ViewableDoc } from '../../shared/document-viewer';
 import { EntityContracts } from '../../shared/entity-contracts';
@@ -767,6 +768,7 @@ export class HrEmployeeDetail {
   private api = inject(Api);
   private route = inject(ActivatedRoute);
   private router = inject(Router);
+  private dialog = inject(DialogService);
 
   readonly tabs: { key: Tab; label: string }[] = [
     { key: 'profile',    label: 'Profile' },
@@ -876,10 +878,11 @@ export class HrEmployeeDetail {
     if (!id || !a.id) return;
     this.api.updateEmpHrLearning(id, a.id, p).subscribe(() => this.refreshLearning());
   }
-  delAssignment(a: HrCourseAssignment) {
+  async delAssignment(a: HrCourseAssignment) {
     const id = this.employeeId();
     if (!id || !a.id) return;
-    if (!confirm('Remove this assignment?')) return;
+    const ok = await this.dialog.confirm('Remove this assignment?', { title: 'Remove assignment', confirmLabel: 'Remove', variant: 'danger' });
+    if (!ok) return;
     this.api.deleteEmpHrLearning(id, a.id).subscribe(() => this.refreshLearning());
   }
   addCert() {
@@ -917,10 +920,11 @@ export class HrEmployeeDetail {
     if (!id || !c.id) return;
     this.api.updateEmpHrCertification(id, c.id, p).subscribe(() => this.refreshCerts());
   }
-  delCert(c: HrCertification) {
+  async delCert(c: HrCertification) {
     const id = this.employeeId();
     if (!id || !c.id) return;
-    if (!confirm(`Delete "${c.name}"?`)) return;
+    const ok = await this.dialog.confirm(`Delete "${c.name}"?`, { title: 'Delete certification', confirmLabel: 'Delete', variant: 'danger' });
+    if (!ok) return;
     this.api.deleteEmpHrCertification(id, c.id).subscribe(() => this.refreshCerts());
   }
   certIsExpired(c: HrCertification): boolean {
@@ -936,14 +940,23 @@ export class HrEmployeeDetail {
     if (!id) return;
     this.api.accrueHrPto(id).subscribe(() => this.refreshPto());
   }
-  adjustPto() {
+  async adjustPto() {
     const id = this.employeeId();
     if (!id) return;
-    const raw = prompt('Adjust PTO by how many days? (use negative to subtract)');
+    const raw = await this.dialog.prompt('Adjust PTO by how many days? (use negative to subtract)', {
+      title: 'Adjust PTO',
+      inputType: 'number',
+      placeholder: 'e.g. 5 or -2',
+      required: true,
+    });
     if (!raw) return;
     const days = parseFloat(raw);
     if (isNaN(days) || days === 0) return;
-    const notes = prompt('Notes (optional)') || undefined;
+    const notesRaw = await this.dialog.prompt('Notes (optional)', {
+      title: 'Adjust PTO — notes',
+      placeholder: 'Reason for adjustment…',
+    });
+    const notes = notesRaw?.trim() || undefined;
     this.api.adjustHrPto(id, days, notes).subscribe(() => this.refreshPto());
   }
 
@@ -988,10 +1001,11 @@ export class HrEmployeeDetail {
       this.api.listHrDocuments(id).subscribe(r => this.documents.set(r.documents));
     });
   }
-  delDoc(d: HrDocument) {
+  async delDoc(d: HrDocument) {
     const id = this.employeeId();
     if (!id || !d.id) return;
-    if (!confirm(`Delete "${d.title}"?`)) return;
+    const ok = await this.dialog.confirm(`Delete "${d.title}"?`, { title: 'Delete document', confirmLabel: 'Delete', variant: 'danger' });
+    if (!ok) return;
     this.api.deleteHrDocument(id, d.id).subscribe(() => {
       this.api.listHrDocuments(id).subscribe(r => this.documents.set(r.documents));
     });
@@ -1015,17 +1029,25 @@ export class HrEmployeeDetail {
       if (id) this.api.listHrTimeOff(undefined, id).subscribe(r => this.timeOff.set(r.entries));
     });
   }
-  cancelTimeOff(t: HrTimeOffEntry) {
+  async cancelTimeOff(t: HrTimeOffEntry) {
     if (!t.id) return;
-    if (!confirm(`Cancel this ${t.kind} request from ${t.start_date} to ${t.end_date}?`)) return;
+    const ok = await this.dialog.confirm(
+      `Cancel this ${t.kind} request from ${t.start_date} to ${t.end_date}?`,
+      { title: 'Cancel request', confirmLabel: 'Cancel request', variant: 'warning' },
+    );
+    if (!ok) return;
     this.api.updateHrTimeOff(t.id, { status: 'cancelled' }).subscribe(() => {
       const id = this.employeeId();
       if (id) this.api.listHrTimeOff(undefined, id).subscribe(r => this.timeOff.set(r.entries));
     });
   }
-  deleteTimeOff(t: HrTimeOffEntry) {
+  async deleteTimeOff(t: HrTimeOffEntry) {
     if (!t.id) return;
-    if (!confirm('Permanently delete this request? This cannot be undone.')) return;
+    const ok = await this.dialog.confirm(
+      'Permanently delete this request? This cannot be undone.',
+      { title: 'Delete request', confirmLabel: 'Delete', variant: 'danger' },
+    );
+    if (!ok) return;
     this.api.deleteHrTimeOff(t.id).subscribe(() => {
       const id = this.employeeId();
       if (id) this.api.listHrTimeOff(undefined, id).subscribe(r => this.timeOff.set(r.entries));
@@ -1046,10 +1068,11 @@ export class HrEmployeeDetail {
       this.api.listEmployeeNotes(id).subscribe(r => this.employeeNotes.set(r.notes));
     });
   }
-  delEmployeeNote(n: HrEmployeeNote) {
+  async delEmployeeNote(n: HrEmployeeNote) {
     const id = this.employeeId();
     if (!id || !n.id) return;
-    if (!confirm('Delete this note?')) return;
+    const ok = await this.dialog.confirm('Delete this note?', { title: 'Delete note', confirmLabel: 'Delete', variant: 'danger' });
+    if (!ok) return;
     this.api.deleteEmployeeNote(id, n.id).subscribe(() =>
       this.api.listEmployeeNotes(id).subscribe(r => this.employeeNotes.set(r.notes))
     );

@@ -2,6 +2,7 @@ import { Component, computed, inject, signal } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { Api } from '../../core/api';
+import { DialogService } from '../../core/dialog';
 import { AdminSection, FormDef } from '../../core/models';
 import { SIDENAV_BUILTIN_PARENTS } from '../../core/sidenav-config';
 
@@ -129,6 +130,7 @@ export class SectionsAdmin {
   private api = inject(Api);
   private route = inject(ActivatedRoute);
   private router = inject(Router);
+  private dialog = inject(DialogService);
 
   mode = signal<'list' | 'edit' | 'view'>('list');
   isNew = signal(false);
@@ -179,9 +181,14 @@ export class SectionsAdmin {
     e?.stopPropagation();
     this.router.navigate(['/admin/sections', s.id, 'edit']);
   }
-  del(s: AdminSection, e: Event) {
+  async del(s: AdminSection, e: Event) {
     e.stopPropagation();
-    if (!confirm(`Delete section "${s.title}"?`)) return;
+    const ok = await this.dialog.confirm(`Delete section "${s.title}"?`, {
+      title: 'Delete section',
+      confirmLabel: 'Delete',
+      variant: 'danger',
+    });
+    if (!ok) return;
     this.api.deleteSection(s.id!).subscribe(() => this.api.listSections().subscribe(r => this.sections.set(r.sections)));
   }
 

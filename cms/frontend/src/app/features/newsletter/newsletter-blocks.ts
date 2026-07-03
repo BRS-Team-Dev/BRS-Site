@@ -21,6 +21,7 @@ export type NewsletterBlockKind =
   | 'button'
   | 'divider'
   | 'spacer'
+  | 'feedback'
   | 'html';
 
 export interface NewsletterBlock {
@@ -41,6 +42,13 @@ export interface NewsletterBlock {
   height?: number;
   // Raw HTML escape hatch
   html?: string;
+  // Feedback CTA — link to /feedback/:token, rendered as a button.
+  // `formToken` is the public token (immutable per form), `formTitle`
+  // is a display-only cache so the composer can label the block after
+  // the source form list has been unloaded.
+  formToken?: string;
+  formTitle?: string;
+  publicBase?: string;
 }
 
 export const BLOCK_LABELS: Record<NewsletterBlockKind, string> = {
@@ -50,6 +58,7 @@ export const BLOCK_LABELS: Record<NewsletterBlockKind, string> = {
   button:    'Button',
   divider:   'Divider',
   spacer:    'Spacer',
+  feedback:  'Feedback CTA',
   html:      'Raw HTML',
 };
 
@@ -67,6 +76,7 @@ export function makeBlock(kind: NewsletterBlockKind): NewsletterBlock {
     case 'divider':   return { id, kind };
     case 'spacer':    return { id, kind, height: 24 };
     case 'html':      return { id, kind, html: '<p style="font-size:14px;line-height:1.6;color:#333;margin:10px 0">Custom HTML…</p>' };
+    case 'feedback':  return { id, kind, formToken: '', formTitle: '', label: 'Give feedback →', align: 'center' };
   }
 }
 
@@ -125,6 +135,25 @@ function renderHtmlBlock(b: NewsletterBlock): string {
   return b.html ?? '';
 }
 
+/**
+ * Feedback CTA — inline-styled anchor pointing at /feedback/:token.
+ * `publicBase` is the origin the composer captured at save-time
+ * (window.location.origin). If missing (older draft, or the field was
+ * cleared) we fall back to a relative URL so it still resolves when
+ * the email is viewed under the same origin.
+ */
+function renderFeedbackCta(b: NewsletterBlock): string {
+  const token = (b.formToken ?? '').trim();
+  if (!token) return '<p style="color:#999;font-size:12px;text-align:center;font-family:Arial,Helvetica,sans-serif;">[ Feedback CTA — pick a form ]</p>';
+  const base  = (b.publicBase ?? '').replace(/\/+$/, '');
+  const href  = `${base}/feedback/${encodeURIComponent(token)}`;
+  const label = escHtml(b.label ?? 'Give feedback →');
+  const align = b.align ?? 'center';
+  const wrap  = `text-align:${align};margin:22px 0;`;
+  const btn   = `display:inline-block;padding:12px 24px;background:#0a0a0a;color:#ffffff;text-decoration:none;border-radius:4px;font-family:Arial,Helvetica,sans-serif;font-size:14px;font-weight:600;`;
+  return `<div style="${wrap}"><a href="${escHtml(href)}" style="${btn}">${label}</a></div>`;
+}
+
 /** Render a block list to inline-styled HTML, wrapped in an email-safe container. */
 export function renderBlocksToHtml(blocks: NewsletterBlock[]): string {
   const parts = blocks.map(b => {
@@ -135,6 +164,7 @@ export function renderBlocksToHtml(blocks: NewsletterBlock[]): string {
       case 'button':    return renderButton(b);
       case 'divider':   return renderDivider();
       case 'spacer':    return renderSpacer(b);
+      case 'feedback':  return renderFeedbackCta(b);
       case 'html':      return renderHtmlBlock(b);
     }
   });

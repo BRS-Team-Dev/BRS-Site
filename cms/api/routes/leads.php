@@ -475,6 +475,67 @@ return function (string $method, array $segs): void {
         Json::fail('Method not allowed', 405);
     }
 
+    // /api/leads/:id/services[/:linkId]
+    //
+    // Junction managed via migration 111. Each row pins one
+    // service_offering to this lead. UNIQUE (lead_id, service_offering_id)
+    // means re-adding the same service returns a 409 — the UI gates
+    // against this by hiding already-selected options in the dropdown.
+    if (($segs[2] ?? '') === 'services') {
+        $linkId = isset($segs[3]) ? (int)$segs[3] : null;
+
+        if ($linkId === null) {
+            if ($method === 'GET') {
+                $rows = $pdo->prepare(
+                    'SELECT ls.id, ls.service_offering_id, ls.created_at,
+                            so.name, so.price, so.payment_type, so.repeat_duration
+                       FROM lead_services ls
+                       JOIN service_offerings so ON so.id = ls.service_offering_id
+                      WHERE ls.lead_id = ?
+                      ORDER BY so.name'
+                );
+                $rows->execute([$id]);
+                Json::send(['services' => $rows->fetchAll()]);
+            }
+            if ($method === 'POST') {
+                $body = Json::readBody();
+                $soid = (int)($body['service_offering_id'] ?? 0);
+                if ($soid <= 0) Json::fail('service_offering_id required', 400);
+
+                // Confirm the catalogue row exists in THIS tenant — without
+                // this check a caller could probe foreign-tenant ids by
+                // observing 201 vs 409.
+                $check = $pdo->prepare('SELECT 1 FROM service_offerings WHERE id = ?');
+                $check->execute([$soid]);
+                if (!$check->fetchColumn()) Json::fail('Invalid service_offering_id', 400);
+
+                try {
+                    $ins = $pdo->prepare(
+                        'INSERT INTO lead_services (lead_id, service_offering_id) VALUES (?, ?)'
+                    );
+                    $ins->execute([$id, $soid]);
+                    Json::send(['id' => (int)$pdo->lastInsertId(), 'service_offering_id' => $soid], 201);
+                } catch (\PDOException $e) {
+                    // UNIQUE violation — already attached.
+                    if ($e->getCode() === '23000') Json::fail('Service already attached to this lead', 409);
+                    throw $e;
+                }
+            }
+            Json::fail('Method not allowed', 405);
+        }
+
+        if ($method === 'DELETE') {
+            // Validate the link belongs to this lead before deleting so a
+            // caller can't accidentally remove someone else's row.
+            $sel = $pdo->prepare('SELECT 1 FROM lead_services WHERE id = ? AND lead_id = ?');
+            $sel->execute([$linkId, $id]);
+            if (!$sel->fetchColumn()) Json::fail('Service link not found', 404);
+            $pdo->prepare('DELETE FROM lead_services WHERE id = ?')->execute([$linkId]);
+            Json::send(['ok' => true]);
+        }
+        Json::fail('Method not allowed', 405);
+    }
+
     // /api/leads/:id/promote → create a clients row from this lead, then
     // delete the lead (a promoted lead is no longer a lead). Re-promotion
     // attempts hit the early "Lead not found" 404 above.
@@ -573,6 +634,38 @@ return function (string $method, array $segs): void {
                 'INSERT INTO client_notes (client_id, title, body, sort_order, created_at, updated_at)
                  SELECT ?, title, body, sort_order, created_at, updated_at
                  FROM lead_notes WHERE lead_id = ?'
+            )->execute([$newClientId, $id]);
+
+            // ── Carry service links forward ────────────────────────
+            // lead_services → client_service_offerings. Denormalised
+            // name/price/payment_type get pulled from the parent
+            // service_offering so the new CSO row is self-contained
+            // (matches what services-admin writes for fresh rows).
+            // Status resets to 'new' — the client starts the workflow
+            // from the beginning even if the lead had prior activity.
+            $pdo->prepare(
+                'INSERT INTO client_service_offerings
+                   (tenant_id, client_id, service_offering_id, name, price, payment_type, status)
+                 SELECT ls.tenant_id, ?, so.id, so.name, so.price,
+                        COALESCE(so.payment_type, \'one_off\'), \'new\'
+                   FROM lead_services ls
+                   JOIN service_offerings so ON so.id = ls.service_offering_id
+                  WHERE ls.lead_id = ?'
+            )->execute([$newClientId, $id]);
+
+            // ── Carry feedback attachments forward ────────────────
+            // Explicit junction rows migrate 1:1 (lead attach becomes
+            // client attach). INSERT IGNORE guards against a dupe if
+            // the same form was already attached to this client somehow.
+            $pdo->prepare(
+                'INSERT IGNORE INTO feedback_form_clients (tenant_id, form_id, client_id)
+                 SELECT tenant_id, form_id, ? FROM feedback_form_leads WHERE lead_id = ?'
+            )->execute([$newClientId, $id]);
+            // Response rows tagged with this lead get re-tagged to
+            // the new client so historical submissions stay attached
+            // to the correct person across the promotion.
+            $pdo->prepare(
+                'UPDATE feedback_responses SET client_id = ?, lead_id = NULL WHERE lead_id = ?'
             )->execute([$newClientId, $id]);
 
             $pdo->prepare('DELETE FROM leads WHERE id = ?')->execute([$id]);

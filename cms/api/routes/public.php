@@ -5,6 +5,7 @@ use BRS\Db;
 use BRS\Ddl;
 use BRS\Json;
 use BRS\Mailer;
+use BRS\NotificationDispatcher;
 use BRS\Tenant;
 use BRS\Validator;
 
@@ -32,6 +33,10 @@ return function (string $method, array $segs): void {
     // /api/public/jobs[/:slug]                 → GET (anonymous postings)
     if (($segs[1] ?? '') === 'onboarding') {
         (require __DIR__ . '/public_onboarding.php')($method, $segs);
+        return;
+    }
+    if (($segs[1] ?? '') === 'feedback') {
+        (require __DIR__ . '/public_feedback.php')($method, $segs);
         return;
     }
     if (($segs[1] ?? '') === 'jobs') {
@@ -171,6 +176,81 @@ return function (string $method, array $segs): void {
         $pdo->prepare($sql)->execute($vals);
         $rowId = (int)$pdo->lastInsertId();
 
+        // Auto-attach submission to a client / lead / service via
+        // query params or body. Public form URLs can carry these when
+        // the form was sent by admin to a specific contact — e.g.
+        // /public/forms/quote?attach_client_id=42
+        //
+        // The form row itself may pin a `service_offering_id`; when set,
+        // that becomes the default service attach unless a query param
+        // overrides.
+        $attachClientId  = (int)($input['attach_client_id']  ?? $_GET['attach_client_id']  ?? 0);
+        $attachLeadId    = (int)($input['attach_lead_id']    ?? $_GET['attach_lead_id']    ?? 0);
+        $attachServiceId = (int)($input['attach_service_id'] ?? $_GET['attach_service_id'] ?? ($form['service_offering_id'] ?? 0));
+
+        // Token flow — same mechanism as multipart onboarding
+        // (`onboarding_clients.client_token`). When the URL carries a
+        // valid token for this form we resolve the invite record and
+        // let its parent_client_id / parent_lead_id override any URL
+        // params; on success we also mark the invite as submitted so
+        // the form-builder invitations list shows it as done.
+        $token = (string)($input['token'] ?? $_GET['token'] ?? '');
+        $inviteId = null;
+        if ($token !== '' && strlen($token) === 64 && ctype_xdigit($token)) {
+            $inv = $pdo->prepare(
+                'SELECT id, parent_client_id, parent_lead_id
+                   FROM onboarding_clients
+                  WHERE client_token = ? AND form_id = ? LIMIT 1'
+            );
+            $inv->execute([$token, (int)$form['id']]);
+            $invite = $inv->fetch();
+            if ($invite) {
+                $inviteId = (int)$invite['id'];
+                if (!empty($invite['parent_client_id'])) $attachClientId = (int)$invite['parent_client_id'];
+                if (!empty($invite['parent_lead_id']))   $attachLeadId   = (int)$invite['parent_lead_id'];
+            }
+        }
+        $attachSource    = (
+            !empty($input['attach_token']) || !empty($_GET['attach_token'])
+        ) ? 'token' : 'auto';
+
+        if ($attachClientId || $attachLeadId || $attachServiceId) {
+            try {
+                $pdo->prepare(
+                    'INSERT INTO form_submission_links
+                       (tenant_id, form_id, submission_table, submission_id,
+                        client_id, lead_id, service_offering_id, attach_source)
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
+                )->execute([
+                    (int)$form['tenant_id'],
+                    (int)$form['id'],
+                    $table,
+                    $rowId,
+                    $attachClientId ?: null,
+                    $attachLeadId   ?: null,
+                    $attachServiceId ?: null,
+                    $attachSource,
+                ]);
+            } catch (\Throwable $e) {
+                error_log('[public form submit] link failed: ' . $e->getMessage());
+            }
+        }
+
+        // Mark the invite as fulfilled (mirrors the multipart flow's
+        // `submitted_at` stamp on onboarding_clients). Non-fatal.
+        if ($inviteId !== null) {
+            try {
+                $pdo->prepare(
+                    'UPDATE onboarding_clients
+                        SET submitted_at = COALESCE(submitted_at, NOW()),
+                            submission_id = COALESCE(submission_id, ?)
+                      WHERE id = ?'
+                )->execute([$rowId, $inviteId]);
+            } catch (\Throwable $e) {
+                error_log('[public form submit] invite stamp failed: ' . $e->getMessage());
+            }
+        }
+
         // Move uploaded files
         $cfg = $GLOBALS['BRS_CONFIG'];
         $uploadRoot = $cfg['storage_dir'] . "/uploads/$slug/$rowId";
@@ -221,18 +301,26 @@ return function (string $method, array $segs): void {
         $rowFull->execute([$rowId]);
         $rowFull = $rowFull->fetch() ?: $row;
 
+        // Fire the CRM notification event so it lands in the notification
+        // bell for anyone subscribed (default: role=admin).
+        NotificationDispatcher::fire('crm.form.submitted', [
+            'title'    => 'New submission — ' . ($form['title'] ?? 'Form'),
+            'body'     => null,
+            'link_url' => '/admin/forms/' . $form['id'] . '/submissions',
+        ]);
+
         if (!empty($form['notify_email']) && Mailer::isConfigured()) {
             $subj = (string)($form['notify_subject'] ?: "New submission: {$form['title']}");
             $body = (string)($form['notify_template'] ?? '');
             $body = $body !== '' ? Mailer::render($body, $rowFull) : brs_default_notify_body($fields, $rowFull);
-            Mailer::send($form['notify_email'], $subj, $body);
+            Mailer::sendVia('internal', $form['notify_email'], $subj, $body);
         }
         if (!empty($form['reply_from_field']) && !empty($rowFull[$form['reply_from_field']]) && Mailer::isConfigured()) {
             $to = (string)$rowFull[$form['reply_from_field']];
             if (filter_var($to, FILTER_VALIDATE_EMAIL)) {
                 $subj = (string)($form['reply_subject'] ?: 'Thanks for your submission');
                 $body = Mailer::render((string)($form['reply_template'] ?: '<p>Thank you for your submission.</p>'), $rowFull);
-                Mailer::send($to, $subj, $body);
+                Mailer::sendVia('system', $to, $subj, $body);
             }
         }
 

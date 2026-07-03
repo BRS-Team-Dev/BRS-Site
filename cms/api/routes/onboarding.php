@@ -153,7 +153,22 @@ return function (string $method, array $segs): void {
             $parentProcessId = !empty($body['parent_process_form_id']) ? (int)$body['parent_process_form_id'] : null;
             $showRoot = !empty($body['show_in_sidenav_root']) ? 1 : 0;
 
-            // 1) Insert form
+            // 1) Insert form.
+            //
+            // service_offering_id (migration 113) is the new way to attach
+            // pricing to an onboarding — pick a catalogue row and the
+            // qualify-to-client flow reads pricing live from it. The
+            // legacy has_price / price / payment_type / repeat_duration /
+            // contract_length_months / is_indefinite columns stay
+            // writable for backwards compat with forms that pre-date
+            // 113; the builder UI only exposes the service link.
+            $serviceOfferingId = null;
+            if (!empty($body['service_offering_id'])) {
+                $serviceOfferingId = (int)$body['service_offering_id'];
+                $check = $pdo->prepare('SELECT 1 FROM service_offerings WHERE id = ?');
+                $check->execute([$serviceOfferingId]);
+                if (!$check->fetchColumn()) Json::fail('Invalid service_offering_id', 400);
+            }
             $hasPrice = !empty($body['has_price']) ? 1 : 0;
             $price = ($hasPrice && isset($body['price']) && $body['price'] !== '' && $body['price'] !== null)
                 ? (float)$body['price'] : null;
@@ -167,12 +182,21 @@ return function (string $method, array $segs): void {
                 ? (int)$body['contract_length_months'] : null;
             $teamId = !empty($body['team_id']) ? (int)$body['team_id'] : null;
 
+            // Broadcast scope — same 4-option mutually-exclusive model
+            // used by feedback + standard forms.
+            $bcastClients = !empty($body['broadcast_to_all_clients']) ? 1 : 0;
+            $bcastLeads   = !empty($body['broadcast_to_all_leads'])   ? 1 : 0;
+            if ($bcastClients || $bcastLeads) $serviceOfferingId = null;
+            if ($serviceOfferingId !== null)  { $bcastClients = 0; $bcastLeads = 0; }
+            if ($bcastClients) $bcastLeads = 0;
+
             $ins = $pdo->prepare("INSERT INTO forms (slug, form_type, main_section_label, sidenav_placement, sidenav_parent_key,
-                parent_process_form_id, team_id, show_in_sidenav_root, title, description, intro_html, submit_label,
+                parent_process_form_id, team_id, service_offering_id, broadcast_to_all_clients, broadcast_to_all_leads,
+                show_in_sidenav_root, title, description, intro_html, submit_label,
                 thank_you_message, notify_email, notify_subject, notify_template,
-                reply_subject, reply_template, reply_from_field, is_published,
+                reply_subject, reply_template, reply_from_field, is_published, allow_multiple,
                 has_price, price, payment_type, repeat_duration, contract_length_months, is_indefinite)
-                VALUES (?,'onboarding',?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)");
+                VALUES (?,'onboarding',?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)");
             $ins->execute([
                 $slug,
                 $body['main_section_label'] ?? null,
@@ -180,6 +204,9 @@ return function (string $method, array $segs): void {
                 $parentKey,
                 $parentProcessId,
                 $teamId,
+                $serviceOfferingId,
+                $bcastClients,
+                $bcastLeads,
                 $showRoot,
                 $title,
                 $body['description']       ?? null,
@@ -193,6 +220,7 @@ return function (string $method, array $segs): void {
                 $body['reply_template']    ?? null,
                 $body['reply_from_field']  ?? null,
                 !empty($body['is_published']) ? 1 : 0,
+                !empty($body['allow_multiple']) ? 1 : 0,
                 $hasPrice,
                 $price,
                 $paymentType,
@@ -323,6 +351,13 @@ return function (string $method, array $segs): void {
             if ($parentProcessId === $id) $parentProcessId = null;
             $showRoot = !empty($body['show_in_sidenav_root']) ? 1 : 0;
 
+            $serviceOfferingId = null;
+            if (!empty($body['service_offering_id'])) {
+                $serviceOfferingId = (int)$body['service_offering_id'];
+                $check = $pdo->prepare('SELECT 1 FROM service_offerings WHERE id = ?');
+                $check->execute([$serviceOfferingId]);
+                if (!$check->fetchColumn()) Json::fail('Invalid service_offering_id', 400);
+            }
             $hasPrice = !empty($body['has_price']) ? 1 : 0;
             $price = ($hasPrice && isset($body['price']) && $body['price'] !== '' && $body['price'] !== null)
                 ? (float)$body['price'] : null;
@@ -336,13 +371,26 @@ return function (string $method, array $segs): void {
                 ? (int)$body['contract_length_months'] : null;
             $teamId = !empty($body['team_id']) ? (int)$body['team_id'] : null;
 
+            // Broadcast scope — mirror the standard-form save logic.
+            $bcastClients = array_key_exists('broadcast_to_all_clients', $body)
+                ? (!empty($body['broadcast_to_all_clients']) ? 1 : 0)
+                : (int)($form['broadcast_to_all_clients'] ?? 0);
+            $bcastLeads = array_key_exists('broadcast_to_all_leads', $body)
+                ? (!empty($body['broadcast_to_all_leads']) ? 1 : 0)
+                : (int)($form['broadcast_to_all_leads'] ?? 0);
+            if ($bcastClients || $bcastLeads) $serviceOfferingId = null;
+            if ($serviceOfferingId !== null)  { $bcastClients = 0; $bcastLeads = 0; }
+            if ($bcastClients) $bcastLeads = 0;
+
             // 1) Update form metadata
             $upd = $pdo->prepare("UPDATE forms SET
                 slug=?, main_section_label=?, sidenav_placement=?, sidenav_parent_key=?,
-                parent_process_form_id=?, team_id=?, show_in_sidenav_root=?,
+                parent_process_form_id=?, team_id=?, service_offering_id=?,
+                broadcast_to_all_clients=?, broadcast_to_all_leads=?,
+                show_in_sidenav_root=?,
                 title=?, description=?, intro_html=?, submit_label=?,
                 thank_you_message=?, notify_email=?, notify_subject=?, notify_template=?,
-                reply_subject=?, reply_template=?, reply_from_field=?, is_published=?,
+                reply_subject=?, reply_template=?, reply_from_field=?, is_published=?, allow_multiple=?,
                 has_price=?, price=?, payment_type=?, repeat_duration=?, contract_length_months=?, is_indefinite=?
                 WHERE id = ?");
             $upd->execute([
@@ -352,6 +400,9 @@ return function (string $method, array $segs): void {
                 $parentKey,
                 $parentProcessId,
                 $teamId,
+                $serviceOfferingId,
+                $bcastClients,
+                $bcastLeads,
                 $showRoot,
                 (string)($body['title'] ?? $form['title']),
                 $body['description']       ?? null,
@@ -365,6 +416,7 @@ return function (string $method, array $segs): void {
                 $body['reply_template']    ?? null,
                 $body['reply_from_field']  ?? null,
                 !empty($body['is_published']) ? 1 : 0,
+                array_key_exists('allow_multiple', $body) ? (!empty($body['allow_multiple']) ? 1 : 0) : (int)($form['allow_multiple'] ?? 0),
                 $hasPrice,
                 $price,
                 $paymentType,

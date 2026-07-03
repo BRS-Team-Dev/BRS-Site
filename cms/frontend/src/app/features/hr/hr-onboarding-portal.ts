@@ -3,6 +3,7 @@ import { ActivatedRoute } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { environment } from '@env/environment';
 import { Api } from '../../core/api';
+import { DialogService } from '../../core/dialog';
 import { HrCourseAssignment, HrDocument, HrDocumentType, HrOnboardingPortalSnapshot, HrOnboardingProgress, HrOnboardingSection, HrOnboardingTask, HrReference } from '../../core/models';
 import { COUNTRIES } from './countries';
 import { HrCoursePlayer } from './hr-course-player';
@@ -579,7 +580,7 @@ const STEPS: Array<{ key: Step; label: string; optional?: boolean }> = [
     .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 16px; }
     .grid-2 .full { grid-column: 1 / -1; }
     .grid-2 label { margin-bottom: 4px; }
-    .grid-2 label.check { display: flex; align-items: center; gap: 8px; text-transform: none; letter-spacing: 0; font-size: 13px; color: var(--fg); }
+    .grid-2 label.check { display: flex; align-items: center; gap: 8px; text-transform: none; letter-spacing: 0; font-size: 13px; color: var(--fg); white-space: nowrap; }
     .grid-2 label.check input[type="checkbox"] { width: auto; }
     .actions { display: flex; gap: 8px; margin-top: 20px; }
 
@@ -682,6 +683,7 @@ const STEPS: Array<{ key: Step; label: string; optional?: boolean }> = [
 export class HrOnboardingPortal {
   private api = inject(Api);
   private route = inject(ActivatedRoute);
+  private dialog = inject(DialogService);
 
   readonly steps = STEPS;
   step = signal<Step>('profile');
@@ -824,9 +826,10 @@ export class HrOnboardingPortal {
       error: e => this.refError.set(e?.error?.error || 'Failed to add reference'),
     });
   }
-  deleteReference(r: HrReference) {
+  async deleteReference(r: HrReference) {
     if (!r.id) return;
-    if (!confirm(`Remove reference "${r.name}"?`)) return;
+    const ok = await this.dialog.confirm(`Remove reference "${r.name}"?`, { title: 'Remove reference', confirmLabel: 'Remove', variant: 'danger' });
+    if (!ok) return;
     const t = this.route.snapshot.paramMap.get('token') || '';
     this.api.deleteHrOnboardingReference(t, r.id).subscribe(() => this.refresh(t));
   }
@@ -984,9 +987,10 @@ export class HrOnboardingPortal {
     });
   }
 
-  deleteDoc(d: HrDocument) {
+  async deleteDoc(d: HrDocument) {
     if (!d.id) return;
-    if (!confirm('Remove this file?')) return;
+    const ok = await this.dialog.confirm('Remove this file?', { title: 'Remove file', confirmLabel: 'Remove', variant: 'danger' });
+    if (!ok) return;
     const t = this.route.snapshot.paramMap.get('token') || '';
     this.api.deleteHrOnboardingDoc(t, d.id).subscribe(() => this.refresh(t));
   }

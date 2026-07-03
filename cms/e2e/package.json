@@ -1,0 +1,25 @@
+{
+  "name": "e2e",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test":         "playwright test",
+    "test:headed":  "playwright test --headed",
+    "test:ui":      "playwright test --ui",
+    "test:debug":   "playwright test --debug",
+    "test:crm":         "playwright test tests/taskboard.spec.js tests/client.spec.js --headed --workers=1",
+    "test:crm:headless":"playwright test tests/taskboard.spec.js tests/client.spec.js --workers=1",
+    "test:taskboard":   "playwright test tests/taskboard.spec.js --headed",
+    "test:client":      "playwright test tests/client.spec.js --headed",
+    "report":       "playwright show-report"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "devDependencies": {
+    "@playwright/test": "^1.61.1",
+    "playwright": "^1.61.1"
+  }
+}

@@ -1,9 +1,10 @@
 import { Component } from '@angular/core';
 import { RouterOutlet } from '@angular/router';
+import { DialogHost } from './core/dialog';
 
 @Component({
   selector: 'app-root',
-  imports: [RouterOutlet],
+  imports: [RouterOutlet, DialogHost],
   templateUrl: './app.html',
   styleUrl: './app.scss',
 })

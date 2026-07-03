@@ -1,6 +1,7 @@
 import { Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Api } from '../../core/api';
+import { DialogService } from '../../core/dialog';
 import { HrEmployee, HrGoal } from '../../core/models';
 
 @Component({
@@ -194,6 +195,7 @@ import { HrEmployee, HrGoal } from '../../core/models';
 })
 export class ManagementGoals {
   private api = inject(Api);
+  private dialog = inject(DialogService);
 
   team = signal<HrEmployee[]>([]);
   goals = signal<HrGoal[]>([]);
@@ -237,9 +239,10 @@ export class ManagementGoals {
     if (!g.id) return;
     this.api.updateTeamGoal(g.id, p).subscribe(() => this.refresh());
   }
-  del(g: HrGoal) {
+  async del(g: HrGoal) {
     if (!g.id) return;
-    if (!confirm(`Delete "${g.title}"?`)) return;
+    const ok = await this.dialog.confirm(`Delete "${g.title}"?`, { title: 'Delete goal', confirmLabel: 'Delete', variant: 'danger' });
+    if (!ok) return;
     this.api.deleteTeamGoal(g.id).subscribe(() => { this.expandedId.set(null); this.refresh(); });
   }
 

@@ -2,6 +2,7 @@ import { Component, computed, inject, signal } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { Api } from '../../core/api';
+import { DialogService } from '../../core/dialog';
 import { EntityContracts } from '../../shared/entity-contracts';
 import {
   Contractor, ContractorStatus, ContractorType, ContractorSource,
@@ -363,6 +364,7 @@ const blankNote = (): ContractorNote => ({ title: '', body: '', sort_order: 0 })
 })
 export class ContractorsAdmin {
   private api = inject(Api);
+  private dialog = inject(DialogService);
   private route = inject(ActivatedRoute);
   private router = inject(Router);
 
@@ -443,14 +445,22 @@ export class ContractorsAdmin {
     if (this.draft.id) this.router.navigate(['/operations/contractors', this.draft.id]);
     else this.router.navigate(['/operations/contractors']);
   }
-  del(c: Contractor, e: Event) {
+  async del(c: Contractor, e: Event) {
     e.stopPropagation();
-    if (!confirm(`Delete contractor "${c.name}"?`)) return;
+    const ok = await this.dialog.confirm(
+      `Delete contractor "${c.name}"?`,
+      { title: 'Delete contractor', confirmLabel: 'Delete', variant: 'danger' }
+    );
+    if (!ok) return;
     this.api.deleteContractor(c.id!).subscribe(() => this.loadList());
   }
-  delCurrent() {
+  async delCurrent() {
     const c = this.current(); if (!c) return;
-    if (!confirm(`Delete contractor "${c.name}"?`)) return;
+    const ok = await this.dialog.confirm(
+      `Delete contractor "${c.name}"?`,
+      { title: 'Delete contractor', confirmLabel: 'Delete', variant: 'danger' }
+    );
+    if (!ok) return;
     this.api.deleteContractor(c.id!).subscribe(() => this.router.navigate(['/operations/contractors']));
   }
 
@@ -510,9 +520,13 @@ export class ContractorsAdmin {
         error: e => { this.subSaving.set(false); this.subError.set(e?.error?.error || 'Save failed'); } });
     }
   }
-  deleteNote(n: ContractorNote) {
+  async deleteNote(n: ContractorNote) {
     const id = this.current()?.id; if (!id || !n.id) return;
-    if (!confirm(`Delete "${n.title}"?`)) return;
+    const ok = await this.dialog.confirm(
+      `Delete "${n.title}"?`,
+      { title: 'Delete note', confirmLabel: 'Delete', variant: 'danger' }
+    );
+    if (!ok) return;
     this.api.deleteContractorNote(id, n.id).subscribe(() => {
       this.api.listContractorNotes(id).subscribe(r => this.notes.set(r.notes));
     });

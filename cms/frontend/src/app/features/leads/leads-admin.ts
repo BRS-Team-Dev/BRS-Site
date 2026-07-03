@@ -3,11 +3,13 @@ import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { DatePipe } from '@angular/common';
 import { Api } from '../../core/api';
-import { ClientContact, Lead, LeadIndustrySummary, LeadInfo, LeadNote, LeadStatus, ServiceOffering } from '../../core/models';
-import { EntityContracts } from '../../shared/entity-contracts';
+import { DialogService } from '../../core/dialog';
+import { environment } from '@env/environment';
+import { ClientContact, FeedbackForm, FeedbackQuestion, FeedbackResponse, Lead, LeadIndustrySummary, LeadInfo, LeadNote, LeadServiceLink, LeadStatus, ServiceOffering } from '../../core/models';
+import { FormSubmissionsList } from '../../shared/form-submissions-list';
 
 type Mode = 'list' | 'view' | 'edit';
-type LeadTabKey = 'info' | 'contacts' | 'contracts' | 'notes';
+type LeadTabKey = 'info' | 'contacts' | 'services' | 'onboarding' | 'feedback' | 'notes';
 
 const STATUS_LABELS: Record<LeadStatus, string> = {
   new:       'New',
@@ -33,7 +35,7 @@ type LeadSortKey =
  */
 @Component({
   selector: 'app-leads-admin',
-  imports: [RouterLink, FormsModule, EntityContracts, DatePipe],
+  imports: [RouterLink, FormsModule, DatePipe, FormSubmissionsList],
   template: `
     @if (mode() === 'list') {
       <div class="toolbar">
@@ -90,6 +92,7 @@ type LeadSortKey =
               @for (c of sortColumns; track c.key) {
                 <th class="sortable"
                     [class.active]="sortBy() === c.key"
+                    [class.sticky-status]="c.key === 'status'"
                     (click)="toggleSort(c.key)"
                     [attr.aria-sort]="sortBy() === c.key ? (sortDir() === 'asc' ? 'ascending' : 'descending') : 'none'">
                   <span>{{ c.label }}</span>
@@ -99,7 +102,7 @@ type LeadSortKey =
                   </span>
                 </th>
               }
-              <th></th>
+              <th class="sticky-actions"></th>
             </tr></thead>
             <tbody>
               @for (l of visible(); track l.id) {
@@ -128,7 +131,7 @@ type LeadSortKey =
                       <span class="muted">—</span>
                     }
                   </td>
-                  <td (click)="$event.stopPropagation()">
+                  <td class="sticky-status" (click)="$event.stopPropagation()">
                     <select class="status-inline"
                             [attr.data-status]="l.status || 'new'"
                             [ngModel]="l.status || 'new'"
@@ -143,7 +146,7 @@ type LeadSortKey =
                       }
                     </select>
                   </td>
-                  <td class="actions">
+                  <td class="actions sticky-actions">
                     <button class="ghost icon-btn" (click)="view(l, $event)" title="View" aria-label="View">👁</button>
                     <button class="ghost icon-btn" (click)="edit(l, $event)" title="Edit" aria-label="Edit">✎</button>
                     @if (l.status !== 'converted' && !l.promoted_client_id) {
@@ -242,7 +245,7 @@ type LeadSortKey =
                 <button
                   class="tab-btn"
                   [class.active]="activeTab() === t.key"
-                  (click)="activeTab.set(t.key)">
+                  (click)="onTabClick(t.key, l.id!)">
                   {{ t.label }}
                 </button>
               }
@@ -382,9 +385,162 @@ type LeadSortKey =
                     </div>
                   }
                 }
-                @case ('contracts') {
-                  <div class="tab-head"><h3>Contracts</h3></div>
-                  <app-entity-contracts audience="lead" [entityId]="l.id!"></app-entity-contracts>
+                @case ('services') {
+                  <div class="tab-head">
+                    <h3>Services</h3>
+                    <span class="spacer"></span>
+                  </div>
+
+                  <!-- Picker row: a dropdown filtered to services NOT yet
+                       attached to this lead, plus an "+ Add" button. -->
+                  <div class="service-picker">
+                    <select [(ngModel)]="servicePickerValue" name="svc_pick"
+                            [disabled]="availableUnselectedServices().length === 0">
+                      <option value="">
+                        @if (availableUnselectedServices().length === 0) {
+                          All services already added
+                        } @else {
+                          Choose a service…
+                        }
+                      </option>
+                      @for (s of availableUnselectedServices(); track s.id) {
+                        <option [value]="s.id">{{ s.name }}</option>
+                      }
+                    </select>
+                    <button class="primary"
+                            (click)="addService()"
+                            [disabled]="!servicePickerValue || serviceSaving()">
+                      {{ serviceSaving() ? 'Adding…' : '+ Add' }}
+                    </button>
+                  </div>
+                  @if (serviceError()) { <div class="error-msg">{{ serviceError() }}</div> }
+
+                  <!-- Attached services as badges. × removes the link. -->
+                  @if (leadServices().length === 0) {
+                    <p class="muted" style="margin-top: 18px;">No services attached yet.</p>
+                  } @else {
+                    <div class="badge-list" style="margin-top: 16px;">
+                      @for (s of leadServices(); track s.id) {
+                        <span class="badge service-chip">
+                          {{ s.name }}
+                          <button class="badge-x" (click)="removeService(s)" title="Remove">×</button>
+                        </span>
+                      }
+                    </div>
+                  }
+                }
+                @case ('onboarding') {
+                  <div class="tab-head">
+                    <h3>Onboarding</h3>
+                    <span class="spacer"></span>
+                  </div>
+                  <p class="muted small">
+                    Every form + multipart-form submission linked to this lead,
+                    grouped by form. Click a submission to see the captured fields.
+                    When the lead is promoted to a client, submissions carry over.
+                  </p>
+                  <app-form-submissions-list type="lead" [recordId]="l.id!" />
+                }
+                @case ('feedback') {
+                  <div class="tab-head">
+                    <h3>Feedback</h3>
+                    <span class="spacer"></span>
+                  </div>
+                  <div class="attach-row">
+                    <select [(ngModel)]="feedbackToAttach" name="fb_attach_l">
+                      <option [ngValue]="null">— pick a form to attach —</option>
+                      @for (f of attachableFeedback(); track f.id) {
+                        <option [ngValue]="f.id">{{ f.title }} ({{ f.kind }})</option>
+                      }
+                    </select>
+                    <button class="primary"
+                            [disabled]="!feedbackToAttach || attachingFeedback()"
+                            (click)="attachFeedback(l.id!)">
+                      {{ attachingFeedback() ? 'Attaching…' : 'Attach' }}
+                    </button>
+                    <a class="ghost small" routerLink="/admin/feedback">
+                      Manage forms →
+                    </a>
+                  </div>
+                  @if (loadingFeedback()) {
+                    <p class="muted">Loading…</p>
+                  } @else if (leadFeedback().length === 0) {
+                    <p class="muted">No feedback forms linked to this lead yet.</p>
+                  } @else {
+                    <div class="fb-list">
+                      @for (group of leadFeedbackGroups(); track group.key) {
+                        <div class="fb-section-head">
+                          <span class="fb-section-title">{{ group.label }}</span>
+                          <span class="muted small">· {{ group.forms.length }}</span>
+                        </div>
+                        @for (f of group.forms; track f.id) {
+                        <div class="fb-row" [class.open]="expandedFeedback() === f.id">
+                          <div class="fb-head" (click)="toggleFeedbackRow(f.id!)">
+                            <span class="caret">›</span>
+                            <div class="fb-meta">
+                              <strong>{{ f.updated_at || f.created_at || '—' }}</strong>
+                              <span class="fb-title">{{ f.title }}</span>
+                              <span class="kind-pill" [attr.data-kind]="f.kind">{{ f.kind }}</span>
+                              @if (group.key === 'service' && f.match_service_name) {
+                                <span class="svc-tag">{{ f.match_service_name }}</span>
+                              }
+                            </div>
+                            <span class="muted small">#{{ f.id }}</span>
+                          </div>
+                          @if (expandedFeedback() === f.id) {
+                            <div class="fb-body">
+                              @if (f.description) {
+                                <p class="muted small" style="margin-top: 0;">{{ f.description }}</p>
+                              }
+
+                              @if (loadingFeedbackDetail()) {
+                                <p class="muted small">Loading submissions…</p>
+                              } @else if (feedbackDetailResponses().length === 0) {
+                                <p class="muted small">This lead hasn't submitted yet. Share the link to invite them.</p>
+                              } @else {
+                                @for (r of feedbackDetailResponses(); track r.id) {
+                                  <div class="submission" [class.open]="isSubmissionOpen(r.id)">
+                                    <div class="submission-head" (click)="toggleSubmission(r.id)">
+                                      <span class="caret">›</span>
+                                      <strong>{{ r.submitted_at }}</strong>
+                                      @if (r.ip_address) { <span class="muted small">{{ r.ip_address }}</span> }
+                                    </div>
+                                    @if (isSubmissionOpen(r.id)) {
+                                      @for (a of (r.answers || []); track a.id) {
+                                        <div class="answer-row">
+                                          <label>{{ feedbackQuestionLabel(a.question_id) }}</label>
+                                          <div>{{ formatFeedbackAnswer(a.value) }}</div>
+                                        </div>
+                                      }
+                                      @if ((r.answers || []).length === 0) {
+                                        <p class="muted small">No answers recorded.</p>
+                                      }
+                                    }
+                                  </div>
+                                }
+                              }
+
+                              <div class="fb-actions">
+                                <button class="ghost small" (click)="openFeedback(f); $event.stopPropagation()">Open builder →</button>
+                                <button class="ghost small" (click)="copyLeadFeedbackLink(f, l.id!, $event)">Copy link</button>
+                                <span class="spacer"></span>
+                                @if (group.key === 'lead') {
+                                  <button class="ghost small danger fb-detach"
+                                          (click)="detachFeedback(f, l.id!, $event)"
+                                          title="Detach — removes every link between this lead and the form (junction + legacy + response tags).">✕ Detach</button>
+                                } @else if (group.key === 'broadcast') {
+                                  <span class="muted small">Broadcast — edit on form builder to disable.</span>
+                                } @else if (group.key === 'service') {
+                                  <span class="muted small">Via service — remove the lead from the service to detach.</span>
+                                }
+                              </div>
+                            </div>
+                          }
+                        </div>
+                        }
+                      }
+                    </div>
+                  }
                 }
                 @case ('notes') {
                   <div class="tab-head">
@@ -547,6 +703,12 @@ type LeadSortKey =
     }
   `,
   styles: [`
+    /* Component element must be a constrained block so the inner
+       .table-wrap can scroll horizontally instead of pushing main wider.
+       Without min-width:0 the host grows to fit the widest descendant,
+       defeating the shell's overflow-x:hidden safety net. */
+    :host { display: block; min-width: 0; }
+
     /* Toolbar select needs a capped width — global rule sets selects to
        width:100% which would otherwise blow up the toolbar. */
     .status-filter { width: auto; min-width: 160px; }
@@ -562,7 +724,10 @@ type LeadSortKey =
       color: var(--fg); font-size: 13px;
     }
     .toolbar .search:focus { outline: 0; border-color: var(--primary); }
-    .list-count { margin: 4px 0 8px; }
+    /* Match the 24px outer margin used by .table-wrap so this caption
+       lines up with the table area on both sides, instead of hugging
+       the main edge. */
+    .list-count { margin: 4px 24px 8px; }
 
     /* Inline contacted indicator on the list. Click toggles between
        Yes (today's timestamp) and No (null). Colour-coded same way
@@ -585,10 +750,63 @@ type LeadSortKey =
 
     /* Edit-form contacted-checkbox label — sits inline with the box,
        matches the existing .check pattern other admin pages use. */
-    label.check { display: inline-flex; align-items: center; gap: 8px; margin: 12px 0; cursor: pointer; }
+    label.check {
+      display: inline-flex; align-items: center; gap: 8px; margin: 12px 0;
+      cursor: pointer; color: var(--fg); font-size: 14px; font-weight: 500;
+      text-transform: none; letter-spacing: normal;
+      white-space: nowrap;
+    }
     label.check input { width: auto; }
 
     .actions { display: flex; gap: 4px; justify-content: flex-end; }
+    /* Compact 32×32 icon buttons in row-actions cells. Without this the
+       default button padding (8 14) inflates each icon to ~46px wide and
+       the actions cell balloons past the sticky-actions reservation,
+       which lets the status pill overlap with action icons after the
+       horizontal-scroll fix. Mirrors clients-admin's canonical sizing. */
+    td.actions .icon-btn {
+      width: 32px; height: 32px; padding: 0;
+      display: inline-flex; align-items: center; justify-content: center;
+      font-size: 15px; line-height: 1;
+    }
+
+    /* Status + actions column pinned to the right of the table so users
+       always see what they can do to a row even while horizontally
+       scrolling the long lead list. Width offsets are explicit so the
+       two sticky cells line up; if you change the sticky-actions width,
+       update the sticky-status right offset to match.
+       The thead cells use the global gold thead bg (via the primary-3
+       token); tbody cells reuse the card-row bg-3 and pick up the row's
+       hover override so the sticky region animates with the row. */
+    table.data th.sticky-status,
+    table.data th.sticky-actions,
+    table.data td.sticky-status,
+    table.data td.sticky-actions {
+      position: sticky;
+      background: var(--bg-3);
+      z-index: 1;
+    }
+    table.data thead th.sticky-status,
+    table.data thead th.sticky-actions {
+      background: var(--primary-3);
+      z-index: 2;
+    }
+    /* Widths picked so the widest pill ("Prospect") + select chevron + cell
+       padding fit cleanly, and so the two sticky columns line up with no
+       gap or overlap between them. Actions width = 4×32 icons + 3×4 gaps
+       + 24 padding = ~164, rounded up to 170 for the rare 4-button row. */
+    table.data td.sticky-actions,
+    table.data th.sticky-actions { right: 0; width: 170px; min-width: 170px; }
+    table.data td.sticky-status,
+    table.data th.sticky-status { right: 170px; width: 150px; min-width: 150px; }
+    table.data tbody tr:hover td.sticky-status,
+    table.data tbody tr:hover td.sticky-actions { background: #262626; }
+    /* Soft left edge so the user notices content is scrolling under the
+       sticky region rather than the row ending there. */
+    table.data th.sticky-status,
+    table.data td.sticky-status {
+      box-shadow: -8px 0 12px -8px rgba(0, 0, 0, 0.45);
+    }
 
     /* Card title style — matches the project convention used in clients-admin
        (small uppercase muted). */
@@ -790,6 +1008,63 @@ type LeadSortKey =
     .tab-head { display: flex; align-items: center; margin-bottom: 16px; }
     .tab-head h3 { margin: 0; }
 
+    .attach-row { display: flex; align-items: center; gap: 8px; margin-bottom: 16px; }
+    .attach-row select { flex: 1; }
+    .attach-row a { padding: 6px 10px; font-size: 12px; }
+
+    /* Feedback tab — card-list matching the response-viewer look. */
+    .fb-list { display: flex; flex-direction: column; gap: 6px; }
+    .fb-section-head { display: flex; align-items: baseline; gap: 8px;
+      margin: 14px 0 4px; padding: 0; }
+    .fb-list > .fb-section-head:first-child { margin-top: 0; }
+    .fb-section-title { color: var(--muted); font-size: 11px;
+      text-transform: uppercase; letter-spacing: 0.5px; font-weight: 700; }
+    .svc-tag { padding: 2px 8px; border-radius: 999px;
+      font-size: 11px; font-weight: 600;
+      background: color-mix(in oklab, var(--primary), transparent 82%);
+      color: var(--primary); white-space: nowrap; }
+    .fb-row  { border: 1px solid var(--line); border-radius: var(--radius-sm);
+      background: var(--bg); overflow: hidden; }
+    .fb-head { display: flex; align-items: center; gap: 10px;
+      padding: 10px 14px; cursor: pointer; }
+    .fb-head:hover { background: var(--bg-2); }
+    .fb-head .caret { display: inline-block; transition: transform .12s;
+      color: var(--muted); font-size: 14px; }
+    .fb-row.open .fb-head .caret { transform: rotate(90deg); }
+    .fb-meta { flex: 1; display: flex; align-items: center; gap: 10px; min-width: 0; }
+    .fb-meta strong { font-variant-numeric: tabular-nums; }
+    .fb-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .kind-pill { padding: 2px 10px; border-radius: 999px;
+      font-size: 11px; font-weight: 600; letter-spacing: 0.3px;
+      background: var(--bg-3); color: var(--muted); text-transform: capitalize; }
+    .kind-pill[data-kind="questionnaire"] { background: color-mix(in oklab, #8aa9ff, transparent 80%); color: #8aa9ff; }
+    .kind-pill[data-kind="form"]          { background: color-mix(in oklab, var(--primary), transparent 78%); color: var(--primary); }
+    .kind-pill[data-kind="survey"]        { background: color-mix(in oklab, var(--success), transparent 78%); color: var(--success); }
+    .kind-pill[data-kind="poll"]          { background: color-mix(in oklab, var(--warning), transparent 78%); color: var(--warning); }
+
+    .fb-body { padding: 10px 14px 14px; border-top: 1px solid var(--line);
+      background: var(--bg-2); }
+    .fb-actions { display: flex; gap: 8px; align-items: center; margin-top: 10px;
+      padding-top: 10px; border-top: 1px dashed var(--line); }
+    .fb-actions .spacer { flex: 1; }
+    .fb-actions button { white-space: nowrap; }
+
+    .submission { padding: 8px 0; border-top: 1px solid var(--line); }
+    .submission:first-of-type { border-top: 0; padding-top: 0; }
+    .submission-head { display: flex; align-items: center; gap: 10px;
+      cursor: pointer; user-select: none; padding: 4px 0; }
+    .submission-head:hover strong { color: var(--primary); }
+    .submission-head strong { font-variant-numeric: tabular-nums;
+      transition: color .12s; }
+    .submission-head .caret { display: inline-block; transition: transform .12s;
+      color: var(--muted); font-size: 14px; }
+    .submission.open .submission-head { margin-bottom: 6px; }
+    .submission.open .submission-head .caret { transform: rotate(90deg); }
+    .answer-row { padding: 4px 0; }
+    .answer-row label { display: block; color: var(--muted);
+      font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px;
+      margin: 0 0 3px 0; }
+
     /* ----- Info tab ---------------------------------------------------- */
     .info-form {
       padding: 16px;
@@ -809,6 +1084,21 @@ type LeadSortKey =
       opacity: 0; transition: opacity 0.15s;
     }
     .info-row:hover .info-actions { opacity: 1; }
+
+    /* ----- Services tab ------------------------------------------------ */
+    /* Picker is a single row: dropdown + Add button. The dropdown gets a
+       width override because of the global "select { width: 100% }" rule
+       — without it the button wraps to the next line. */
+    .service-picker { display: flex; gap: 8px; align-items: center; }
+    .service-picker select { flex: 1; min-width: 200px; width: auto; }
+
+    /* Removal chip: a small × button tucked inside the badge. */
+    .service-chip { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; }
+    .badge-x {
+      background: transparent; border: 0; padding: 0;
+      color: var(--muted); font-size: 14px; line-height: 1; cursor: pointer;
+    }
+    .badge-x:hover { color: var(--danger); }
 
     /* ----- Notes tab --------------------------------------------------- */
     .note-form {
@@ -865,6 +1155,7 @@ type LeadSortKey =
 })
 export class LeadsAdmin {
   private api = inject(Api);
+  private dialog = inject(DialogService);
   private router = inject(Router);
   private route = inject(ActivatedRoute);
 
@@ -932,12 +1223,181 @@ export class LeadsAdmin {
 
   // Tabs on the right-side detail card.
   readonly tabs: { key: LeadTabKey; label: string }[] = [
-    { key: 'info',     label: 'Info' },
-    { key: 'contacts', label: 'Contacts' },
-    { key: 'contracts', label: 'Contracts' },
-    { key: 'notes',    label: 'Notes' },
+    { key: 'info',       label: 'Info' },
+    { key: 'contacts',   label: 'Contacts' },
+    { key: 'services',   label: 'Services' },
+    { key: 'onboarding', label: 'Onboarding' },
+    { key: 'feedback',   label: 'Feedback' },
+    { key: 'notes',      label: 'Notes' },
   ];
   activeTab = signal<LeadTabKey>('info');
+
+  // Feedback tab state — forms attached to the current lead via the
+  // feedback_form_leads junction (migration 120), with the legacy
+  // owner column as a fallback.
+  leadFeedback       = signal<FeedbackForm[]>([]);
+  loadingFeedback    = signal(false);
+  allFeedbackForms   = signal<FeedbackForm[]>([]);
+  feedbackToAttach: number | null = null;
+  attachingFeedback  = signal(false);
+  /** Currently-expanded feedback row on the tab (form id, or null). */
+  expandedFeedback   = signal<number | null>(null);
+  feedbackDetailQuestions = signal<FeedbackQuestion[]>([]);
+  feedbackDetailResponses = signal<FeedbackResponse[]>([]);
+  loadingFeedbackDetail   = signal(false);
+  private feedbackLoadedForLead: number | null = null;
+
+  toggleFeedbackRow(id: number) {
+    if (this.expandedFeedback() === id) {
+      this.expandedFeedback.set(null);
+      return;
+    }
+    this.expandedFeedback.set(id);
+    this.loadFeedbackDetail(id);
+    this.openSubmissions.set(new Set());
+  }
+
+  /** Per-submission expand state — default collapsed. */
+  openSubmissions = signal<Set<number>>(new Set<number>());
+  isSubmissionOpen(id: number): boolean { return this.openSubmissions().has(id); }
+  toggleSubmission(id: number) {
+    this.openSubmissions.update(set => {
+      const next = new Set(set);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }
+
+  /** Load form questions + this-lead-only responses so the expanded
+   *  row can render answers inline. */
+  private loadFeedbackDetail(formId: number) {
+    const leadId = this.current()?.id;
+    if (!leadId) return;
+    this.loadingFeedbackDetail.set(true);
+    this.feedbackDetailResponses.set([]);
+    this.feedbackDetailQuestions.set([]);
+    this.api.getFeedbackForm(formId).subscribe({
+      next: r => this.feedbackDetailQuestions.set(r.questions ?? []),
+    });
+    this.api.listFeedbackResponses(formId, { lead: leadId }).subscribe({
+      next: r => {
+        this.feedbackDetailResponses.set(r.responses ?? []);
+        this.loadingFeedbackDetail.set(false);
+      },
+      error: () => this.loadingFeedbackDetail.set(false),
+    });
+  }
+
+  feedbackQuestionLabel(qid: number): string {
+    return this.feedbackDetailQuestions().find(q => q.id === qid)?.label ?? `Q#${qid}`;
+  }
+
+  formatFeedbackAnswer(value: string | null): string {
+    const raw = (value ?? '').toString();
+    if (!raw) return '—';
+    if (raw.startsWith('[') && raw.endsWith(']')) {
+      try {
+        const arr = JSON.parse(raw);
+        if (Array.isArray(arr)) return arr.length ? arr.join(', ') : '—';
+      } catch {}
+    }
+    return raw;
+  }
+
+  attachableFeedback = () => {
+    const attached = new Set(this.leadFeedback().map(f => f.id));
+    return this.allFeedbackForms().filter(f => !attached.has(f.id));
+  };
+
+  /** Split the flat list into three sections keyed off the backend's
+   *  match_source annotation. Empty groups are dropped. */
+  leadFeedbackGroups(): { key: string; label: string; forms: FeedbackForm[] }[] {
+    const forms = this.leadFeedback();
+    const lead      = forms.filter(f => f.match_source === 'lead'    || !f.match_source);
+    const service   = forms.filter(f => f.match_source === 'service');
+    const broadcast = forms.filter(f => f.match_source === 'broadcast');
+    const groups: { key: string; label: string; forms: FeedbackForm[] }[] = [];
+    if (lead.length)      groups.push({ key: 'lead',      label: 'Lead-specific',       forms: lead });
+    if (service.length)   groups.push({ key: 'service',   label: 'Via a service',       forms: service });
+    if (broadcast.length) groups.push({ key: 'broadcast', label: 'Default — all leads', forms: broadcast });
+    return groups;
+  }
+
+  onTabClick(key: LeadTabKey, leadId: number) {
+    this.activeTab.set(key);
+    if (key === 'feedback') this.loadFeedback(leadId);
+  }
+
+  loadFeedback(leadId: number) {
+    if (this.feedbackLoadedForLead === leadId) return;
+    this.feedbackLoadedForLead = leadId;
+    this.loadingFeedback.set(true);
+    this.api.listFeedbackForms({ lead: leadId }).subscribe({
+      next: r => { this.leadFeedback.set(r.forms ?? []); this.loadingFeedback.set(false); },
+      error: () => { this.leadFeedback.set([]); this.loadingFeedback.set(false); },
+    });
+    if (this.allFeedbackForms().length === 0) {
+      this.api.listFeedbackForms({ published: 1 }).subscribe({
+        next: r => this.allFeedbackForms.set(r.forms ?? []),
+      });
+    }
+  }
+
+  attachFeedback(leadId: number) {
+    const fid = this.feedbackToAttach;
+    if (!fid) return;
+    this.attachingFeedback.set(true);
+    this.api.attachFeedbackFormToLead(fid, leadId).subscribe({
+      next: () => {
+        this.attachingFeedback.set(false);
+        this.feedbackToAttach = null;
+        this.feedbackLoadedForLead = null;
+        this.loadFeedback(leadId);
+      },
+      error: () => this.attachingFeedback.set(false),
+    });
+  }
+
+  async detachFeedback(f: FeedbackForm, leadId: number, e: Event) {
+    e.stopPropagation();
+    if (!f.id) return;
+    const ok = await this.dialog.confirm(
+      `Detach "${f.title}" from this lead?`,
+      { title: 'Detach form', confirmLabel: 'Detach', variant: 'warning' }
+    );
+    if (!ok) return;
+    this.api.detachFeedbackFormFromLead(f.id, leadId).subscribe(() => {
+      this.feedbackLoadedForLead = null;
+      this.loadFeedback(leadId);
+    });
+  }
+
+  openFeedback(f: FeedbackForm) {
+    if (!f.id) return;
+    this.router.navigate(['/admin/feedback', f.id]);
+  }
+
+  copyLeadFeedbackLink(f: FeedbackForm, leadId: number, e: Event) {
+    e.stopPropagation();
+    // Attribution scheme: `?id=c{N}` for clients, `?id=l{N}` for leads,
+    // `?id=0` for anonymous / public share.
+    const url = `${window.location.origin}${environment.basePath}/feedback/${f.public_token}?id=l${leadId}`;
+    navigator.clipboard.writeText(url);
+  }
+
+  // Services tab state — junction-row list + the catalogue picker.
+  // `availableUnselectedServices` filters the catalogue against current
+  // links so the dropdown can't offer dupes (UNIQUE enforces it server
+  // side; this is the friendly UX layer).
+  leadServices         = signal<LeadServiceLink[]>([]);
+  availableServices    = signal<ServiceOffering[]>([]);
+  servicePickerValue   = '';
+  serviceSaving        = signal(false);
+  serviceError         = signal<string | null>(null);
+  availableUnselectedServices = computed(() => {
+    const taken = new Set(this.leadServices().map(s => s.service_offering_id));
+    return this.availableServices().filter(s => s.id !== undefined && !taken.has(s.id));
+  });
 
   // Contacts tab state — mirrors clients-admin's contact UI exactly so
   // promote-to-client carries a contact list the client form already
@@ -1079,7 +1539,7 @@ export class LeadsAdmin {
     this.api.updateLead(l.id, { ...l, contacted: !wasContacted } as any).subscribe({
       error: e => {
         this.leads.update(list => list.map(x => x.id === l.id ? { ...x, contacted_at: l.contacted_at } : x));
-        alert(e?.error?.error || 'Failed to update contacted status');
+        this.dialog.alert(e?.error?.error || 'Failed to update contacted status', { title: 'Error', variant: 'danger' });
       },
     });
   }
@@ -1155,6 +1615,7 @@ export class LeadsAdmin {
           this.loadNotes(id);
           this.loadInfoEntries(id);
           this.loadContacts(id);
+          this.loadServices(id);
         }
       },
       error: () => {
@@ -1233,23 +1694,31 @@ export class LeadsAdmin {
     }
   }
 
-  del(l: Lead, ev?: Event) {
+  async del(l: Lead, ev?: Event) {
     ev?.stopPropagation();
     if (!l.id) return;
-    if (!confirm(`Delete lead "${l.name}"? This cannot be undone.`)) return;
+    const ok = await this.dialog.confirm(
+      `Delete lead "${l.name}"? This cannot be undone.`,
+      { title: 'Delete lead', confirmLabel: 'Delete', variant: 'danger' }
+    );
+    if (!ok) return;
     this.api.deleteLead(l.id).subscribe({
       next: () => this.loadList(),
-      error: e => alert(e?.error?.error || 'Failed to delete'),
+      error: e => this.dialog.alert(e?.error?.error || 'Failed to delete', { title: 'Error', variant: 'danger' }),
     });
   }
 
-  delCurrent() {
+  async delCurrent() {
     const c = this.current();
     if (!c?.id) return;
-    if (!confirm(`Delete lead "${c.name}"? This cannot be undone.`)) return;
+    const ok = await this.dialog.confirm(
+      `Delete lead "${c.name}"? This cannot be undone.`,
+      { title: 'Delete lead', confirmLabel: 'Delete', variant: 'danger' }
+    );
+    if (!ok) return;
     this.api.deleteLead(c.id).subscribe({
       next: () => this.router.navigate(['/admin/leads']),
-      error: e => alert(e?.error?.error || 'Failed to delete'),
+      error: e => this.dialog.alert(e?.error?.error || 'Failed to delete', { title: 'Error', variant: 'danger' }),
     });
   }
 
@@ -1265,27 +1734,35 @@ export class LeadsAdmin {
       error: e => {
         // Roll back on failure.
         this.leads.update(list => list.map(x => x.id === l.id ? { ...x, status: prev } : x));
-        alert(e?.error?.error || 'Failed to update status');
+        this.dialog.alert(e?.error?.error || 'Failed to update status', { title: 'Error', variant: 'danger' });
       },
     });
   }
 
   /** Promote-to-client direct from the list row (skips opening the lead).
    *  Mirrors the existing `promote()` on the detail view. */
-  promoteRow(l: Lead, ev?: Event) {
+  async promoteRow(l: Lead, ev?: Event) {
     ev?.stopPropagation();
     if (!l.id) return;
-    if (!confirm(`Promote "${l.name}" to a client? Their fields will be copied into the Clients section.`)) return;
+    const ok = await this.dialog.confirm(
+      `Promote "${l.name}" to a client? Their fields will be copied into the Clients section.`,
+      { title: 'Promote to client', confirmLabel: 'Promote', variant: 'warning' }
+    );
+    if (!ok) return;
     this.api.promoteLead(l.id).subscribe({
       next: r => this.router.navigate(['/admin/clients', r.client_id]),
-      error: e => alert(e?.error?.error || 'Failed to promote lead'),
+      error: e => this.dialog.alert(e?.error?.error || 'Failed to promote lead', { title: 'Error', variant: 'danger' }),
     });
   }
 
-  promote() {
+  async promote() {
     const c = this.current();
     if (!c?.id) return;
-    if (!confirm(`Promote "${c.name}" to a client? Their fields will be copied into the Clients section.`)) return;
+    const ok = await this.dialog.confirm(
+      `Promote "${c.name}" to a client? Their fields will be copied into the Clients section.`,
+      { title: 'Promote to client', confirmLabel: 'Promote', variant: 'warning' }
+    );
+    if (!ok) return;
 
     this.promoteError.set(null);
     this.promoting.set(true);
@@ -1387,10 +1864,14 @@ export class LeadsAdmin {
     }
   }
 
-  deleteContact(c: ClientContact) {
+  async deleteContact(c: ClientContact) {
     const leadId = this.current()?.id;
     if (!leadId || !c.id) return;
-    if (!confirm(`Delete contact "${c.first_name} ${c.last_name || ''}"?`)) return;
+    const ok = await this.dialog.confirm(
+      `Delete contact "${c.first_name} ${c.last_name || ''}"?`,
+      { title: 'Delete contact', confirmLabel: 'Delete', variant: 'danger' }
+    );
+    if (!ok) return;
     this.api.deleteLeadContact(leadId, c.id).subscribe(() => this.loadContacts(leadId));
   }
 
@@ -1398,6 +1879,47 @@ export class LeadsAdmin {
     const leadId = this.current()?.id;
     if (!leadId || !c.id) return;
     this.api.setPrimaryLeadContact(leadId, c.id).subscribe(() => this.loadContacts(leadId));
+  }
+
+  // ----- Services -----
+  // Loads both sides of the picker on lead open: the catalogue (for the
+  // dropdown) AND the currently-attached links (for the badges + dedup).
+  private loadServices(leadId: number) {
+    this.servicePickerValue = '';
+    this.serviceError.set(null);
+    this.api.listLeadServices(leadId).subscribe({
+      next: r => this.leadServices.set(r.services ?? []),
+      error: () => this.leadServices.set([]),
+    });
+    this.api.listServiceOfferings().subscribe({
+      next: r => this.availableServices.set(r.services ?? []),
+      error: () => this.availableServices.set([]),
+    });
+  }
+
+  addService() {
+    const leadId = this.current()?.id;
+    const soid   = Number(this.servicePickerValue);
+    if (!leadId || !soid) return;
+    this.serviceSaving.set(true);
+    this.serviceError.set(null);
+    this.api.addLeadService(leadId, soid).subscribe({
+      next: () => {
+        this.serviceSaving.set(false);
+        this.servicePickerValue = '';
+        this.loadServices(leadId);
+      },
+      error: e => {
+        this.serviceSaving.set(false);
+        this.serviceError.set(e?.error?.error || 'Could not add service.');
+      },
+    });
+  }
+
+  removeService(s: LeadServiceLink) {
+    const leadId = this.current()?.id;
+    if (!leadId) return;
+    this.api.removeLeadService(leadId, s.id).subscribe(() => this.loadServices(leadId));
   }
 
   // ----- Notes -----
@@ -1452,10 +1974,14 @@ export class LeadsAdmin {
       this.api.createLeadNote(leadId, this.noteDraft).subscribe({ next: done, error: fail });
     }
   }
-  deleteNote(n: LeadNote) {
+  async deleteNote(n: LeadNote) {
     const leadId = this.current()?.id;
     if (!leadId || !n.id) return;
-    if (!confirm(`Delete note "${n.title}"?`)) return;
+    const ok = await this.dialog.confirm(
+      `Delete note "${n.title}"?`,
+      { title: 'Delete note', confirmLabel: 'Delete', variant: 'danger' }
+    );
+    if (!ok) return;
     this.api.deleteLeadNote(leadId, n.id).subscribe(() => this.loadNotes(leadId));
   }
 
@@ -1506,10 +2032,14 @@ export class LeadsAdmin {
       this.api.createLeadInfo(leadId, this.infoDraft).subscribe({ next: done, error: fail });
     }
   }
-  deleteInfo(i: LeadInfo) {
+  async deleteInfo(i: LeadInfo) {
     const leadId = this.current()?.id;
     if (!leadId || !i.id) return;
-    if (!confirm(`Delete "${i.name}"?`)) return;
+    const ok = await this.dialog.confirm(
+      `Delete "${i.name}"?`,
+      { title: 'Delete info', confirmLabel: 'Delete', variant: 'danger' }
+    );
+    if (!ok) return;
     this.api.deleteLeadInfo(leadId, i.id).subscribe(() => this.loadInfoEntries(leadId));
   }
 }

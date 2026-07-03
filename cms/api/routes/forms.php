@@ -57,15 +57,26 @@ return function (string $method, array $segs): void {
             $parentKey = $placement === 'child' && !empty($body['sidenav_parent_key'])
                 ? substr((string)$body['sidenav_parent_key'], 0, 40) : null;
             $parentProcessId = !empty($body['parent_process_form_id']) ? (int)$body['parent_process_form_id'] : null;
+            $serviceOfferingId = !empty($body['service_offering_id']) ? (int)$body['service_offering_id'] : null;
+            // Mutually-exclusive scope: setting broadcast wipes the
+            // service pin and vice versa. Enforced here so the DB
+            // always matches the UI's radio-group model.
+            $bcastClients = !empty($body['broadcast_to_all_clients']) ? 1 : 0;
+            $bcastLeads   = !empty($body['broadcast_to_all_leads'])   ? 1 : 0;
+            if ($bcastClients || $bcastLeads) $serviceOfferingId = null;
+            if ($serviceOfferingId !== null)  { $bcastClients = 0; $bcastLeads = 0; }
+            if ($bcastClients) $bcastLeads = 0;   // "all clients" wins over "all leads" if both sent
 
             // Insert metadata first
             $ins = $pdo->prepare("INSERT INTO forms (slug, sidenav_placement, sidenav_parent_key, parent_process_form_id,
+                service_offering_id, broadcast_to_all_clients, broadcast_to_all_leads,
                 title, description, intro_html, submit_label,
                 thank_you_message, notify_email, notify_subject, notify_template,
                 reply_subject, reply_template, reply_from_field, is_published)
-                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)");
+                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)");
             $ins->execute([
                 $slug, $placement, $parentKey, $parentProcessId,
+                $serviceOfferingId, $bcastClients, $bcastLeads,
                 $title,
                 $body['description']       ?? null,
                 $body['intro_html']        ?? null,
@@ -153,16 +164,31 @@ return function (string $method, array $segs): void {
             if ($parentKey === (string)$id) $parentKey = null;
             $parentProcessId = !empty($body['parent_process_form_id']) ? (int)$body['parent_process_form_id'] : null;
             if ($parentProcessId === $id) $parentProcessId = null;
+            $serviceOfferingId = array_key_exists('service_offering_id', $body)
+                ? (!empty($body['service_offering_id']) ? (int)$body['service_offering_id'] : null)
+                : ($form['service_offering_id'] ?? null);
+            $bcastClients = array_key_exists('broadcast_to_all_clients', $body)
+                ? (!empty($body['broadcast_to_all_clients']) ? 1 : 0)
+                : (int)($form['broadcast_to_all_clients'] ?? 0);
+            $bcastLeads = array_key_exists('broadcast_to_all_leads', $body)
+                ? (!empty($body['broadcast_to_all_leads']) ? 1 : 0)
+                : (int)($form['broadcast_to_all_leads'] ?? 0);
+            // Mutual exclusivity — same rule as INSERT.
+            if ($bcastClients || $bcastLeads) $serviceOfferingId = null;
+            if ($serviceOfferingId !== null)  { $bcastClients = 0; $bcastLeads = 0; }
+            if ($bcastClients) $bcastLeads = 0;
 
             // 1) Update metadata
             $upd = $pdo->prepare("UPDATE forms SET
                 slug=?, sidenav_placement=?, sidenav_parent_key=?, parent_process_form_id=?,
+                service_offering_id=?, broadcast_to_all_clients=?, broadcast_to_all_leads=?,
                 title=?, description=?, intro_html=?, submit_label=?,
                 thank_you_message=?, notify_email=?, notify_subject=?, notify_template=?,
                 reply_subject=?, reply_template=?, reply_from_field=?, is_published=?
                 WHERE id = ?");
             $upd->execute([
                 $newSlug, $placement, $parentKey, $parentProcessId,
+                $serviceOfferingId, $bcastClients, $bcastLeads,
                 (string)($body['title'] ?? $form['title']),
                 $body['description']       ?? null,
                 $body['intro_html']        ?? null,

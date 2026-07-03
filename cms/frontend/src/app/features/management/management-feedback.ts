@@ -1,6 +1,7 @@
 import { Component, computed, effect, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Api } from '../../core/api';
+import { DialogService } from '../../core/dialog';
 import { HrEmployee, HrFeedbackNote, HrFeedbackNoteKind } from '../../core/models';
 
 const KIND_LABELS: Record<HrFeedbackNoteKind, string> = {
@@ -138,6 +139,7 @@ const KIND_LABELS: Record<HrFeedbackNoteKind, string> = {
 })
 export class ManagementFeedback {
   private api = inject(Api);
+  private dialog = inject(DialogService);
 
   team = signal<HrEmployee[]>([]);
   selectedEmployeeId = signal<number | null>(null);
@@ -185,9 +187,10 @@ export class ManagementFeedback {
       error: () => this.busy.set(false),
     });
   }
-  del(n: HrFeedbackNote) {
+  async del(n: HrFeedbackNote) {
     if (!n.id) return;
-    if (!confirm('Delete this note?')) return;
+    const ok = await this.dialog.confirm('Delete this note?', { title: 'Delete note', confirmLabel: 'Delete', variant: 'danger' });
+    if (!ok) return;
     this.api.deleteFeedbackNote(n.id).subscribe(() => this.refreshNotes());
   }
   kindLabel(k: HrFeedbackNoteKind) { return KIND_LABELS[k] || k; }

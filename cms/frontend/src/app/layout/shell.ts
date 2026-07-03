@@ -37,12 +37,20 @@ import { SystemService } from '../core/system.service';
     <app-side-panel />
   `,
   styles: [`
-    :host { display: block; height: 100vh; }
+    :host { display: block; height: 100vh; overflow: hidden; }
     /* Override the global .layout { padding: 20px } in styles.scss — that
        utility is for detail/edit page wrappers, not for the app shell. */
     .layout { display: flex; height: 100%; padding: 0; }
     .content { display: flex; flex-direction: column; flex: 1; min-width: 0; }
-    main { flex: 1; overflow-y: auto; min-height: 0; }
+    /* min-width: 0 lets a wider-than-viewport child (a long table) scroll
+       INSIDE its own container instead of pushing main wider and forcing
+       the page to scroll horizontally. overflow-x: hidden is the safety
+       net — even if a future child forgets to wrap a scroll region,
+       horizontal overflow still can't escape the shell. */
+    main {
+      flex: 1; min-width: 0; min-height: 0;
+      overflow-x: hidden; overflow-y: auto;
+    }
   `],
 })
 export class Shell {

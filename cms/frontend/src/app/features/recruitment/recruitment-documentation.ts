@@ -2,6 +2,7 @@ import { Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { environment } from '@env/environment';
 import { Api } from '../../core/api';
+import { DialogService } from '../../core/dialog';
 import { OperationsDocumentsBrowse, RecruitmentDocStatus, RecruitmentDocumentRow } from '../../core/models';
 
 type ViewTab = 'list' | 'browse';
@@ -249,6 +250,7 @@ const STATUS_LABEL: Record<RecruitmentDocStatus, string> = {
 })
 export class RecruitmentDocumentation {
   private api = inject(Api);
+  private dialog = inject(DialogService);
 
   STATUS_LABEL = STATUS_LABEL;
   statusOrder: RecruitmentDocStatus[] = ['pending', 'valid', 'expired', 'rejected'];
@@ -329,11 +331,16 @@ export class RecruitmentDocumentation {
   /** Delete a file or folder under cms/uploads/recruitment/. Folders
    *  cascade to every nested file. Confirmation message reads differently
    *  by type so HR sees the recursive case before agreeing to it. */
-  delEntry(e: { type: 'dir' | 'file'; name: string; path: string }) {
+  async delEntry(e: { type: 'dir' | 'file'; name: string; path: string }) {
     const msg = e.type === 'dir'
       ? `Delete folder "${e.name}" and every file inside it? Any candidate document records pointing at these files will also be removed.`
       : `Delete "${e.name}"? Any candidate document record pointing at this file will also be removed.`;
-    if (!confirm(msg)) return;
+    const ok = await this.dialog.confirm(msg, {
+      title: e.type === 'dir' ? 'Delete folder' : 'Delete file',
+      confirmLabel: 'Delete',
+      variant: 'danger',
+    });
+    if (!ok) return;
     this.api.deleteRecruitmentBrowseItem(e.path).subscribe(() => {
       // Reload the current folder, plus the aggregated List view since
       // the cascade may have nuked rows it was showing.

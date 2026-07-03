@@ -499,6 +499,15 @@ return function (string $method, array $segs): void {
         // load for emailless clients.
         $rows = [];
         if ($email !== '') {
+            // Two pricing sources per form:
+            //   (a) the new f.service_offering_id link → live catalogue
+            //       (so.price, so.payment_type, so.repeat_duration) —
+            //       contract length / indefinite stay on the form because
+            //       they're a per-onboarding contract concept, not a
+            //       catalogue concept.
+            //   (b) the legacy f.has_price / f.price / ... fields, used
+            //       when no service is linked (pre-113 forms).
+            // We select both columns and resolve in PHP below.
             $stmt = $pdo->prepare("
                 SELECT oc.id            AS onboarding_client_id,
                        oc.client_email,
@@ -509,16 +518,22 @@ return function (string $method, array $segs): void {
                        f.id              AS form_id,
                        f.slug            AS form_slug,
                        f.title           AS form_title,
+                       f.service_offering_id,
                        f.has_price,
                        f.price,
                        f.payment_type,
                        f.repeat_duration,
                        f.contract_length_months,
                        f.is_indefinite,
+                       so.price          AS svc_price,
+                       so.payment_type   AS svc_payment_type,
+                       so.repeat_duration AS svc_repeat_duration,
+                       so.name           AS svc_name,
                        tp.id             AS project_id,
                        tp.status         AS project_status
                 FROM onboarding_clients oc
                 JOIN forms f ON f.id = oc.form_id
+                LEFT JOIN service_offerings so ON so.id = f.service_offering_id
                 LEFT JOIN task_projects tp ON tp.onboarding_client_id = oc.id
                 WHERE LOWER(oc.client_email) = LOWER(?)
                   AND f.sidenav_placement = 'child'
@@ -528,6 +543,30 @@ return function (string $method, array $segs): void {
             ");
             $stmt->execute([$email]);
             $rows = $stmt->fetchAll();
+        }
+
+        // Dedupe: if a client_service_offerings row already exists for
+        // this client + service (i.e. the auto-attach at submit time
+        // wrote a canonical CSO row), suppress the onboarding-source
+        // row from the list. The CSO row is the "current" version;
+        // the onboarding row is history reachable via its own link.
+        // Onboardings whose form has NO service link are always kept —
+        // they can't collide with a CSO row.
+        $existingLinks = [];
+        if (!empty($rows)) {
+            $csoCheck = $pdo->prepare(
+                'SELECT service_offering_id FROM client_service_offerings WHERE client_id = ?'
+            );
+            $csoCheck->execute([$id]);
+            foreach ($csoCheck->fetchAll() as $l) {
+                if ($l['service_offering_id'] !== null) {
+                    $existingLinks[(int)$l['service_offering_id']] = true;
+                }
+            }
+            $rows = array_values(array_filter($rows, function ($r) use ($existingLinks) {
+                if ($r['service_offering_id'] === null) return true;
+                return !isset($existingLinks[(int)$r['service_offering_id']]);
+            }));
         }
 
         // Per-service compute
@@ -541,11 +580,24 @@ return function (string $method, array $segs): void {
         $now = new \DateTimeImmutable();
 
         foreach ($rows as $r) {
-            $price = (float)($r['price'] ?? 0);
-            $hasPrice = (int)($r['has_price'] ?? 0) === 1 && $price > 0;
-
-            $paymentType = (string)$r['payment_type'];
-            $rd = $r['repeat_duration'];
+            // Pricing resolution: when the form has a service link, pull
+            // price/payment_type/repeat_duration from the catalogue (live —
+            // catalogue changes propagate). Otherwise fall back to the
+            // legacy form columns. has_price is implicitly true whenever
+            // a service is linked and the catalogue row has a non-zero
+            // price; for legacy rows it still comes from f.has_price.
+            $linkedToService = $r['service_offering_id'] !== null && $r['service_offering_id'] !== '';
+            if ($linkedToService) {
+                $price = (float)($r['svc_price'] ?? 0);
+                $hasPrice = $price > 0;
+                $paymentType = (string)($r['svc_payment_type'] ?? 'one_off');
+                $rd = $r['svc_repeat_duration'];
+            } else {
+                $price = (float)($r['price'] ?? 0);
+                $hasPrice = (int)($r['has_price'] ?? 0) === 1 && $price > 0;
+                $paymentType = (string)$r['payment_type'];
+                $rd = $r['repeat_duration'];
+            }
             $contractMonths = $r['contract_length_months'] !== null ? (int)$r['contract_length_months'] : null;
             $indef = (int)($r['is_indefinite'] ?? 0) === 1;
 
@@ -596,6 +648,7 @@ return function (string $method, array $segs): void {
                 'kind'                   => 'onboarding',
                 'row_key'                => 'ob:' . (int)$r['onboarding_client_id'],
                 'service_link_id'        => null,
+                'service_offering_id'    => $r['service_offering_id'] !== null ? (int)$r['service_offering_id'] : null,
                 'name'                   => $r['form_title'],
                 'onboarding_client_id'   => (int)$r['onboarding_client_id'],
                 'form_id'                => (int)$r['form_id'],
@@ -694,6 +747,7 @@ return function (string $method, array $segs): void {
                 'kind'                   => 'catalog',
                 'row_key'                => 'cs:' . (int)$r['id'],
                 'service_link_id'        => (int)$r['id'],
+                'service_offering_id'    => $r['service_offering_id'] !== null ? (int)$r['service_offering_id'] : null,
                 'name'                   => $displayName,
                 'onboarding_client_id'   => null,
                 'form_id'                => null,
@@ -928,6 +982,32 @@ return function (string $method, array $segs): void {
                 'INSERT INTO lead_notes (lead_id, title, body, sort_order, created_at, updated_at)
                  SELECT ?, title, body, sort_order, created_at, updated_at
                  FROM client_notes WHERE client_id = ?'
+            )->execute([$newLeadId, $id]);
+
+            // ── Carry service links forward ───────────────────────
+            // client_service_offerings → lead_services. lead_services
+            // is a slim junction (just service_offering_id) so all we
+            // carry is the offering reference — the denormalised
+            // name/price/status stays behind with the retired client
+            // row. Distinct guards against duplicate service links
+            // if the client had the same offering listed twice.
+            $pdo->prepare(
+                'INSERT INTO lead_services (tenant_id, lead_id, service_offering_id)
+                 SELECT DISTINCT cso.tenant_id, ?, cso.service_offering_id
+                   FROM client_service_offerings cso
+                  WHERE cso.client_id = ?
+                    AND cso.service_offering_id IS NOT NULL'
+            )->execute([$newLeadId, $id]);
+
+            // ── Carry feedback attachments forward ────────────────
+            // Explicit junction migration + re-tag every submitted
+            // response so this person's history stays intact.
+            $pdo->prepare(
+                'INSERT IGNORE INTO feedback_form_leads (tenant_id, form_id, lead_id)
+                 SELECT tenant_id, form_id, ? FROM feedback_form_clients WHERE client_id = ?'
+            )->execute([$newLeadId, $id]);
+            $pdo->prepare(
+                'UPDATE feedback_responses SET lead_id = ?, client_id = NULL WHERE client_id = ?'
             )->execute([$newLeadId, $id]);
 
             // Drop the client row last. FK cascades wipe its sub-tables

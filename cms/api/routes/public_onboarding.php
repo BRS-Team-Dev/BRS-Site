@@ -5,6 +5,7 @@ use BRS\Db;
 use BRS\Ddl;
 use BRS\Json;
 use BRS\Mailer;
+use BRS\NotificationDispatcher;
 
 /*
  * Public onboarding portal endpoints (no auth — token in URL).
@@ -286,7 +287,7 @@ return function (string $method, array $segs): void {
                   . '</p>';
             $body .= '<p>Form: ' . htmlspecialchars($form['title']) . '</p>';
             $body .= '<p><a href="' . htmlspecialchars($adminUrl) . '">View their submission &rarr;</a></p>';
-            Mailer::send($form['notify_email'], $subj, $body);
+            Mailer::sendVia('internal', $form['notify_email'], $subj, $body);
         }
 
         Json::send(['ok' => true, 'completed_sections' => $completed]);
@@ -298,8 +299,260 @@ return function (string $method, array $segs): void {
 
         $alreadySubmitted = !empty($client['submitted_at']);
         if (!$alreadySubmitted) {
-            $pdo->prepare('UPDATE onboarding_clients SET submitted_at = NOW(), last_edited_at = NOW() WHERE id = ?')
+            // Auto-qualify on submit — the old flow required an admin to
+            // click Qualify to advance the pipeline. That created a "No
+            // project" gap and made the Services tab show a duplicate
+            // row (onboarding-source + catalogue-source) until an admin
+            // acted. Submitting the form now qualifies immediately and
+            // the task_project is spun up further down.
+            $pdo->prepare('UPDATE onboarding_clients
+                              SET submitted_at   = NOW(),
+                                  last_edited_at = NOW(),
+                                  qualified_at   = COALESCE(qualified_at, NOW())
+                            WHERE id = ?')
                 ->execute([$clientId]);
+        }
+
+        // ── Auto-create / attach client to the linked service ───────
+        //
+        // When the form is bound to a service catalogue row (113) and
+        // this is the FIRST submission, find or create the matching
+        // clients row by email, then attach the service via
+        // client_service_offerings with status='submitted' (form
+        // submitted, awaiting admin qualification — migration 117
+        // enum).
+        //
+        // Wrapped in try/catch so any failure here can't break the
+        // submitter's experience — the onboarding itself has already
+        // been saved at this point.
+        if (!$alreadySubmitted && !empty($form['service_offering_id'])) {
+            try {
+                $svcId = (int)$form['service_offering_id'];
+
+                // Pull the submission row so we can lift company info
+                // off the answers (field names follow the convention
+                // company_name / company_url / contact_phone / etc.
+                // documented on the seeded Management-system form).
+                $rs = $pdo->prepare("SELECT * FROM `$table` WHERE id = ?");
+                $rs->execute([$client['submission_id']]);
+                $rowFull = $rs->fetch() ?: [];
+
+                $email       = strtolower(trim((string)$client['client_email']));
+                $companyName = $rowFull['company_name'] ?? $rowFull['company']     ?? null;
+                $companyUrl  = $rowFull['company_url']  ?? $rowFull['url']
+                                                       ?? $rowFull['website']     ?? null;
+                $phone       = $rowFull['contact_phone'] ?? $rowFull['phone']     ?? null;
+                $contactName = $rowFull['contact_name']  ?? $rowFull['admin_name']
+                                                       ?? $rowFull['name']
+                                                       ?? $client['client_name']  ?? null;
+
+                if ($email !== '') {
+                    // Find or create the canonical clients row.
+                    $cFind = $pdo->prepare('SELECT id FROM clients WHERE LOWER(email) = LOWER(?) LIMIT 1');
+                    $cFind->execute([$email]);
+                    $clientsId = $cFind->fetchColumn();
+
+                    if (!$clientsId) {
+                        $insClient = $pdo->prepare(
+                            'INSERT INTO clients (name, email, phone, company, url, notes)
+                             VALUES (?, ?, ?, ?, ?, ?)'
+                        );
+                        $insClient->execute([
+                            $contactName ?: ($companyName ?: 'New client'),
+                            $email,
+                            $phone ?: null,
+                            $companyName ?: null,
+                            $companyUrl ?: null,
+                            'Auto-created from onboarding submission.',
+                        ]);
+                        $clientsId = (int)$pdo->lastInsertId();
+                    } else {
+                        $clientsId = (int)$clientsId;
+                    }
+
+                    // Backfill parent_client_id on the onboarding row so
+                    // subsequent lookups + backfill migrations resolve
+                    // this client correctly without another round-trip.
+                    if (empty($client['parent_client_id'])) {
+                        $pdo->prepare(
+                            'UPDATE onboarding_clients SET parent_client_id = ? WHERE id = ?'
+                        )->execute([$clientsId, $clientId]);
+                    }
+
+                    // Write the polymorphic linkage row so the client's
+                    // Onboarding tab AND the service's Onboarding tab
+                    // both surface this submission. Idempotent — we
+                    // check for an existing row first.
+                    try {
+                        $chk = \BRS\Db::pdo()->prepare(
+                            'SELECT id FROM form_submission_links
+                              WHERE tenant_id = ? AND form_id = ?
+                                AND submission_table = "onboarding_clients"
+                                AND submission_id = ?
+                              LIMIT 1'
+                        );
+                        $chk->execute([Tenant::id(), (int)$form['id'], $clientId]);
+                        if (!$chk->fetchColumn()) {
+                            \BRS\Db::pdo()->prepare(
+                                'INSERT INTO form_submission_links
+                                   (tenant_id, form_id, submission_table, submission_id,
+                                    client_id, service_offering_id, attach_source)
+                                 VALUES (?, ?, "onboarding_clients", ?, ?, ?, "auto")'
+                            )->execute([
+                                Tenant::id(),
+                                (int)$form['id'],
+                                $clientId,
+                                $clientsId,
+                                $svcId,
+                            ]);
+                        }
+                    } catch (\Throwable $e) {
+                        error_log('[onboarding submit] fsl insert failed: ' . $e->getMessage());
+                    }
+
+                    // Attach the service unless already attached. Snapshot
+                    // pricing/cadence off the catalogue so the link row
+                    // matches the catalogue at time of attach.
+                    // Skip the dupe-check when the service flags
+                    // allow_multiple — that's the whole point of the
+                    // flag: re-purchasable services spawn a new link
+                    // per submission instead of being idempotent.
+                    $svcStmt = $pdo->prepare(
+                        'SELECT name, price, payment_type, repeat_duration, allow_multiple
+                           FROM service_offerings WHERE id = ?'
+                    );
+                    $svcStmt->execute([$svcId]);
+                    $svc = $svcStmt->fetch();
+                    $allowMultiple = $svc ? (int)($svc['allow_multiple'] ?? 0) === 1 : false;
+
+                    $existingLink = null;
+                    if (!$allowMultiple) {
+                        $linkFind = $pdo->prepare(
+                            'SELECT id FROM client_service_offerings
+                              WHERE client_id = ? AND service_offering_id = ?
+                              LIMIT 1'
+                        );
+                        $linkFind->execute([$clientsId, $svcId]);
+                        $existingLink = $linkFind->fetchColumn() ?: null;
+                    }
+
+                    if (!$existingLink) {
+                        if ($svc) {
+                            $payType = in_array(($svc['payment_type'] ?? ''), ['one_off','recurring'], true)
+                                ? $svc['payment_type'] : 'one_off';
+                            $cadence = $payType === 'recurring' ? ($svc['repeat_duration'] ?? null) : null;
+                            // status='qualified' (was 'submitted') — the
+                            // auto-qualify above already advanced the
+                            // onboarding row, so the CSO enum tracks the
+                            // same stage.
+                            $pdo->prepare(
+                                'INSERT INTO client_service_offerings
+                                   (client_id, service_offering_id, name, price, payment_type, repeat_duration, status)
+                                 VALUES (?, ?, ?, ?, ?, ?, ?)'
+                            )->execute([
+                                $clientsId,
+                                $svcId,
+                                (string)$svc['name'],
+                                $svc['price'] !== null && $svc['price'] !== '' ? (float)$svc['price'] : null,
+                                $payType,
+                                $cadence,
+                                'qualified',
+                            ]);
+                            $newLinkId = (int)$pdo->lastInsertId();
+
+                            // ── Auto-file a CRM task so the admin sees
+                            // the new client show up in their queue. The
+                            // service_client_link_id back-references the
+                            // CSO row we just created, which the
+                            // frontend uses to render the "→ client"
+                            // link on the task card. Category='client'
+                            // (the trigger was a NEW client), priority
+                            // reflects that this is a fresh acquisition.
+                            $displayName = trim((string)($contactName ?: $companyName ?: $email));
+                            $taskTitle   = 'New client — ' . $displayName . ' · ' . (string)$svc['name'];
+                            $taskDesc    = 'Auto-created on onboarding submission. '
+                                         . 'Contact: ' . ($email ?: 'n/a')
+                                         . ($phone ? ' · ' . $phone : '');
+                            $pdo->prepare(
+                                'INSERT INTO crm_tasks
+                                   (title, description, category, priority, status, service_client_link_id)
+                                 VALUES (?, ?, ?, ?, ?, ?)'
+                            )->execute([
+                                $taskTitle,
+                                $taskDesc,
+                                'client',
+                                'high',
+                                'to_do',
+                                $newLinkId,
+                            ]);
+                        }
+                    }
+                }
+            } catch (\Throwable $e) {
+                // Don't surface to the submitter — the form was saved.
+                // Surface to logs so an admin can reconcile later.
+                error_log('[onboarding-submit] auto-attach failed for client ' . $clientId . ': ' . $e->getMessage());
+            }
+        }
+
+        // ── Notify admins that onboarding was submitted ──────────
+        if (!$alreadySubmitted) {
+            NotificationDispatcher::fire('crm.onboarding.submitted', [
+                'title'    => 'Onboarding submitted — ' . ($client['client_name'] ?: $client['client_email']),
+                'body'     => 'Form: ' . ($form['title'] ?? 'Onboarding'),
+                'link_url' => '/admin/onboarding/' . $formId . '/clients/' . $clientId,
+            ]);
+        }
+
+        // ── Auto-create task_project on first submit ─────────────────
+        // Mirrors the manual qualify handler in onboarding.php: if the
+        // form is bound to a task team AND this is a fresh submission,
+        // spawn a project owned by that team so admins land on
+        // active work rather than an empty pipeline. Idempotent — the
+        // WHERE onboarding_client_id check prevents dupes on re-submit.
+        if (!$alreadySubmitted && !empty($form['team_id'])) {
+            try {
+                $exists = $pdo->prepare('SELECT id FROM task_projects WHERE onboarding_client_id = ?');
+                $exists->execute([$clientId]);
+                if (!$exists->fetch()) {
+                    $clientLabel = trim((string)($client['client_name']  ?? ''))
+                                ?: trim((string)($client['client_email'] ?? ''))
+                                ?: 'Client';
+                    $projectName = trim((string)($form['title'] ?? 'Onboarding')) . ' — ' . $clientLabel;
+                    // Slug is unique-per-team; salt with client id.
+                    $base = preg_replace('/[^a-z0-9]+/', '-', strtolower($projectName));
+                    $base = trim((string)$base, '-');
+                    if ($base === '') $base = 'project';
+                    $slug = substr($base, 0, 60) . '-' . $clientId;
+
+                    // Link the canonical clients row (created above) by
+                    // email so the project shows up under the right
+                    // person from the moment it's created.
+                    $linkedClientId = null;
+                    $lookupEmail = trim((string)($client['client_email'] ?? ''));
+                    if ($lookupEmail !== '') {
+                        $cstmt = $pdo->prepare('SELECT id FROM clients WHERE LOWER(email) = LOWER(?) LIMIT 1');
+                        $cstmt->execute([$lookupEmail]);
+                        $cmatch = $cstmt->fetch();
+                        if ($cmatch) $linkedClientId = (int)$cmatch['id'];
+                    }
+
+                    $pdo->prepare('INSERT INTO task_projects
+                        (team_id, slug, name, description, client_id, status, onboarding_client_id)
+                        VALUES (?,?,?,?,?,?,?)'
+                    )->execute([
+                        (int)$form['team_id'],
+                        $slug,
+                        $projectName,
+                        'Auto-created on onboarding submission.',
+                        $linkedClientId,
+                        'new',
+                        $clientId,
+                    ]);
+                }
+            } catch (\Throwable $e) {
+                error_log('[onboarding-submit] task_project auto-create failed for client ' . $clientId . ': ' . $e->getMessage());
+            }
         }
 
         // Notify admin (best-effort) — only on first submit. Re-submits hit the
@@ -318,7 +571,7 @@ return function (string $method, array $segs): void {
                 $body .= '<p>Client: ' . htmlspecialchars($client['client_email']) . '</p>';
                 $body .= brs_default_notify_body($fields, $rowFull);
             }
-            Mailer::send($form['notify_email'], $subj, $body);
+            Mailer::sendVia('internal', $form['notify_email'], $subj, $body);
         }
 
         Json::send([
