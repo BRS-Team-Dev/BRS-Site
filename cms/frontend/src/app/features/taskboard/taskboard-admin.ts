@@ -47,7 +47,7 @@ type CatFilter = typeof ALL_CATS[number];
       @if (stats().urgent_open > 0) {
         <span class="urgent-badge">⚠ {{ stats().urgent_open }} Urgent</span>
       }
-      <button class="primary" (click)="openNew()" data-testid="taskboard-btn-add">+ Add Task</button>
+      <button class="primary" (click)="openNew()">+ Add Task</button>
     </div>
 
     <!-- KPI cards ─────────────────────────────────────────────── -->
@@ -80,7 +80,7 @@ type CatFilter = typeof ALL_CATS[number];
         <button class="cat-pill"
                 [class.selected]="catFilter() === c"
                 (click)="catFilter.set(c)"
-                [attr.data-testid]="'taskboard-filter-' + c">
+>
           {{ c === 'all' ? 'All' : titleCase(c) }}
           <span class="cat-count">{{ countByCategory(c) }}</span>
         </button>
@@ -88,7 +88,7 @@ type CatFilter = typeof ALL_CATS[number];
       <span class="spacer"></span>
       <input class="search" type="search" placeholder="Search tasks…"
              [ngModel]="search()" (ngModelChange)="search.set($event)" name="q"
-             data-testid="taskboard-search" />
+ />
     </div>
 
     <!-- Table ──────────────────────────────────────────────────── -->
@@ -114,10 +114,10 @@ type CatFilter = typeof ALL_CATS[number];
           </tr></thead>
           <tbody>
             @for (t of visible(); track t.id) {
-              <tr (click)="openEdit(t)" [attr.data-testid]="'taskboard-row-' + t.id">
+              <tr (click)="openEdit(t)">
                 <td><span class="muted small">{{ t.id }}</span></td>
                 <td>
-                  <strong [attr.data-testid]="'taskboard-title-' + t.id">{{ t.title }}</strong>
+                  <strong>{{ t.title }}</strong>
                   @if (t.linked_client_id) {
                     <a class="client-link"
                        [routerLink]="['/admin/clients', t.linked_client_id]"
@@ -136,7 +136,7 @@ type CatFilter = typeof ALL_CATS[number];
                           [ngModel]="t.status"
                           (ngModelChange)="changeStatus(t, $event)"
                           [name]="'st_' + t.id"
-                          [attr.data-testid]="'taskboard-status-' + t.id">
+>
                     <option value="to_do">To Do</option>
                     <option value="in_progress">In Progress</option>
                     <option value="done">Done</option>
@@ -147,9 +147,9 @@ type CatFilter = typeof ALL_CATS[number];
                 </td>
                 <td class="actions">
                   <button class="ghost icon-btn" (click)="openEdit(t, $event)" title="Edit"
-                          [attr.data-testid]="'taskboard-row-' + t.id + '-edit'">✎</button>
+>✎</button>
                   <button class="ghost icon-btn danger" (click)="del(t, $event)" title="Delete"
-                          [attr.data-testid]="'taskboard-row-' + t.id + '-delete'">✕</button>
+>✕</button>
                 </td>
               </tr>
             }
@@ -170,17 +170,17 @@ type CatFilter = typeof ALL_CATS[number];
             @if (formError()) { <p class="error-msg">{{ formError() }}</p> }
             <label>Title</label>
             <input [(ngModel)]="draft.title" name="ft_title" placeholder="What needs doing?"
-                   data-testid="taskboard-modal-title" />
+ />
 
             <label>Description</label>
             <textarea [(ngModel)]="draft.description" name="ft_desc" rows="3"
                       placeholder="Optional context, links, etc."
-                      data-testid="taskboard-modal-description"></textarea>
+></textarea>
 
             <div class="row two-col">
               <div>
                 <label>Category</label>
-                <select [(ngModel)]="draft.category" name="ft_cat" data-testid="taskboard-modal-category">
+                <select [(ngModel)]="draft.category" name="ft_cat">
                   @for (c of editableCats; track c) {
                     <option [value]="c">{{ titleCase(c) }}</option>
                   }
@@ -188,7 +188,7 @@ type CatFilter = typeof ALL_CATS[number];
               </div>
               <div>
                 <label>Priority</label>
-                <select [(ngModel)]="draft.priority" name="ft_pri" data-testid="taskboard-modal-priority">
+                <select [(ngModel)]="draft.priority" name="ft_pri">
                   <option value="low">Low</option>
                   <option value="medium">Medium</option>
                   <option value="high">High</option>
@@ -200,7 +200,7 @@ type CatFilter = typeof ALL_CATS[number];
             <div class="row two-col">
               <div>
                 <label>Status</label>
-                <select [(ngModel)]="draft.status" name="ft_status" data-testid="taskboard-modal-status">
+                <select [(ngModel)]="draft.status" name="ft_status">
                   <option value="to_do">To Do</option>
                   <option value="in_progress">In Progress</option>
                   <option value="done">Done</option>
@@ -209,7 +209,7 @@ type CatFilter = typeof ALL_CATS[number];
               <div>
                 <label>Due</label>
                 <input type="datetime-local" [(ngModel)]="draft.due_at" name="ft_due"
-                       data-testid="taskboard-modal-due" />
+ />
               </div>
             </div>
 
@@ -223,11 +223,11 @@ type CatFilter = typeof ALL_CATS[number];
                 <div class="note-compose">
                   <textarea [(ngModel)]="newNoteBody" name="ft_new_note"
                             rows="2" placeholder="Add a note…"
-                            data-testid="taskboard-modal-note-body"></textarea>
+></textarea>
                   <button class="primary" type="button"
                           [disabled]="postingNote() || !newNoteBody.trim()"
                           (click)="postNote()"
-                          data-testid="taskboard-modal-note-post">
+>
                     {{ postingNote() ? 'Posting…' : 'Post' }}
                   </button>
                 </div>
@@ -254,8 +254,8 @@ type CatFilter = typeof ALL_CATS[number];
             }
           </div>
           <div class="modal-foot">
-            <button class="ghost" (click)="closeModal()" data-testid="taskboard-modal-cancel">Cancel</button>
-            <button class="primary" (click)="save()" [disabled]="saving()" data-testid="taskboard-modal-save">
+            <button class="ghost" (click)="closeModal()">Cancel</button>
+            <button class="primary" (click)="save()" [disabled]="saving()">
               {{ saving() ? 'Saving…' : (draft.id ? 'Save changes' : 'Create task') }}
             </button>
           </div>

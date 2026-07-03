@@ -22,7 +22,7 @@ import { FormSubmissionCandidateGroup, FormSubmissionLinkGroup } from '../core/m
   template: `
     <div class="list-head">
       <span class="spacer"></span>
-      <button class="ghost small" (click)="openAttach()" data-testid="fsl-btn-attach">+ Attach submission</button>
+      <button class="ghost small" (click)="openAttach()">+ Attach submission</button>
     </div>
 
     @if (loading()) {
@@ -44,9 +44,9 @@ import { FormSubmissionCandidateGroup, FormSubmissionLinkGroup } from '../core/m
               </div>
               <ul class="submissions">
                 @for (s of g.submissions; track s.link_id) {
-                  <li [class.open]="isOpen(s.link_id)" [attr.data-testid]="'fsl-sub-' + s.link_id">
+                  <li [class.open]="isOpen(s.link_id)">
                     <button type="button" class="sub-toggle" (click)="toggle(s.link_id)"
-                            [attr.data-testid]="'fsl-sub-' + s.link_id + '-toggle'">
+>
                       <span class="caret">{{ isOpen(s.link_id) ? '▾' : '▸' }}</span>
                       <span class="submitted-at">{{ fmtDate(s.submitted_at) }}</span>
                       <span class="source-pill" [attr.data-source]="s.link_source">{{ s.link_source }}</span>
@@ -59,7 +59,7 @@ import { FormSubmissionCandidateGroup, FormSubmissionLinkGroup } from '../core/m
                         <button type="button" class="ghost small danger"
                                 (click)="detach(s.link_id, $event)"
                                 title="Detach — keeps the submission but removes the link"
-                                [attr.data-testid]="'fsl-sub-' + s.link_id + '-detach'">✕ Detach</button>
+>✕ Detach</button>
                       }
                     </button>
                     @if (isOpen(s.link_id)) {
@@ -124,7 +124,7 @@ import { FormSubmissionCandidateGroup, FormSubmissionLinkGroup } from '../core/m
                                 class="cand-row"
                                 [disabled]="s.already_linked || attachSaving()"
                                 (click)="attach(g.form, s.submission_id)"
-                                [attr.data-testid]="'fsl-picker-' + g.form.id + '-sub-' + s.submission_id">
+>
                           <span class="cand-label">{{ s.label }}</span>
                           <span class="cand-when muted small">{{ fmtDate(s.submitted_at) }}</span>
                           @if (s.already_linked) { <span class="already">Already linked</span> }

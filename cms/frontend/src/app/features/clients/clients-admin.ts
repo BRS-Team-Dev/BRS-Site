@@ -26,36 +26,36 @@ type TabKey = 'info' | 'contacts' | 'services' | 'accounts' | 'contracts' | 'onb
       <div class="toolbar">
         <h1>Clients</h1>
         <span class="spacer"></span>
-        <button class="primary" routerLink="/admin/clients/new" data-testid="client-btn-add">+ New client</button>
+        <button class="primary" routerLink="/admin/clients/new">+ New client</button>
       </div>
 
       @if (clients().length === 0) {
         <div class="empty">
           <p class="muted">No clients yet.</p>
-          <button class="primary" routerLink="/admin/clients/new" data-testid="client-btn-add-empty">Add your first client</button>
+          <button class="primary" routerLink="/admin/clients/new">Add your first client</button>
         </div>
       } @else {
         <div class="table-wrap">
-          <table class="data" data-testid="client-list">
+          <table class="data">
             <thead><tr>
               <th>Name</th><th>Email</th><th>Phone</th><th>Company</th><th></th>
             </tr></thead>
             <tbody>
               @for (c of clients(); track c.id) {
-                <tr (click)="view(c)" [attr.data-testid]="'client-row-' + c.id">
+                <tr (click)="view(c)">
                   <td><strong>{{ c.name }}</strong></td>
                   <td>{{ c.email || '—' }}</td>
                   <td>{{ c.phone || '—' }}</td>
                   <td>{{ c.company || '—' }}</td>
                   <td class="actions">
                     <button class="ghost icon-btn" (click)="view(c, $event)" title="View" aria-label="View"
-                            [attr.data-testid]="'client-row-' + c.id + '-view'">👁</button>
+>👁</button>
                     <button class="ghost icon-btn" (click)="edit(c, $event)" title="Edit" aria-label="Edit"
-                            [attr.data-testid]="'client-row-' + c.id + '-edit'">✎</button>
+>✎</button>
                     <button class="ghost icon-btn relegate" (click)="relegate(c, $event)" title="Send back to leads" aria-label="Send back to leads"
-                            [attr.data-testid]="'client-row-' + c.id + '-relegate'">↓</button>
+>↓</button>
                     <button class="ghost icon-btn danger" (click)="del(c, $event)" title="Delete" aria-label="Delete"
-                            [attr.data-testid]="'client-row-' + c.id + '-delete'">✕</button>
+>✕</button>
                   </td>
                 </tr>
               }
@@ -67,12 +67,12 @@ type TabKey = 'info' | 'contacts' | 'services' | 'accounts' | 'contracts' | 'onb
 
     @if (mode() === 'view') {
       <div class="toolbar">
-        <button class="ghost" (click)="back()" data-testid="client-view-back">← Back</button>
-        <h1 data-testid="client-view-name">{{ current()?.name || 'Client' }}</h1>
+        <button class="ghost" (click)="back()">← Back</button>
+        <h1>{{ current()?.name || 'Client' }}</h1>
         <span class="spacer"></span>
-        <button class="ghost" (click)="goEdit()" title="Edit" data-testid="client-view-edit">✎ Edit</button>
-        <button class="ghost" (click)="relegateCurrent()" title="Send back to leads" data-testid="client-view-relegate">↓ Send to leads</button>
-        <button class="danger" (click)="delCurrent()" data-testid="client-view-delete">Delete</button>
+        <button class="ghost" (click)="goEdit()" title="Edit">✎ Edit</button>
+        <button class="ghost" (click)="relegateCurrent()" title="Send back to leads">↓ Send to leads</button>
+        <button class="danger" (click)="delCurrent()">Delete</button>
       </div>
 
       @if (current(); as c) {
@@ -104,7 +104,7 @@ type TabKey = 'info' | 'contacts' | 'services' | 'accounts' | 'contracts' | 'onb
                   class="tab-btn"
                   [class.active]="activeTab() === t.key"
                   (click)="onTabClick(t.key, c.id!)"
-                  [attr.data-testid]="'client-tab-' + t.key">
+>
                   {{ t.label }}
                 </button>
               }
@@ -116,7 +116,7 @@ type TabKey = 'info' | 'contacts' | 'services' | 'accounts' | 'contracts' | 'onb
                   <div class="tab-head">
                     <h3>Information</h3>
                     <span class="spacer"></span>
-                    <button class="primary" (click)="toggleInfoForm()" data-testid="client-info-btn-add">
+                    <button class="primary" (click)="toggleInfoForm()">
                       {{ infoFormOpen() ? '× Cancel' : '+ Add info' }}
                     </button>
                   </div>
@@ -125,19 +125,19 @@ type TabKey = 'info' | 'contacts' | 'services' | 'accounts' | 'contracts' | 'onb
                     <div class="info-form">
                       <label>Name <span class="req">★</span></label>
                       <input [(ngModel)]="infoDraft.name" name="if_name" placeholder="e.g. Industry"
-                             data-testid="client-info-input-name" />
+ />
 
                       <label>Value</label>
                       <textarea [(ngModel)]="infoDraft.value" name="if_value" rows="3" placeholder="e.g. SaaS / Fintech"
-                                data-testid="client-info-input-value"></textarea>
+></textarea>
 
                       @if (infoError()) { <div class="error-msg">{{ infoError() }}</div> }
                       <div class="row" style="margin-top: 16px; gap: 8px;">
                         <button class="primary" (click)="saveInfo()" [disabled]="infoSaving()"
-                                data-testid="client-info-btn-save">
+>
                           {{ infoSaving() ? 'Saving…' : (infoDraft.id ? 'Update' : 'Save info') }}
                         </button>
-                        <button class="ghost" (click)="closeInfoForm()" data-testid="client-info-btn-done">Done</button>
+                        <button class="ghost" (click)="closeInfoForm()">Done</button>
                       </div>
                     </div>
                   }
@@ -147,14 +147,14 @@ type TabKey = 'info' | 'contacts' | 'services' | 'accounts' | 'contracts' | 'onb
                   } @else if (infoEntries().length > 0) {
                     <div class="info-list">
                       @for (i of infoEntries(); track i.id) {
-                        <div class="kv info-row" [attr.data-testid]="'client-info-row-' + i.id">
+                        <div class="kv info-row">
                           <label>{{ i.name }}</label>
                           <div>{{ i.value || '—' }}</div>
                           <div class="info-actions">
                             <button class="ghost icon-btn" (click)="editInfo(i)" title="Edit"
-                                    [attr.data-testid]="'client-info-row-' + i.id + '-edit'">✎</button>
+>✎</button>
                             <button class="ghost icon-btn danger" (click)="deleteInfo(i)" title="Delete"
-                                    [attr.data-testid]="'client-info-row-' + i.id + '-delete'">✕</button>
+>✕</button>
                           </div>
                         </div>
                       }
@@ -165,7 +165,7 @@ type TabKey = 'info' | 'contacts' | 'services' | 'accounts' | 'contracts' | 'onb
                   <div class="tab-head">
                     <h3>Contacts</h3>
                     <span class="spacer"></span>
-                    <button class="primary" (click)="toggleContactForm()" data-testid="client-contact-btn-add">
+                    <button class="primary" (click)="toggleContactForm()">
                       {{ contactFormOpen() ? '× Cancel' : '+ Add contact' }}
                     </button>
                   </div>
@@ -176,47 +176,47 @@ type TabKey = 'info' | 'contacts' | 'services' | 'accounts' | 'contracts' | 'onb
                         <div>
                           <label>First name <span class="req">★</span></label>
                           <input [(ngModel)]="contactDraft.first_name" name="cd_first" placeholder="Jane"
-                                 data-testid="client-contact-input-first" />
+ />
                         </div>
                         <div>
                           <label>Last name</label>
                           <input [(ngModel)]="contactDraft.last_name" name="cd_last" placeholder="Doe"
-                                 data-testid="client-contact-input-last" />
+ />
                         </div>
                       </div>
                       <label>Position</label>
                       <input [(ngModel)]="contactDraft.position" name="cd_pos" placeholder="CEO"
-                             data-testid="client-contact-input-position" />
+ />
                       <label>Email</label>
                       <input type="email" [(ngModel)]="contactDraft.email" name="cd_email" placeholder="jane@example.com"
-                             data-testid="client-contact-input-email" />
+ />
 
                       <label>Numbers</label>
                       @for (n of contactNumbers(); track $index; let i = $index) {
                         <div class="number-row">
                           <input [(ngModel)]="n.number" [name]="'num_' + i" placeholder="+1 555 123 4567"
-                                 [attr.data-testid]="'client-contact-number-' + i" />
+ />
                           <input [(ngModel)]="n.label" [name]="'lbl_' + i" placeholder="mobile / office" class="num-label"
-                                 [attr.data-testid]="'client-contact-number-label-' + i" />
+ />
                           <button class="ghost icon-btn danger" (click)="removeNumber(i)" title="Remove"
-                                  [attr.data-testid]="'client-contact-number-' + i + '-remove'">✕</button>
+>✕</button>
                         </div>
                       }
-                      <button class="ghost" (click)="addNumber()" data-testid="client-contact-btn-add-number">+ Add number</button>
+                      <button class="ghost" (click)="addNumber()">+ Add number</button>
 
                       <div class="checkbox-row" style="margin-top: 12px;">
                         <input type="checkbox" id="verified" [(ngModel)]="contactDraft.verified" name="cd_verified"
-                               data-testid="client-contact-input-verified" />
+ />
                         <label for="verified">Verified</label>
                       </div>
 
                       @if (contactError()) { <div class="error-msg">{{ contactError() }}</div> }
                       <div class="row" style="margin-top: 16px; gap: 8px;">
                         <button class="primary" (click)="saveContact()" [disabled]="contactSaving()"
-                                data-testid="client-contact-btn-save">
+>
                           {{ contactSaving() ? 'Saving…' : (contactDraft.id ? 'Update' : 'Save contact') }}
                         </button>
-                        <button class="ghost" (click)="closeContactForm()" data-testid="client-contact-btn-done">Done</button>
+                        <button class="ghost" (click)="closeContactForm()">Done</button>
                       </div>
                     </div>
                   }
@@ -227,7 +227,7 @@ type TabKey = 'info' | 'contacts' | 'services' | 'accounts' | 'contracts' | 'onb
                     <div class="contact-list">
                       @for (ct of contacts(); track ct.id) {
                         <div class="contact-card" [class.expanded]="expandedContact() === ct.id" [class.primary]="!!ct.is_primary"
-                             [attr.data-testid]="'client-contact-row-' + ct.id">
+>
                           <div class="contact-head" (click)="toggleContact(ct)">
                             <span class="caret">›</span>
                             <div class="contact-name">
@@ -238,16 +238,16 @@ type TabKey = 'info' | 'contacts' | 'services' | 'accounts' | 'contracts' | 'onb
                               <span class="badge primary">Primary</span>
                             } @else {
                               <button class="ghost small make-primary" (click)="makePrimary(ct); $event.stopPropagation()" title="Set as primary contact"
-                                      [attr.data-testid]="'client-contact-row-' + ct.id + '-make-primary'">
+>
                                 Set as primary
                               </button>
                             }
                             @if (ct.verified) { <span class="badge success">Verified</span> }
                             <span class="spacer"></span>
                             <button class="ghost icon-btn" (click)="editContact(ct); $event.stopPropagation()" title="Edit"
-                                    [attr.data-testid]="'client-contact-row-' + ct.id + '-edit'">✎</button>
+>✎</button>
                             <button class="ghost icon-btn danger" (click)="deleteContact(ct); $event.stopPropagation()" title="Delete"
-                                    [attr.data-testid]="'client-contact-row-' + ct.id + '-delete'">✕</button>
+>✕</button>
                           </div>
                           @if (expandedContact() === ct.id) {
                             <div class="contact-body">
@@ -266,7 +266,7 @@ type TabKey = 'info' | 'contacts' | 'services' | 'accounts' | 'contracts' | 'onb
                   <div class="tab-head">
                     <h3>Services</h3>
                     <span class="spacer"></span>
-                    <button class="primary" (click)="toggleAddService()" data-testid="client-service-btn-add">
+                    <button class="primary" (click)="toggleAddService()">
                       {{ addServiceOpen() ? '× Cancel' : '+ Add service' }}
                     </button>
                   </div>
@@ -281,7 +281,7 @@ type TabKey = 'info' | 'contacts' | 'services' | 'accounts' | 'contracts' | 'onb
                         own record.
                       </div>
                       <label>Service <span class="req">★</span></label>
-                      <select [(ngModel)]="addServiceSel" name="add_svc_form" data-testid="client-service-select">
+                      <select [(ngModel)]="addServiceSel" name="add_svc_form">
                         <option [ngValue]="null">— pick a service —</option>
                         @if (serviceOfferings().length) {
                           <optgroup label="Catalogue services">
@@ -301,10 +301,10 @@ type TabKey = 'info' | 'contacts' | 'services' | 'accounts' | 'contracts' | 'onb
                       @if (addServiceError()) { <div class="error-msg">{{ addServiceError() }}</div> }
                       <div class="row" style="margin-top: 14px; gap: 8px;">
                         <button class="primary" (click)="addService()" [disabled]="addServiceSaving() || !addServiceSel"
-                                data-testid="client-service-btn-save">
+>
                           {{ addServiceSaving() ? 'Adding…' : 'Add service' }}
                         </button>
-                        <button class="ghost" (click)="closeAddService()" data-testid="client-service-btn-cancel">Cancel</button>
+                        <button class="ghost" (click)="closeAddService()">Cancel</button>
                       </div>
                     </div>
                   }
@@ -339,13 +339,13 @@ type TabKey = 'info' | 'contacts' | 'services' | 'accounts' | 'contracts' | 'onb
                       </div>
                     </div>
 
-                    <ul class="slot-list services-list" data-testid="client-service-list">
+                    <ul class="slot-list services-list">
                       @for (s of services(); track s.row_key) {
                         <li class="slot"
                             [class.filled]="s.status !== 'ended'"
                             [class.missing]="s.status === 'ended'"
                             [class.expanded]="isServiceExpanded(s.row_key)"
-                            [attr.data-testid]="'client-service-row-' + s.row_key">
+>
                           <div class="slot-head"
                                [class.no-caret]="!isExpandable(s)"
                                (click)="toggleService(s)">
@@ -377,7 +377,7 @@ type TabKey = 'info' | 'contacts' | 'services' | 'accounts' | 'contracts' | 'onb
                             <span class="monthly-chip"><strong>{{ formatMoney(s.monthly_value) }}</strong> /mo</span>
                             @if (s.kind === 'catalog') {
                               <button class="ghost icon-btn danger" (click)="removeCatalogService(s, $event)" title="Remove service"
-                                      [attr.data-testid]="'client-service-row-' + s.row_key + '-delete'">✕</button>
+>✕</button>
                             }
                           </div>
                           <div class="slot-meta service-breakdown">
@@ -495,7 +495,7 @@ type TabKey = 'info' | 'contacts' | 'services' | 'accounts' | 'contracts' | 'onb
                   <div class="tab-head">
                     <h3>Accounts</h3>
                     <span class="spacer"></span>
-                    <button class="primary" (click)="toggleAccountForm()" data-testid="client-account-btn-add">
+                    <button class="primary" (click)="toggleAccountForm()">
                       {{ accountFormOpen() ? '× Cancel' : '+ Add account' }}
                     </button>
                   </div>
@@ -504,15 +504,15 @@ type TabKey = 'info' | 'contacts' | 'services' | 'accounts' | 'contracts' | 'onb
                     <div class="contact-form">
                       <label>Account name <span class="req">★</span></label>
                       <input [(ngModel)]="accountDraft.account_name" name="ad_name" placeholder="Cloudflare, Mailchimp, etc."
-                             data-testid="client-account-input-name" />
+ />
 
                       <label>Login URL</label>
                       <input [(ngModel)]="accountDraft.login_url" name="ad_url" placeholder="https://example.com/login"
-                             data-testid="client-account-input-url" />
+ />
 
                       <label>Username / email</label>
                       <input [(ngModel)]="accountDraft.username" name="ad_user" placeholder="user@example.com"
-                             data-testid="client-account-input-username" />
+ />
 
                       <label>Password</label>
                       <div class="number-row" style="grid-template-columns: 1fr 32px;">
@@ -521,7 +521,7 @@ type TabKey = 'info' | 'contacts' | 'services' | 'accounts' | 'contracts' | 'onb
                           [(ngModel)]="accountDraft.password"
                           name="ad_pw"
                           placeholder="••••••••"
-                          data-testid="client-account-input-password" />
+ />
                         <button class="ghost icon-btn" (click)="passwordFieldVisible.set(!passwordFieldVisible())" [title]="passwordFieldVisible() ? 'Hide' : 'Show'">
                           @if (passwordFieldVisible()) {
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -542,10 +542,10 @@ type TabKey = 'info' | 'contacts' | 'services' | 'accounts' | 'contracts' | 'onb
                       @if (accountError()) { <div class="error-msg">{{ accountError() }}</div> }
                       <div class="row" style="margin-top: 16px; gap: 8px;">
                         <button class="primary" (click)="saveAccount()" [disabled]="accountSaving()"
-                                data-testid="client-account-btn-save">
+>
                           {{ accountSaving() ? 'Saving…' : (accountDraft.id ? 'Update' : 'Save account') }}
                         </button>
-                        <button class="ghost" (click)="closeAccountForm()" data-testid="client-account-btn-done">Done</button>
+                        <button class="ghost" (click)="closeAccountForm()">Done</button>
                       </div>
                     </div>
                   }
@@ -556,7 +556,7 @@ type TabKey = 'info' | 'contacts' | 'services' | 'accounts' | 'contracts' | 'onb
                     <div class="contact-list">
                       @for (acc of accounts(); track acc.id) {
                         <div class="contact-card" [class.expanded]="expandedAccount() === acc.id"
-                             [attr.data-testid]="'client-account-row-' + acc.id">
+>
                           <div class="contact-head" (click)="toggleAccount(acc)">
                             <span class="caret">›</span>
                             <div class="contact-name">
@@ -565,9 +565,9 @@ type TabKey = 'info' | 'contacts' | 'services' | 'accounts' | 'contracts' | 'onb
                             </div>
                             <span class="spacer"></span>
                             <button class="ghost icon-btn" (click)="editAccount(acc); $event.stopPropagation()" title="Edit"
-                                    [attr.data-testid]="'client-account-row-' + acc.id + '-edit'">✎</button>
+>✎</button>
                             <button class="ghost icon-btn danger" (click)="deleteAccount(acc); $event.stopPropagation()" title="Delete"
-                                    [attr.data-testid]="'client-account-row-' + acc.id + '-delete'">✕</button>
+>✕</button>
                           </div>
                           @if (expandedAccount() === acc.id) {
                             <div class="contact-body">
@@ -640,7 +640,7 @@ type TabKey = 'info' | 'contacts' | 'services' | 'accounts' | 'contracts' | 'onb
                        full published catalogue minus already-attached
                        forms so we can't create a duplicate row. -->
                   <div class="attach-row">
-                    <select [(ngModel)]="feedbackToAttach" name="fb_attach" data-testid="client-feedback-select">
+                    <select [(ngModel)]="feedbackToAttach" name="fb_attach">
                       <option [ngValue]="null">— pick a form to attach —</option>
                       @for (f of attachableFeedback(); track f.id) {
                         <option [ngValue]="f.id">{{ f.title }} ({{ f.kind }})</option>
@@ -649,7 +649,7 @@ type TabKey = 'info' | 'contacts' | 'services' | 'accounts' | 'contracts' | 'onb
                     <button class="primary"
                             [disabled]="!feedbackToAttach || attachingFeedback()"
                             (click)="attachFeedback(c.id!)"
-                            data-testid="client-feedback-btn-attach">
+>
                       {{ attachingFeedback() ? 'Attaching…' : 'Attach' }}
                     </button>
                     <a class="ghost small" routerLink="/admin/feedback">
@@ -670,9 +670,9 @@ type TabKey = 'info' | 'contacts' | 'services' | 'accounts' | 'contracts' | 'onb
                         </div>
                         @for (f of group.forms; track f.id) {
                         <div class="fb-row" [class.open]="expandedFeedback() === f.id"
-                             [attr.data-testid]="'client-feedback-row-' + f.id">
+>
                           <div class="fb-head" (click)="toggleFeedbackRow(f.id!)"
-                               [attr.data-testid]="'client-feedback-row-' + f.id + '-toggle'">
+>
                             <span class="caret">›</span>
                             <div class="fb-meta">
                               <strong>{{ f.updated_at || f.created_at || '—' }}</strong>
@@ -746,7 +746,7 @@ type TabKey = 'info' | 'contacts' | 'services' | 'accounts' | 'contracts' | 'onb
                   <div class="tab-head">
                     <h3>Notes</h3>
                     <span class="spacer"></span>
-                    <button class="primary" (click)="toggleNoteForm()" data-testid="client-note-btn-add">
+                    <button class="primary" (click)="toggleNoteForm()">
                       {{ noteFormOpen() ? '× Cancel' : '+ Add note' }}
                     </button>
                   </div>
@@ -755,19 +755,19 @@ type TabKey = 'info' | 'contacts' | 'services' | 'accounts' | 'contracts' | 'onb
                     <div class="contact-form">
                       <label>Title <span class="req">★</span></label>
                       <input [(ngModel)]="noteDraft.title" name="nd_title" placeholder="What's this note about?"
-                             data-testid="client-note-input-title" />
+ />
 
                       <label>Body</label>
                       <textarea [(ngModel)]="noteDraft.body" name="nd_body" rows="6" placeholder="Type the note here…"
-                                data-testid="client-note-input-body"></textarea>
+></textarea>
 
                       @if (noteError()) { <div class="error-msg">{{ noteError() }}</div> }
                       <div class="row" style="margin-top: 16px; gap: 8px;">
                         <button class="primary" (click)="saveNote()" [disabled]="noteSaving()"
-                                data-testid="client-note-btn-save">
+>
                           {{ noteSaving() ? 'Saving…' : (noteDraft.id ? 'Update' : 'Save note') }}
                         </button>
-                        <button class="ghost" (click)="closeNoteForm()" data-testid="client-note-btn-done">Done</button>
+                        <button class="ghost" (click)="closeNoteForm()">Done</button>
                       </div>
                     </div>
                   }
@@ -778,7 +778,7 @@ type TabKey = 'info' | 'contacts' | 'services' | 'accounts' | 'contracts' | 'onb
                     <div class="contact-list">
                       @for (n of notes(); track n.id) {
                         <div class="contact-card" [class.expanded]="expandedNote() === n.id"
-                             [attr.data-testid]="'client-note-row-' + n.id">
+>
                           <div class="contact-head" (click)="toggleNote(n)">
                             <span class="caret">›</span>
                             <div class="contact-name">
@@ -787,9 +787,9 @@ type TabKey = 'info' | 'contacts' | 'services' | 'accounts' | 'contracts' | 'onb
                             </div>
                             <span class="spacer"></span>
                             <button class="ghost icon-btn" (click)="editNote(n); $event.stopPropagation()" title="Edit"
-                                    [attr.data-testid]="'client-note-row-' + n.id + '-edit'">✎</button>
+>✎</button>
                             <button class="ghost icon-btn danger" (click)="deleteNote(n); $event.stopPropagation()" title="Delete"
-                                    [attr.data-testid]="'client-note-row-' + n.id + '-delete'">✕</button>
+>✕</button>
                           </div>
                           @if (expandedNote() === n.id) {
                             <div class="contact-body">
