@@ -163,6 +163,8 @@ final class StripeClient
      */
     public static function isCardReusedAcrossTenants(string $fingerprint, ?int $excludeTenantId = null): bool
     {
+        // @global-scope: cross-tenant lookup by design — the whole point
+        // of the abuse-signal table is catching card reuse across tenants.
         $sql = 'SELECT 1 FROM trial_abuse_signals
                  WHERE signal_type = "card_fingerprint" AND signal_value = ?';
         $params = [$fingerprint];

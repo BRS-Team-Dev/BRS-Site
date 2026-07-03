@@ -59,7 +59,8 @@ return function (string $method, array $segs): void {
 
     // ── /api/notifications/events ────────────────────────────────
     if ($seg1 === 'events' && $method === 'GET') {
-        // Global catalogue — same for every tenant.
+        // @global-scope: notification_events_catalog is a global catalogue
+        // (no tenant_id column) — same catalogue served to every tenant.
         $rows = Db::pdo()->query('SELECT * FROM notification_events_catalog ORDER BY section, event_key')->fetchAll();
         Json::send(['events' => $rows]);
     }

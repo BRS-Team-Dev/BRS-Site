@@ -108,6 +108,8 @@ return function (string $method, array $segs): void {
     // Even if the tenant_email_domains row was removed (deleted tenant),
     // trial_abuse_signals is append-only. Reappearance of the same domain
     // triggers "card required" mode below.
+    // @global-scope: cross-tenant lookup by design — the anti-abuse table
+    // catches domains reused across ANY tenant.
     $domainSeen = $pdo->prepare(
         'SELECT 1 FROM trial_abuse_signals
           WHERE signal_type = "email_domain" AND signal_value = ? LIMIT 1'

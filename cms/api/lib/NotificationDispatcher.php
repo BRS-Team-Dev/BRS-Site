@@ -38,6 +38,7 @@ final class NotificationDispatcher
             $pdo = Db::pdo();
 
             // 1. Catalog lookup
+            // @global-scope: notification_events_catalog is global (no tenant_id).
             $stmt = $pdo->prepare('SELECT * FROM notification_events_catalog WHERE event_key = ? AND is_active = 1');
             $stmt->execute([$eventKey]);
             $event = $stmt->fetch();
