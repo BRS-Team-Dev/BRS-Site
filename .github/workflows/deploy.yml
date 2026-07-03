@@ -124,6 +124,19 @@ jobs:
           cp -a cms/scripts "$ART/"
           cp -a cms/index.php "$ART/"
           cp -a cms/.htaccess.deploy "$ART/"
+          # Strip package documentation from vendor/. Runtime never loads
+          # these files (composer autoload is the only vendor entry point),
+          # and GitHub's push-protection secret scanner false-positives on
+          # example API keys inside vendor README.md files (notably Stripe's
+          # docs). Doing this here — after composer install, before the
+          # force-push — keeps the deployed-prod branch pushable.
+          find "$ART/api/vendor" -type f \( \
+              -iname 'README*' -o \
+              -iname 'CHANGELOG*' -o \
+              -iname 'UPGRADE*' -o \
+              -iname 'CONTRIBUTING*' -o \
+              -iname '*.md' \
+            \) -delete 2>/dev/null || true
           # Defensive: the artifact is force-pushed cross-platform; restore
           # the exec bit on shell hooks so the server cron can invoke them
           # without chmod-ing first.
