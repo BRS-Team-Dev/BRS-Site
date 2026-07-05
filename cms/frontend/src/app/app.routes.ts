@@ -23,6 +23,13 @@ export const routes: Routes = [
   { path: 'reset-password',  loadComponent: () => import('./features/auth/reset-password').then(m => m.ResetPassword) },
   // Public form (iframe-safe; no shell, no auth)
   { path: 'forms/:slug',                loadComponent: () => import('./features/public-form/public-form').then(m => m.PublicForm) },
+  // Open-link onboarding — token-less shareable URL (migration 146).
+  // Gated by forms.is_public_open on the backend; anon submits
+  // auto-provision a client or lead per forms.public_target.
+  // MUST come BEFORE the token route below — Angular matches routes in
+  // order, and `/onboarding/:formId/:token` would otherwise eat this
+  // URL with formId='open' and token='<slug>'.
+  { path: 'onboarding/open/:slug',      loadComponent: () => import('./features/onboarding/onboarding-open-portal').then(m => m.OnboardingOpenPortal) },
   // Public onboarding portal (token in URL; no shell, no auth)
   { path: 'onboarding/:formId/:token',  loadComponent: () => import('./features/onboarding/onboarding-portal').then(m => m.OnboardingPortal) },
   // Public HR onboarding portal for new hires (token in URL; no shell, no auth)
@@ -195,6 +202,7 @@ export const routes: Routes = [
       // as features land in cms/frontend/src/app/features/operations/.
       { path: 'operations',                  redirectTo: 'operations/dashboard', pathMatch: 'full' },
       { path: 'operations/dashboard',        loadComponent: () => import('./features/operations/operations-dashboard').then(m => m.OperationsDashboard) },
+      { path: 'operations/leads',            loadComponent: () => import('./features/operations/operations-leads').then(m => m.OperationsLeads) },
       { path: 'operations/taskboard',        loadComponent: () => import('./features/operations/tenders-taskboard').then(m => m.TendersTaskboard) },
       { path: 'operations/partners',           loadComponent: () => import('./features/operations/partners-admin').then(m => m.PartnersAdmin) },
       { path: 'operations/partners/new',       loadComponent: () => import('./features/operations/partners-admin').then(m => m.PartnersAdmin) },

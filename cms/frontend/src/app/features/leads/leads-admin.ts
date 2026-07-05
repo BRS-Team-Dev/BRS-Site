@@ -394,7 +394,9 @@ type LeadSortKey =
                   <!-- Picker row: a dropdown filtered to services NOT yet
                        attached to this lead, plus an "+ Add" button. -->
                   <div class="service-picker">
-                    <select [(ngModel)]="servicePickerValue" name="svc_pick"
+                    <select [ngModel]="servicePickerValue"
+                            (ngModelChange)="onServicePickerChange($event)"
+                            name="svc_pick"
                             [disabled]="availableUnselectedServices().length === 0">
                       <option value="">
                         @if (availableUnselectedServices().length === 0) {
@@ -409,10 +411,27 @@ type LeadSortKey =
                     </select>
                     <button class="primary"
                             (click)="addService()"
-                            [disabled]="!servicePickerValue || serviceSaving()">
+                            [disabled]="!servicePickerValue || serviceSaving()
+                                        || (isPickedServiceVariablePriced() && !servicePickerPrice)">
                       {{ serviceSaving() ? 'Adding…' : '+ Add' }}
                     </button>
                   </div>
+                  @if (isPickedServiceVariablePriced()) {
+                    <div class="row" style="margin-top: 10px; gap: 8px; align-items: center;">
+                      <label style="min-width: 90px; margin: 0;">Price (GBP)</label>
+                      <input type="number" min="0" step="0.01"
+                        [(ngModel)]="servicePickerPrice" name="svc_pick_price"
+                        placeholder="0.00" style="max-width: 180px;" />
+                      <span class="muted small">
+                        @if (servicePickerPrice !== null && servicePickerPrice !== undefined) {
+                          Pre-filled from the catalogue default — override
+                          for this lead.
+                        } @else {
+                          No catalogue default set — enter a price for this lead.
+                        }
+                      </span>
+                    </div>
+                  }
                   @if (serviceError()) { <div class="error-msg">{{ serviceError() }}</div> }
 
                   <!-- Attached services as badges. × removes the link. -->
@@ -1392,12 +1411,42 @@ export class LeadsAdmin {
   leadServices         = signal<LeadServiceLink[]>([]);
   availableServices    = signal<ServiceOffering[]>([]);
   servicePickerValue   = '';
+  /** Only used when the picked catalogue service is variable-priced.
+   *  Reset when the dropdown changes / the form succeeds. */
+  servicePickerPrice: number | null = null;
   serviceSaving        = signal(false);
   serviceError         = signal<string | null>(null);
   availableUnselectedServices = computed(() => {
     const taken = new Set(this.leadServices().map(s => s.service_offering_id));
     return this.availableServices().filter(s => s.id !== undefined && !taken.has(s.id));
   });
+
+  /** True when the current picker selection is a variable-priced service —
+   *  drives the inline price input above the +Add button. */
+  isPickedServiceVariablePriced(): boolean {
+    const id = Number(this.servicePickerValue);
+    if (!id) return false;
+    const svc = this.availableServices().find(s => s.id === id);
+    return !!svc?.is_variable_price;
+  }
+
+  /** Picker changed: prefill the price with the catalogue default when
+   *  the new selection is variable-priced; clear it otherwise so a
+   *  stale value from a prior pick can't leak into the payload. */
+  onServicePickerChange(next: string) {
+    this.servicePickerValue = next;
+    const id = Number(next);
+    if (id) {
+      const svc = this.availableServices().find(s => s.id === id);
+      if (svc?.is_variable_price) {
+        const def = svc.price;
+        this.servicePickerPrice = (def === null || def === undefined || (def as any) === '')
+          ? null : Number(def);
+        return;
+      }
+    }
+    this.servicePickerPrice = null;
+  }
 
   // Contacts tab state — mirrors clients-admin's contact UI exactly so
   // promote-to-client carries a contact list the client form already
@@ -1886,6 +1935,7 @@ export class LeadsAdmin {
   // dropdown) AND the currently-attached links (for the badges + dedup).
   private loadServices(leadId: number) {
     this.servicePickerValue = '';
+    this.servicePickerPrice = null;
     this.serviceError.set(null);
     this.api.listLeadServices(leadId).subscribe({
       next: r => this.leadServices.set(r.services ?? []),
@@ -1901,12 +1951,24 @@ export class LeadsAdmin {
     const leadId = this.current()?.id;
     const soid   = Number(this.servicePickerValue);
     if (!leadId || !soid) return;
+
+    let priceOverride: number | null = null;
+    if (this.isPickedServiceVariablePriced()) {
+      const raw = this.servicePickerPrice;
+      if (raw === null || raw === undefined || (raw as any) === '' || Number(raw) < 0) {
+        this.serviceError.set('Enter a price for this variable-priced service');
+        return;
+      }
+      priceOverride = Number(raw);
+    }
+
     this.serviceSaving.set(true);
     this.serviceError.set(null);
-    this.api.addLeadService(leadId, soid).subscribe({
+    this.api.addLeadService(leadId, soid, priceOverride !== null ? { price: priceOverride } : undefined).subscribe({
       next: () => {
         this.serviceSaving.set(false);
         this.servicePickerValue = '';
+        this.servicePickerPrice = null;
         this.loadServices(leadId);
       },
       error: e => {

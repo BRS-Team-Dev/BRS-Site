@@ -190,13 +190,25 @@ return function (string $method, array $segs): void {
             if ($serviceOfferingId !== null)  { $bcastClients = 0; $bcastLeads = 0; }
             if ($bcastClients) $bcastLeads = 0;
 
+            // Open-link fields (migrations 146 + 147).
+            $isPublishedIns = !empty($body['is_published']) ? 1 : 0;
+            $publicOpenIns  = ($isPublishedIns && !empty($body['is_public_open'])) ? 1 : 0;
+            $publicTargetIns = in_array(($body['public_target'] ?? ''), ['client','lead','none'], true)
+                ? $body['public_target'] : 'client';
+            $postSubmitUrlIns = trim((string)($body['post_submit_url'] ?? ''));
+            if ($postSubmitUrlIns !== '' && !preg_match('#^https?://#i', $postSubmitUrlIns) && !str_starts_with($postSubmitUrlIns, '/')) {
+                Json::fail('post_submit_url must start with http://, https://, or /', 400);
+            }
+            $postSubmitUrlIns = $postSubmitUrlIns === '' ? null : $postSubmitUrlIns;
+
             $ins = $pdo->prepare("INSERT INTO forms (slug, form_type, main_section_label, sidenav_placement, sidenav_parent_key,
                 parent_process_form_id, team_id, service_offering_id, broadcast_to_all_clients, broadcast_to_all_leads,
+                is_public_open, public_target, post_submit_url,
                 show_in_sidenav_root, title, description, intro_html, submit_label,
                 thank_you_message, notify_email, notify_subject, notify_template,
                 reply_subject, reply_template, reply_from_field, is_published, allow_multiple,
                 has_price, price, payment_type, repeat_duration, contract_length_months, is_indefinite)
-                VALUES (?,'onboarding',?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)");
+                VALUES (?,'onboarding',?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)");
             $ins->execute([
                 $slug,
                 $body['main_section_label'] ?? null,
@@ -207,6 +219,9 @@ return function (string $method, array $segs): void {
                 $serviceOfferingId,
                 $bcastClients,
                 $bcastLeads,
+                $publicOpenIns,
+                $publicTargetIns,
+                $postSubmitUrlIns,
                 $showRoot,
                 $title,
                 $body['description']       ?? null,
@@ -219,7 +234,7 @@ return function (string $method, array $segs): void {
                 $body['reply_subject']     ?? null,
                 $body['reply_template']    ?? null,
                 $body['reply_from_field']  ?? null,
-                !empty($body['is_published']) ? 1 : 0,
+                $isPublishedIns,
                 !empty($body['allow_multiple']) ? 1 : 0,
                 $hasPrice,
                 $price,
@@ -383,10 +398,25 @@ return function (string $method, array $segs): void {
             if ($bcastClients) $bcastLeads = 0;
 
             // 1) Update form metadata
+            // Open-link fields (migrations 146 + 147). Only meaningful
+            // when the form is published; the frontend already gates
+            // them but we enforce here so a bad payload can't leave a
+            // form "public" in the DB while its Published flag is off.
+            $isPublished = !empty($body['is_published']) ? 1 : 0;
+            $publicOpen  = ($isPublished && !empty($body['is_public_open'])) ? 1 : 0;
+            $publicTarget = in_array(($body['public_target'] ?? ''), ['client','lead','none'], true)
+                ? $body['public_target'] : 'client';
+            $postSubmitUrl = trim((string)($body['post_submit_url'] ?? ''));
+            if ($postSubmitUrl !== '' && !preg_match('#^https?://#i', $postSubmitUrl) && !str_starts_with($postSubmitUrl, '/')) {
+                Json::fail('post_submit_url must start with http://, https://, or /', 400);
+            }
+            $postSubmitUrl = $postSubmitUrl === '' ? null : $postSubmitUrl;
+
             $upd = $pdo->prepare("UPDATE forms SET
                 slug=?, main_section_label=?, sidenav_placement=?, sidenav_parent_key=?,
                 parent_process_form_id=?, team_id=?, service_offering_id=?,
                 broadcast_to_all_clients=?, broadcast_to_all_leads=?,
+                is_public_open=?, public_target=?, post_submit_url=?,
                 show_in_sidenav_root=?,
                 title=?, description=?, intro_html=?, submit_label=?,
                 thank_you_message=?, notify_email=?, notify_subject=?, notify_template=?,
@@ -403,6 +433,9 @@ return function (string $method, array $segs): void {
                 $serviceOfferingId,
                 $bcastClients,
                 $bcastLeads,
+                $publicOpen,
+                $publicTarget,
+                $postSubmitUrl,
                 $showRoot,
                 (string)($body['title'] ?? $form['title']),
                 $body['description']       ?? null,
@@ -415,7 +448,7 @@ return function (string $method, array $segs): void {
                 $body['reply_subject']     ?? null,
                 $body['reply_template']    ?? null,
                 $body['reply_from_field']  ?? null,
-                !empty($body['is_published']) ? 1 : 0,
+                $isPublished,
                 array_key_exists('allow_multiple', $body) ? (!empty($body['allow_multiple']) ? 1 : 0) : (int)($form['allow_multiple'] ?? 0),
                 $hasPrice,
                 $price,

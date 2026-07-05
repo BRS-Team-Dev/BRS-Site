@@ -10,6 +10,7 @@ import { LeadgenSettings } from '../leadgen/leadgen-settings';
 import { SettingsAccount } from './settings-account';
 import { SettingsBilling } from './settings-billing';
 import { SettingsEmail } from './settings-email';
+import { SettingsInvoices } from './settings-invoices';
 import { SettingsNotifications } from './settings-notifications';
 
 /**
@@ -24,7 +25,7 @@ import { SettingsNotifications } from './settings-notifications';
  * been retired in favour of per-tab actions because the user invariably
  * only wants to save the tab they're looking at.
  */
-type TabKey = 'general' | 'notifications' | 'email' | 'appearance' | 'uploads' | 'leadgen' | 'account' | 'billing';
+type TabKey = 'general' | 'notifications' | 'email' | 'appearance' | 'uploads' | 'leadgen' | 'account' | 'billing' | 'invoices';
 
 interface TabDef {
   key: TabKey;
@@ -34,7 +35,7 @@ interface TabDef {
 
 @Component({
   selector: 'app-settings',
-  imports: [FormsModule, LeadgenSettings, SettingsAccount, SettingsBilling, SettingsEmail, SettingsNotifications],
+  imports: [FormsModule, LeadgenSettings, SettingsAccount, SettingsBilling, SettingsEmail, SettingsInvoices, SettingsNotifications],
   template: `
     <div class="page">
       <header class="page-head">
@@ -81,12 +82,20 @@ interface TabDef {
                     <div class="logo-inputs">
                       <input type="url" [(ngModel)]="s.brand_logo_url" name="brand_logo_url" placeholder="https://…/logo.png" />
                       <div class="logo-actions">
-                        <label class="ghost small file-btn">
+                        <!-- Explicit .click() on a template-ref input is
+                             more reliable than a hidden input inside a
+                             label — some browsers refused to open the
+                             file picker via the label when the input
+                             had the HTML 'hidden' attribute. -->
+                        <button type="button" class="ghost small file-btn"
+                                (click)="logoFile.click()"
+                                [disabled]="logoUploading()">
                           {{ logoUploading() ? 'Uploading…' : (s.brand_logo_url ? 'Replace' : 'Upload') }}
-                          <input type="file" accept="image/png,image/jpeg,image/svg+xml,image/webp"
-                                 (change)="uploadLogo($any($event.target).files?.[0])"
-                                 [disabled]="logoUploading()" hidden />
-                        </label>
+                        </button>
+                        <input #logoFile type="file"
+                               accept="image/png,image/jpeg,image/svg+xml,image/webp"
+                               (change)="uploadLogo($any($event.target).files?.[0]); logoFile.value = ''"
+                               style="display: none;" />
                         @if (s.brand_logo_url) {
                           <button type="button" class="ghost small danger" (click)="s.brand_logo_url = ''">Remove</button>
                         }
@@ -314,6 +323,12 @@ interface TabDef {
                      details, payment methods, invoice history.
                      Backed by /api/billing (migrations 129/130). -->
                 <app-settings-billing></app-settings-billing>
+              }
+              @case ('invoices') {
+                <!-- Client invoice PDF configuration — business identity,
+                     PAID TO block, signature style, tax label, template.
+                     Persists under the invoice.* settings namespace. -->
+                <app-settings-invoices></app-settings-invoices>
               }
             }
           </div>
@@ -568,6 +583,7 @@ export class Settings {
     { key: 'general',       label: 'General',        icon: '⚙' },
     { key: 'appearance',    label: 'Appearance',     icon: '◐' },
     { key: 'billing',       label: 'Billing',        icon: '💳' },
+    { key: 'invoices',      label: 'Invoices',       icon: '🧾' },
     { key: 'account',       label: 'Account',        icon: '👤' },
     { key: 'email',         label: 'Email',          icon: '✉' },
     { key: 'notifications', label: 'Notifications',  icon: '🔔' },

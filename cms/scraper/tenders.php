@@ -343,24 +343,37 @@ function normaliseRelease($r, $source)
     $smeSuitable   = firstOf(g($tender, 'suitability', 'sme'),               firstLotValue($rawLots, array('suitability', 'sme')));
     $vcseSuitable  = firstOf(g($tender, 'suitability', 'vcse'),              firstLotValue($rawLots, array('suitability', 'vcse')));
 
-    /* ---------- CPV codes ---------- */
-    $cpv = array();
-    if (g($tender, 'classification', 'id') !== null) $cpv[] = g($tender, 'classification', 'id');
-    if (isset($tender['additionalClassifications']) && is_array($tender['additionalClassifications'])) {
-        foreach ($tender['additionalClassifications'] as $c) {
-            if (!empty($c['id'])) $cpv[] = $c['id'];
+    /* ---------- CPV codes (code + official name) ---------- */
+    $cpvNames = array(); // code => description
+    $collectCpv = function ($classification) use (&$cpvNames) {
+        if (is_array($classification) && !empty($classification['id'])) {
+            $code = $classification['id'];
+            $name = isset($classification['description']) ? $classification['description'] : null;
+            if (!isset($cpvNames[$code]) || ($cpvNames[$code] === null && $name !== null)) {
+                $cpvNames[$code] = $name;
+            }
         }
+    };
+    $collectCpv(g($tender, 'classification'));
+    if (isset($tender['additionalClassifications']) && is_array($tender['additionalClassifications'])) {
+        foreach ($tender['additionalClassifications'] as $c) $collectCpv($c);
     }
     $items = (isset($tender['items']) && is_array($tender['items'])) ? $tender['items'] : array();
     foreach ($items as $item) {
-        if (g($item, 'classification', 'id') !== null) $cpv[] = g($item, 'classification', 'id');
+        $collectCpv(g($item, 'classification'));
         if (isset($item['additionalClassifications']) && is_array($item['additionalClassifications'])) {
-            foreach ($item['additionalClassifications'] as $c) {
-                if (!empty($c['id'])) $cpv[] = $c['id'];
-            }
+            foreach ($item['additionalClassifications'] as $c) $collectCpv($c);
         }
     }
-    $cpv = array_values(array_unique($cpv));
+    $cpv = array_keys($cpvNames);
+    $cpvDetails = array();
+    foreach ($cpvNames as $code => $name) {
+        $cpvDetails[] = array(
+            'code'     => $code,
+            'name'     => $name !== null ? $name : cpvDivisionName($code),
+            'division' => cpvDivisionName($code),
+        );
+    }
 
     /* ---------- Regions & delivery ---------- */
     $regions = array();
@@ -481,6 +494,7 @@ function normaliseRelease($r, $source)
             'currency' => g($tender, 'value', 'currency') !== null ? g($tender, 'value', 'currency') : 'GBP',
         ),
         'cpvCodes'          => $cpv,
+        'cpv'               => $cpvDetails,
         'mainCategory'      => g($tender, 'mainProcurementCategory'),
         'regions'           => $regions,
         'deliveryAddresses' => $deliveryAddresses,
@@ -541,6 +555,60 @@ function firstLotValue($lots, $path)
         if ($v !== null) return $v;
     }
     return null;
+}
+
+/** Official CPV division (first 2 digits) names - fallback when source has no description */
+function cpvDivisionName($code)
+{
+    $divisions = array(
+        '03' => 'Agricultural, farming, fishing, forestry products',
+        '09' => 'Petroleum products, fuel, electricity',
+        '14' => 'Mining, basic metals and related products',
+        '15' => 'Food, beverages, tobacco and related products',
+        '16' => 'Agricultural machinery',
+        '18' => 'Clothing, footwear, luggage and accessories',
+        '19' => 'Leather, textile, plastic and rubber materials',
+        '22' => 'Printed matter and related products',
+        '24' => 'Chemical products',
+        '30' => 'Office and computing machinery and equipment',
+        '31' => 'Electrical machinery and apparatus',
+        '32' => 'Radio, television, communication and telecom equipment',
+        '33' => 'Medical equipment, pharmaceuticals, personal care',
+        '34' => 'Transport equipment',
+        '35' => 'Security, fire-fighting, police and defence equipment',
+        '37' => 'Musical instruments, sport goods, games, toys',
+        '38' => 'Laboratory, optical and precision equipment',
+        '39' => 'Furniture, furnishings, domestic appliances',
+        '41' => 'Collected and purified water',
+        '42' => 'Industrial machinery',
+        '43' => 'Machinery for mining, quarrying, construction',
+        '44' => 'Construction structures and materials',
+        '45' => 'Construction work',
+        '48' => 'Software package and information systems',
+        '50' => 'Repair and maintenance services',
+        '51' => 'Installation services',
+        '55' => 'Hotel, restaurant and retail trade services',
+        '60' => 'Transport services',
+        '63' => 'Supporting and auxiliary transport services',
+        '64' => 'Postal and telecommunications services',
+        '65' => 'Public utilities',
+        '66' => 'Financial and insurance services',
+        '70' => 'Real estate services',
+        '71' => 'Architectural, construction, engineering services',
+        '72' => 'IT services: consulting, software, internet, support',
+        '73' => 'Research and development services',
+        '75' => 'Administration, defence and social security services',
+        '76' => 'Services related to oil and gas industry',
+        '77' => 'Agricultural, forestry, horticultural services',
+        '79' => 'Business services: law, marketing, consulting, printing',
+        '80' => 'Education and training services',
+        '85' => 'Health and social work services',
+        '90' => 'Sewage, refuse, cleaning and environmental services',
+        '92' => 'Recreational, cultural and sporting services',
+        '98' => 'Other community, social and personal services',
+    );
+    $div = substr((string)$code, 0, 2);
+    return isset($divisions[$div]) ? $divisions[$div] : 'Unknown category';
 }
 
 /** Recursively replace INF/NaN floats (from malformed source numbers) with null */

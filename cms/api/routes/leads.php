@@ -486,9 +486,16 @@ return function (string $method, array $segs): void {
 
         if ($linkId === null) {
             if ($method === 'GET') {
+                // Snapshot cols (migration 142) override the catalogue
+                // where set — coalesce so the UI sees the correct price
+                // for variable-priced services quoted at attach time.
                 $rows = $pdo->prepare(
                     'SELECT ls.id, ls.service_offering_id, ls.created_at,
-                            so.name, so.price, so.payment_type, so.repeat_duration
+                            so.name,
+                            COALESCE(ls.price, so.price)                     AS price,
+                            COALESCE(ls.payment_type, so.payment_type)       AS payment_type,
+                            COALESCE(ls.repeat_duration, so.repeat_duration) AS repeat_duration,
+                            so.is_variable_price
                        FROM lead_services ls
                        JOIN service_offerings so ON so.id = ls.service_offering_id
                       WHERE ls.lead_id = ?
@@ -505,15 +512,39 @@ return function (string $method, array $segs): void {
                 // Confirm the catalogue row exists in THIS tenant — without
                 // this check a caller could probe foreign-tenant ids by
                 // observing 201 vs 409.
-                $check = $pdo->prepare('SELECT 1 FROM service_offerings WHERE id = ?');
+                $check = $pdo->prepare('SELECT is_variable_price FROM service_offerings WHERE id = ?');
                 $check->execute([$soid]);
-                if (!$check->fetchColumn()) Json::fail('Invalid service_offering_id', 400);
+                $svc = $check->fetch();
+                if (!$svc) Json::fail('Invalid service_offering_id', 400);
+
+                // Optional per-attach snapshot (migration 142). The
+                // catalogue always carries a default price, so no body
+                // value just means "use the catalogue default" — the
+                // GET path COALESCEs snapshot over catalogue anyway.
+                $bodyPrice = null;
+                if (isset($body['price']) && $body['price'] !== '' && $body['price'] !== null) {
+                    $bodyPrice = (float)$body['price'];
+                }
+                $bodyPayType = null;
+                if (isset($body['payment_type']) && in_array($body['payment_type'], ['one_off', 'recurring'], true)) {
+                    $bodyPayType = $body['payment_type'];
+                }
+                $bodyCadence = null;
+                if ($bodyPayType === 'recurring' && !empty($body['repeat_duration'])
+                    && in_array($body['repeat_duration'], ['weekly','monthly','quarterly','yearly'], true)) {
+                    $bodyCadence = $body['repeat_duration'];
+                }
 
                 try {
                     $ins = $pdo->prepare(
-                        'INSERT INTO lead_services (lead_id, service_offering_id) VALUES (?, ?)'
+                        'INSERT INTO lead_services (lead_id, service_offering_id, price, payment_type, repeat_duration)
+                         VALUES (?, ?, ?, ?, ?)'
                     );
-                    $ins->execute([$id, $soid]);
+                    $ins->execute([
+                        $id, $soid, $bodyPrice,
+                        $bodyPayType ?? 'one_off',
+                        $bodyCadence,
+                    ]);
                     Json::send(['id' => (int)$pdo->lastInsertId(), 'service_offering_id' => $soid], 201);
                 } catch (\PDOException $e) {
                     // UNIQUE violation — already attached.
@@ -643,11 +674,17 @@ return function (string $method, array $segs): void {
             // (matches what services-admin writes for fresh rows).
             // Status resets to 'new' — the client starts the workflow
             // from the beginning even if the lead had prior activity.
+            // Prefer the per-attach snapshot on lead_services (migration
+            // 142) when present — that's the negotiated price for this
+            // lead. Fall back to the catalogue for fixed-price services.
             $pdo->prepare(
                 'INSERT INTO client_service_offerings
-                   (tenant_id, client_id, service_offering_id, name, price, payment_type, status)
-                 SELECT ls.tenant_id, ?, so.id, so.name, so.price,
-                        COALESCE(so.payment_type, \'one_off\'), \'new\'
+                   (tenant_id, client_id, service_offering_id, name, price, payment_type, repeat_duration, status)
+                 SELECT ls.tenant_id, ?, so.id, so.name,
+                        COALESCE(ls.price, so.price),
+                        COALESCE(ls.payment_type, so.payment_type, \'one_off\'),
+                        COALESCE(ls.repeat_duration, so.repeat_duration),
+                        \'new\'
                    FROM lead_services ls
                    JOIN service_offerings so ON so.id = ls.service_offering_id
                   WHERE ls.lead_id = ?'

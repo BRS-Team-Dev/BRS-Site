@@ -3,13 +3,13 @@ import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import {
   AdminSection, AdminUser, AdminUserRecord, AppSettings, BillingProfile, BillingSummary, FormInvite, FormSubmissionCandidateGroup, FormSubmissionLinkGroup, PaymentMethod, StripeConfig, StripeSetupIntent, StripeSubscribeResult, SubscriptionInvoice, SubscriptionPlan, SubscriptionTier, UsersSubscription,
-  AppNotification, Client, ClientAccount, ClientContact, ClientInfo, ClientNote, ClientService, ClientServicesTotals, CrmDashboardOverview, CrmTask, CrmTaskNote, CrmTaskStats, CustomTheme, EmailProvider, EmailRouting, FeedbackForm, FeedbackQuestion, FeedbackResponse, Invoice, InvoiceLine, Lead, LeadIndustrySummary, LeadInfo, LeadNote, LeadServiceLink, NotificationEventDef, NotificationRule, NotificationSection, NotificationUnreadCount, ServiceClientDetail, ServiceClientLink, ServicePoolEntry,
+  AppNotification, Client, ClientAccount, ClientContact, ClientInfo, ClientNote, ClientService, ClientServicesTotals, CrmDashboardOverview, CrmTask, CrmTaskNote, CrmTaskStats, CustomTheme, EmailProvider, EmailRouting, FeedbackForm, FeedbackQuestion, FeedbackResponse, Invoice, InvoiceLine, InvoiceServiceLink, InvoiceTemplate, Lead, LeadIndustrySummary, LeadInfo, LeadNote, LeadServiceLink, NotificationEventDef, NotificationRule, NotificationSection, NotificationUnreadCount, ServiceClientDetail, ServiceClientLink, ServicePoolEntry,
   FormDef, FormField, FormSection,
   HrCertification, HrChangeRequest, HrComplianceNote, HrComplianceTask, HrCourse, HrCourseAssignment,
   HrEmployeeNote,
   HrGoal, HrFeedbackNote, HrSkill, HrEmployeeSkill, HrShift,
   HrCourseModule, HrCoursePlayerSnapshot, HrQuizResult,
-  ContractType, ContractGroup, EntityContractsResponse, HrDocumentType, HrLegalDocument, HrOnboardingPortalSnapshot, HrOnboardingProgress, HrOnboardingSection, HrReference,
+  ContractType, ContractGroup, ContractTemplate, EntityContractsResponse, HrDocumentType, HrLegalDocument, HrOnboardingPortalSnapshot, HrOnboardingProgress, HrOnboardingSection, HrReference,
   HrDocument, HrEmployee, HrFeedbackEntry, HrOnboardingTask, HrPayrollPeriod, HrPayslip,
   HrApplication, HrApplicationNote, HrCandidate, HrInterview, HrJob,
   HrPulseAggregate, HrPulseSurvey, HrSuccessionCandidate, HrSuccessionCandidateNote, HrSuccessionPlan, HrSuccessionPlanNote, HrSurveyQuestion, PublicSurveyDef,
@@ -18,7 +18,7 @@ import {
   OnboardingClient, OnboardingFormPayload,
   TaskItem, TaskItemState, TaskItemType, TaskIteration, TaskProject, TaskTeam, TaskTeamMember,
   Tender, TenderInfo, TenderContact, TenderContactNumber, TenderDocument, TenderDocumentKind, TenderNote,
-  TenderSection, TenderTracker, OperationTask, OperationTaskStatus,
+  TenderSection, TenderTracker, TenderLeadFeed, TenderLeadImportResult, OperationTask, OperationTaskStatus,
   OperationsDocument, OperationsDocumentsBrowse,
   Partner, PartnerContact, PartnerNote, PartnerAccount,
   Contractor, ContractorNote,
@@ -357,6 +357,13 @@ export class Api {
     fd.append('file', file);
     return this.http.post<{ url: string }>(`${BASE}/settings/logo`, fd);
   }
+  /** Server-side proxy that fetches a logo URL and streams the raw
+   *  image bytes back. Bypasses browser CORS for cross-origin logos
+   *  (e.g. a dev localhost frontend + a prod-domain logo). Response is
+   *  the image bytes with the origin's Content-Type header preserved. */
+  fetchLogoBlob(url: string): Observable<Blob> {
+    return this.http.get(`${BASE}/settings/logo-fetch?url=${encodeURIComponent(url)}`, { responseType: 'blob' });
+  }
 
   // onboarding (admin)
   listOnboardingForms(): Observable<{ forms: FormDef[] }> {
@@ -541,13 +548,38 @@ export class Api {
     );
   }
   // Attach a catalogue service (service_offerings) directly to a client.
-  addClientServiceOffering(clientId: number, serviceOfferingId: number): Observable<{ ok: boolean; service_link_id: number }> {
+  // Optional priceOverride is used when the catalogue service has
+  // is_variable_price=1 — the picker collects the price at attach time.
+  addClientServiceOffering(
+    clientId: number,
+    serviceOfferingId: number,
+    priceOverride?: number | null,
+  ): Observable<{ ok: boolean; service_link_id: number }> {
+    const body: any = { service_offering_id: serviceOfferingId };
+    if (priceOverride !== undefined && priceOverride !== null && !Number.isNaN(priceOverride)) {
+      body.price = priceOverride;
+    }
     return this.http.post<{ ok: boolean; service_link_id: number }>(
-      `${BASE}/clients/${clientId}/services`, { service_offering_id: serviceOfferingId }
+      `${BASE}/clients/${clientId}/services`, body
     );
   }
   removeClientServiceOffering(clientId: number, linkId: number): Observable<{ ok: boolean }> {
     return this.http.delete<{ ok: boolean }>(`${BASE}/clients/${clientId}/services/offering/${linkId}`);
+  }
+  // Edit the pricing snapshot on a catalogue-attached row. Every field
+  // is optional — the backend leaves omitted keys alone.
+  updateClientServiceOffering(
+    clientId: number,
+    linkId: number,
+    patch: {
+      price?: number | null;
+      payment_type?: 'one_off' | 'recurring';
+      repeat_duration?: 'weekly' | 'monthly' | 'quarterly' | 'yearly' | null;
+    },
+  ): Observable<{ ok: boolean }> {
+    return this.http.put<{ ok: boolean }>(
+      `${BASE}/clients/${clientId}/services/offering/${linkId}`, patch
+    );
   }
 
   // leads — potential clients funnel; promote() copies fields into a clients row
@@ -636,6 +668,36 @@ export class Api {
   // tenders — Operations system
   listTenders(): Observable<{ tenders: Tender[] }> {
     return this.http.get<{ tenders: Tender[] }>(`${BASE}/tenders`);
+  }
+  /**
+   * Live tender-lead feed. Proxied through the operations route
+   * (GET /api/operations/tender-leads → cms/scraper/tenders.php) so the
+   * dev-server proxy and prod .htaccess both reach it consistently.
+   * Params mirror tenders.php: days (window), type (friendly CPV group), q (keyword).
+   */
+  tenderLeads(opts: { days?: number; type?: string; q?: string } = {}): Observable<TenderLeadFeed> {
+    let params = new HttpParams();
+    if (opts.days) params = params.set('days', String(opts.days));
+    if (opts.type) params = params.set('type', opts.type);
+    if (opts.q && opts.q.trim()) params = params.set('q', opts.q.trim());
+    return this.http.get<TenderLeadFeed>(`${BASE}/operations/tender-leads`, { params });
+  }
+  /** Pull from the aggregator and upsert into tender_leads. `mode:'since'` uses
+   *  the most recent stored published_date as the cutoff; otherwise `days` (≤30). */
+  importTenderLeads(opts: { days?: number; mode?: 'since' } = {}): Observable<TenderLeadImportResult> {
+    let params = new HttpParams();
+    if (opts.mode) params = params.set('mode', opts.mode);
+    else if (opts.days) params = params.set('days', String(opts.days));
+    return this.http.post<TenderLeadImportResult>(`${BASE}/operations/tender-leads/import`, {}, { params });
+  }
+  /** Friendly type → stored-lead count, for the Lead Gen sidenav sub-menu. */
+  tenderLeadTypeCounts(): Observable<{ types: { type: string; count: number }[] }> {
+    return this.http.get<{ types: { type: string; count: number }[] }>(`${BASE}/operations/tender-leads/types`);
+  }
+  /** Promote a stored lead into a tracked Tender, copying all its info into the
+   *  new tender's Info tab as individual entries. Returns the new tender id. */
+  promoteTenderLead(ocid: string): Observable<{ tender_id: number }> {
+    return this.http.post<{ tender_id: number }>(`${BASE}/operations/tender-leads/promote`, { ocid });
   }
   getTender(id: number): Observable<{ tender: Tender }> {
     return this.http.get<{ tender: Tender }>(`${BASE}/tenders/${id}`);
@@ -950,9 +1012,19 @@ export class Api {
   listLeadServices(leadId: number): Observable<{ services: LeadServiceLink[] }> {
     return this.http.get<{ services: LeadServiceLink[] }>(`${BASE}/leads/${leadId}/services`);
   }
-  addLeadService(leadId: number, serviceOfferingId: number): Observable<{ id: number; service_offering_id: number }> {
+  addLeadService(
+    leadId: number,
+    serviceOfferingId: number,
+    opts?: { price?: number | null; payment_type?: 'one_off' | 'recurring'; repeat_duration?: string | null },
+  ): Observable<{ id: number; service_offering_id: number }> {
+    const body: any = { service_offering_id: serviceOfferingId };
+    if (opts?.price !== undefined && opts?.price !== null && !Number.isNaN(opts.price)) {
+      body.price = opts.price;
+    }
+    if (opts?.payment_type) body.payment_type = opts.payment_type;
+    if (opts?.repeat_duration) body.repeat_duration = opts.repeat_duration;
     return this.http.post<{ id: number; service_offering_id: number }>(
-      `${BASE}/leads/${leadId}/services`, { service_offering_id: serviceOfferingId }
+      `${BASE}/leads/${leadId}/services`, body
     );
   }
   removeLeadService(leadId: number, linkId: number): Observable<{ ok: boolean }> {
@@ -1957,6 +2029,26 @@ export class Api {
   unsignEntityContract(audience: string, entityId: number, docId: number): Observable<{ ok: boolean }> {
     return this.http.post<{ ok: boolean }>(`${BASE}/contracts/${audience}/${entityId}/${docId}/unsign`, {});
   }
+  /** Templates available to attach for the given audience. */
+  listContractTemplates(audience: string, entityId: number): Observable<{ templates: ContractTemplate[] }> {
+    return this.http.get<{ templates: ContractTemplate[] }>(`${BASE}/contracts/${audience}/${entityId}/templates`);
+  }
+  /** Attach a template to this entity. For the client audience, an
+   *  optional client_service_offering_id binds the new doc to a service. */
+  attachEntityContract(
+    audience: string, entityId: number,
+    body: { doc_type_id: number; client_service_offering_id?: number | null },
+  ): Observable<{ ok: boolean; id: number }> {
+    return this.http.post<{ ok: boolean; id: number }>(`${BASE}/contracts/${audience}/${entityId}/attach`, body);
+  }
+  /** Change (or clear) the service link on an existing client contract.
+   *  Passing null detaches it and keeps the contract as client-wide. */
+  setContractService(entityId: number, docId: number, csoId: number | null): Observable<{ ok: boolean }> {
+    return this.http.put<{ ok: boolean }>(
+      `${BASE}/contracts/client/${entityId}/${docId}/service`,
+      { client_service_offering_id: csoId }
+    );
+  }
 
   deleteHrDocumentType(id: number): Observable<{ ok: boolean }> {
     return this.http.delete<{ ok: boolean }>(`${BASE}/hr/document-types/${id}`);
@@ -2148,13 +2240,25 @@ export class Api {
   }
 
   // ── Accounting / invoices ────────────────────────────────────────────────
-  listInvoices(): Observable<{ invoices: Invoice[] }> {
-    return this.http.get<{ invoices: Invoice[] }>(`${BASE}/accounting/invoices`);
+  // Invoice list. `filter` narrows to a specific client (client's Invoices
+  // tab) or a specific service link (services-admin per-service view).
+  listInvoices(filter?: { clientId?: number; serviceLinkId?: number }): Observable<{ invoices: Invoice[] }> {
+    let url = `${BASE}/accounting/invoices`;
+    const qs: string[] = [];
+    if (filter?.clientId) qs.push(`client_id=${filter.clientId}`);
+    if (filter?.serviceLinkId) qs.push(`service_link_id=${filter.serviceLinkId}`);
+    if (qs.length) url += `?${qs.join('&')}`;
+    return this.http.get<{ invoices: Invoice[] }>(url);
   }
-  getInvoice(id: number): Observable<{ invoice: Invoice; lines: InvoiceLine[] }> {
-    return this.http.get<{ invoice: Invoice; lines: InvoiceLine[] }>(`${BASE}/accounting/invoices/${id}`);
+  getInvoice(id: number): Observable<{ invoice: Invoice; lines: InvoiceLine[]; services: InvoiceServiceLink[] }> {
+    return this.http.get<{ invoice: Invoice; lines: InvoiceLine[]; services: InvoiceServiceLink[] }>(
+      `${BASE}/accounting/invoices/${id}`
+    );
   }
-  createInvoice(p: Partial<Invoice> & { lines?: Partial<InvoiceLine>[] }): Observable<{ id: number; invoice_number: string }> {
+  createInvoice(p: Partial<Invoice> & {
+    lines?: Partial<InvoiceLine>[];
+    service_link_ids?: number[];
+  }): Observable<{ id: number; invoice_number: string }> {
     return this.http.post<{ id: number; invoice_number: string }>(`${BASE}/accounting/invoices`, p);
   }
   updateInvoice(id: number, p: Partial<Invoice>): Observable<{ ok: boolean }> {
@@ -2169,6 +2273,22 @@ export class Api {
   markInvoicePaid(id: number): Observable<{ ok: boolean }> {
     return this.http.post<{ ok: boolean }>(`${BASE}/accounting/invoices/${id}/mark-paid`, {});
   }
+  /** Email the invoice HTML to bill_to_email (or override `to`).
+   *  Backend flips draft → sent + stamps sent_at on the first send. */
+  emailInvoice(id: number, to?: string): Observable<{ ok: boolean; sent_to: string }> {
+    return this.http.post<{ ok: boolean; sent_to: string }>(
+      `${BASE}/accounting/invoices/${id}/email`,
+      to ? { to } : {}
+    );
+  }
+  // Mark part paid. Omit amount to default to half the invoice total
+  // server-side (matches the client-tab "part paid" pill default).
+  markInvoicePartPaid(id: number, amount_paid?: number): Observable<{ ok: boolean; amount_paid: number }> {
+    return this.http.post<{ ok: boolean; amount_paid: number }>(
+      `${BASE}/accounting/invoices/${id}/mark-part-paid`,
+      amount_paid !== undefined ? { amount_paid } : {}
+    );
+  }
   addInvoiceLine(invoiceId: number, p: Partial<InvoiceLine>): Observable<{ id: number }> {
     return this.http.post<{ id: number }>(`${BASE}/accounting/invoices/${invoiceId}/lines`, p);
   }
@@ -2177,6 +2297,48 @@ export class Api {
   }
   deleteInvoiceLine(invoiceId: number, lineId: number): Observable<{ ok: boolean }> {
     return this.http.delete<{ ok: boolean }>(`${BASE}/accounting/invoices/${invoiceId}/lines/${lineId}`);
+  }
+  // Attach / detach client_service_offerings to an invoice — drives
+  // the per-service "invoice chip" on the client Services tab and the
+  // per-service Invoices sub-tab on services-admin.
+  attachInvoiceService(invoiceId: number, clientServiceOfferingId: number): Observable<{ ok: boolean }> {
+    return this.http.post<{ ok: boolean }>(
+      `${BASE}/accounting/invoices/${invoiceId}/services`,
+      { client_service_offering_id: clientServiceOfferingId }
+    );
+  }
+  detachInvoiceService(invoiceId: number, clientServiceOfferingId: number): Observable<{ ok: boolean }> {
+    return this.http.delete<{ ok: boolean }>(
+      `${BASE}/accounting/invoices/${invoiceId}/services/${clientServiceOfferingId}`
+    );
+  }
+
+  // ── Invoice templates (migration 144) ───────────────────────
+  // Tenant-scoped HTML templates uploaded via Settings → Invoices,
+  // rendered server-side with mustache-style variable substitution
+  // and returned as HTML to the browser for Print → Save as PDF.
+  listInvoiceTemplates(): Observable<{ templates: InvoiceTemplate[] }> {
+    return this.http.get<{ templates: InvoiceTemplate[] }>(`${BASE}/accounting/templates`);
+  }
+  getInvoiceTemplate(id: number): Observable<{ template: InvoiceTemplate }> {
+    return this.http.get<{ template: InvoiceTemplate }>(`${BASE}/accounting/templates/${id}`);
+  }
+  createInvoiceTemplate(p: { name: string; html: string; is_default?: boolean }): Observable<{ id: number }> {
+    return this.http.post<{ id: number }>(`${BASE}/accounting/templates`, p);
+  }
+  updateInvoiceTemplate(id: number, p: Partial<InvoiceTemplate>): Observable<{ ok: boolean }> {
+    return this.http.put<{ ok: boolean }>(`${BASE}/accounting/templates/${id}`, p);
+  }
+  deleteInvoiceTemplate(id: number): Observable<{ ok: boolean }> {
+    return this.http.delete<{ ok: boolean }>(`${BASE}/accounting/templates/${id}`);
+  }
+  setDefaultInvoiceTemplate(id: number): Observable<{ ok: boolean }> {
+    return this.http.post<{ ok: boolean }>(`${BASE}/accounting/templates/${id}/default`, {});
+  }
+  renderInvoiceTemplate(templateId: number, invoiceId: number): Observable<{ html: string; invoice_number: string }> {
+    return this.http.get<{ html: string; invoice_number: string }>(
+      `${BASE}/accounting/templates/${templateId}/render/${invoiceId}`
+    );
   }
 
   // ───── Recruitment (migration 077) ────────────────────────────────

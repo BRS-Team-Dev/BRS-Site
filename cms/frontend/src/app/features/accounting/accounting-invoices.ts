@@ -333,7 +333,7 @@ export class AccountingInvoices {
   } = this.blankDraft();
 
   counts = computed(() => {
-    const out: Record<InvoiceStatus, number> = { draft: 0, sent: 0, paid: 0, void: 0 };
+    const out: Record<InvoiceStatus, number> = { draft: 0, sent: 0, part_paid: 0, paid: 0, void: 0 };
     for (const i of this.invoices()) {
       const s = (i.status ?? 'draft') as InvoiceStatus;
       out[s] = (out[s] ?? 0) + 1;

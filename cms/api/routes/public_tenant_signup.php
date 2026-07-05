@@ -260,6 +260,41 @@ return function (string $method, array $segs): void {
         ]);
         $adminId = (int)$pdo->lastInsertId();
 
+        // 5) Seed the settings kv table so Settings > General + Settings >
+        //    Invoices are pre-populated with what the tenant just typed
+        //    on the signup form. Without this, the new admin lands in
+        //    Settings and sees empty inputs even though they clearly
+        //    provided the same info a minute ago. Keys mirror what the
+        //    two settings tabs actually bind to.
+        // @global-scope: settings is tenant-scoped but this IS the
+        // tenant's first row — pre-Tenant-context provisioning insert.
+        $seedRows = [
+            ['brand_name',                $companyName],
+            ['org_website',               $companyUrl ?: null],
+            ['org_contact_email',         $contactEmail],
+            ['invoice.business_name',     $companyName],
+            ['invoice.business_email',    $contactEmail],
+            ['invoice.business_phone',    $contactPhone ?: null],
+            ['invoice.business_website',  $companyUrl ?: null],
+            ['invoice.signature_name',    $adminName],
+            ['invoice.tax_label',         'Tax'],
+            ['invoice.show_bank_details', '1'],
+        ];
+        if ($logoRelPath !== null) {
+            // brand_logo_url is a root-relative path here so the
+            // frontend's <img [src]="s.brand_logo_url"> renders it
+            // without needing a base URL rewrite.
+            $seedRows[] = ['brand_logo_url', '/cms/' . $logoRelPath];
+            $seedRows[] = ['invoice.logo_url', '/cms/' . $logoRelPath];
+        }
+        $seedIns = $pdo->prepare(
+            'INSERT INTO settings (tenant_id, k, v) VALUES (?, ?, ?)'
+        );
+        foreach ($seedRows as [$k, $v]) {
+            if ($v === null || $v === '') continue;
+            $seedIns->execute([$tenantId, $k, $v]);
+        }
+
         $pdo->commit();
     } catch (\Throwable $e) {
         $pdo->rollBack();
@@ -339,6 +374,11 @@ return function (string $method, array $segs): void {
             'id'           => $adminId,
             'email'        => $contactEmail,
             'display_name' => $adminName,
+            // Include role explicitly so the frontend's SideNavFooter
+            // shows the Settings link on first load — without this
+            // field the check `user.role === 'admin'` is undefined and
+            // the new tenant can't reach their own configuration.
+            'role'         => 'admin',
         ],
         'tenant'  => [
             'id'          => $tenantId,

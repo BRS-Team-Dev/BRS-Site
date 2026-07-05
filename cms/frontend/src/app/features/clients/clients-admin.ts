@@ -1,15 +1,16 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, computed, inject, signal } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { Observable } from 'rxjs';
 import { Api } from '../../core/api';
 import { DialogService } from '../../core/dialog';
 import { environment } from '@env/environment';
-import { Client, ClientAccount, ClientContact, ClientInfo, ClientNote, ClientService, ClientServicesTotals, FeedbackForm, FeedbackQuestion, FeedbackResponse, FormDef, FormSubmissionLinkGroup, ServiceOffering, TaskItem } from '../../core/models';
+import { Client, ClientAccount, ClientContact, ClientInfo, ClientNote, ClientService, ClientServicesTotals, EntityContract, FeedbackForm, FeedbackQuestion, FeedbackResponse, FormDef, FormSubmissionLinkGroup, Invoice, InvoiceLine, InvoiceServiceLink, InvoiceStatus, ServiceOffering, TaskItem } from '../../core/models';
 import { EntityContracts } from '../../shared/entity-contracts';
 import { FormSubmissionsList } from '../../shared/form-submissions-list';
+import { InvoiceDetailModal } from '../accounting/invoice-detail-modal';
 
-type TabKey = 'info' | 'contacts' | 'services' | 'accounts' | 'contracts' | 'onboarding' | 'feedback' | 'notes';
+type TabKey = 'info' | 'contacts' | 'services' | 'invoices' | 'accounts' | 'contracts' | 'onboarding' | 'feedback' | 'notes';
 
 /**
  * Standalone Clients section.
@@ -20,7 +21,7 @@ type TabKey = 'info' | 'contacts' | 'services' | 'accounts' | 'contracts' | 'onb
  */
 @Component({
   selector: 'app-clients-admin',
-  imports: [RouterLink, FormsModule, EntityContracts, FormSubmissionsList],
+  imports: [RouterLink, FormsModule, EntityContracts, FormSubmissionsList, InvoiceDetailModal],
   template: `
     @if (mode() === 'list') {
       <div class="toolbar">
@@ -281,7 +282,8 @@ type TabKey = 'info' | 'contacts' | 'services' | 'accounts' | 'contracts' | 'onb
                         own record.
                       </div>
                       <label>Service <span class="req">★</span></label>
-                      <select [(ngModel)]="addServiceSel" name="add_svc_form">
+                      <select [ngModel]="addServiceSel" (ngModelChange)="onAddServiceSelChange($event)"
+                              name="add_svc_form">
                         <option [ngValue]="null">— pick a service —</option>
                         @if (serviceOfferings().length) {
                           <optgroup label="Catalogue services">
@@ -298,6 +300,23 @@ type TabKey = 'info' | 'contacts' | 'services' | 'accounts' | 'contracts' | 'onb
                           </optgroup>
                         }
                       </select>
+                      @if (selectedVariablePriceService()) {
+                        <label style="margin-top: 10px;">
+                          Price (GBP) <span class="req">★</span>
+                        </label>
+                        <input type="number" min="0" step="0.01"
+                          [(ngModel)]="addServicePrice" name="add_svc_price"
+                          placeholder="0.00" />
+                        <div class="muted small" style="margin-top: 4px;">
+                          @if (addServicePrice !== null && addServicePrice !== undefined) {
+                            Pre-filled from the catalogue default — override to
+                            set a per-client price.
+                          } @else {
+                            No catalogue default set for this variable-priced
+                            service — enter a price for this client.
+                          }
+                        </div>
+                      }
                       @if (addServiceError()) { <div class="error-msg">{{ addServiceError() }}</div> }
                       <div class="row" style="margin-top: 14px; gap: 8px;">
                         <button class="primary" (click)="addService()" [disabled]="addServiceSaving() || !addServiceSel"
@@ -374,10 +393,35 @@ type TabKey = 'info' | 'contacts' | 'services' | 'accounts' | 'contracts' | 'onb
                               }
                             </span>
                             <span class="spacer"></span>
+                            @if (s.kind === 'catalog') {
+                              @for (c of contractsForService(s); track c.id) {
+                                <span class="contract-chip"
+                                      [class.signed]="!!c.signed_at"
+                                      (click)="activeTab.set('contracts'); $event.stopPropagation()"
+                                      [title]="(c.signed_at ? 'Signed · ' : 'Pending · ') + (c.type_name || c.title)">
+                                  🔗 {{ c.type_name || c.title }}
+                                </span>
+                              }
+                            }
+                            @if (s.kind === 'catalog' && latestInvoiceForService(s); as inv) {
+                              <span class="invoice-chip"
+                                    [attr.data-inv-status]="inv.status"
+                                    (click)="openInvoiceDetail(inv.id!); $event.stopPropagation()"
+                                    [title]="'Open ' + inv.invoice_number">
+                                {{ inv.invoice_number }} · {{ invoiceStatusLabel(inv.status) }}
+                              </span>
+                            }
                             <span class="monthly-chip"><strong>{{ formatMoney(s.monthly_value) }}</strong> /mo</span>
                             @if (s.kind === 'catalog') {
-                              <button class="ghost icon-btn danger" (click)="removeCatalogService(s, $event)" title="Remove service"
->✕</button>
+                              <div class="row-actions">
+                                <button class="ghost icon-btn"
+                                        (click)="openOrCreateInvoiceForService(s, $event)"
+                                        [title]="invoiceButtonTitle(s)">
+                                  {{ invoiceButtonLabel(s) }}
+                                </button>
+                                <button class="ghost icon-btn" (click)="openEditServicePrice(s, $event)" title="Edit price">✎</button>
+                                <button class="ghost icon-btn danger" (click)="removeCatalogService(s, $event)" title="Remove service">✕</button>
+                              </div>
                             }
                           </div>
                           <div class="slot-meta service-breakdown">
@@ -486,6 +530,71 @@ type TabKey = 'info' | 'contacts' | 'services' | 'accounts' | 'contracts' | 'onb
                               </div>
                             }
                           }
+                        </li>
+                      }
+                    </ul>
+                  }
+                }
+                @case ('invoices') {
+                  <div class="tab-head">
+                    <h3>Invoices</h3>
+                    <span class="spacer"></span>
+                    <button class="primary" (click)="openNewInvoice()"
+                            [disabled]="services().length === 0"
+                            [title]="services().length === 0 ? 'Attach a service first' : ''">
+                      + New invoice
+                    </button>
+                  </div>
+
+                  @if (invoicesLoading()) {
+                    <p class="muted">Loading invoices…</p>
+                  } @else if (invoices().length === 0) {
+                    <p class="muted">
+                      No invoices yet. Use <strong>+ New invoice</strong> to
+                      generate one from an attached service.
+                    </p>
+                  } @else {
+                    <ul class="slot-list invoices-list">
+                      @for (inv of invoices(); track inv.id) {
+                        <li class="slot filled">
+                          <div class="slot-head no-caret"
+                               (click)="openInvoiceDetail(inv.id!)">
+                            <strong>{{ inv.invoice_number }}</strong>
+                            <span class="pill" [attr.data-inv-status]="inv.status">
+                              {{ invoiceStatusLabel(inv.status) }}
+                            </span>
+                            @for (svc of (inv.services || []); track svc.client_service_offering_id) {
+                              <span class="terms-pill">{{ svc.name }}</span>
+                            }
+                            <span class="spacer"></span>
+                            @if (inv.status === 'part_paid' && inv.amount_paid != null) {
+                              <span class="muted small">
+                                {{ formatMoney(inv.amount_paid) }} / {{ formatMoney(inv.total) }}
+                              </span>
+                            }
+                            <span class="monthly-chip"><strong>{{ formatMoney(inv.total) }}</strong></span>
+                            <button class="ghost icon-btn danger"
+                                    (click)="deleteInvoice(inv, $event)"
+                                    title="Delete invoice">✕</button>
+                          </div>
+                          <div class="slot-meta service-breakdown">
+                            <span><span class="k">Issued</span> {{ formatDate(inv.issue_date) }}</span>
+                            <span>
+                              <span class="k">Due</span>
+                              @if (inv.due_date) { {{ formatDate(inv.due_date) }} }
+                              @else { <span class="muted">—</span> }
+                            </span>
+                            <span>
+                              <span class="k">Sent</span>
+                              @if (inv.sent_at) { {{ formatDate(inv.sent_at) }} }
+                              @else { <span class="muted">—</span> }
+                            </span>
+                            <span>
+                              <span class="k">Paid</span>
+                              @if (inv.paid_at) { {{ formatDate(inv.paid_at) }} }
+                              @else { <span class="muted">—</span> }
+                            </span>
+                          </div>
                         </li>
                       }
                     </ul>
@@ -615,7 +724,7 @@ type TabKey = 'info' | 'contacts' | 'services' | 'accounts' | 'contracts' | 'onb
                 }
                 @case ('contracts') {
                   <div class="tab-head"><h3>Contracts</h3></div>
-                  <app-entity-contracts audience="client" [entityId]="c.id!"></app-entity-contracts>
+                  <app-entity-contracts audience="client" [entityId]="c.id!" [services]="catalogServices()"></app-entity-contracts>
                 }
                 @case ('onboarding') {
                   <div class="tab-head">
@@ -860,6 +969,128 @@ type TabKey = 'info' | 'contacts' | 'services' | 'accounts' | 'contracts' | 'onb
         <div class="empty"><p class="muted">Loading…</p></div>
       }
     }
+
+    <!-- New Invoice modal — pick one or more attached services and
+         generate a draft invoice. Lines pre-populate from each service
+         (name/price/qty=1); tax defaults to 0 (editable in detail). -->
+    @if (newInvoiceOpen()) {
+      <div class="modal-backdrop" (click)="closeNewInvoice()">
+        <div class="modal" (click)="$event.stopPropagation()">
+          <div class="modal-head">
+            <h3>New invoice</h3>
+            <button class="ghost icon-btn" (click)="closeNewInvoice()">✕</button>
+          </div>
+          <div class="modal-body">
+            <p class="muted small" style="margin: 0 0 12px 0;">
+              Bill this client for one or more services. Tick each service
+              to include as a line item — you can edit descriptions,
+              quantities and tax rate after saving.
+            </p>
+            <label>Services on this invoice</label>
+            @if (services().length === 0) {
+              <p class="muted small">This client has no services attached yet.</p>
+            } @else {
+              <ul class="new-invoice-services">
+                @for (s of catalogServices(); track s.service_link_id) {
+                  <li>
+                    <label class="check">
+                      <input type="checkbox"
+                        [checked]="isNewInvoiceServiceChecked(s.service_link_id!)"
+                        (change)="toggleNewInvoiceService(s.service_link_id!)" />
+                      <span>{{ s.form_title || s.name }}</span>
+                      <span class="muted small">
+                        {{ formatMoney(s.price) }}
+                        @if (s.payment_type === 'recurring' && s.repeat_duration) {
+                          / {{ s.repeat_duration }}
+                        }
+                      </span>
+                    </label>
+                  </li>
+                }
+              </ul>
+            }
+
+            <div class="row two-col" style="margin-top: 14px;">
+              <div>
+                <label>Issue date</label>
+                <input type="date" [(ngModel)]="newInvoiceDraft.issue_date" name="ni_iss" />
+              </div>
+              <div>
+                <label>Due date</label>
+                <input type="date" [(ngModel)]="newInvoiceDraft.due_date" name="ni_due" />
+              </div>
+            </div>
+
+            @if (newInvoiceError()) { <div class="error-msg" style="margin-top: 10px;">{{ newInvoiceError() }}</div> }
+          </div>
+          <div class="modal-foot">
+            <button class="ghost" (click)="closeNewInvoice()">Cancel</button>
+            <button class="primary" (click)="saveNewInvoice()"
+                    [disabled]="newInvoiceSaving() || newInvoiceSelected.size === 0">
+              {{ newInvoiceSaving() ? 'Creating…' : 'Create draft' }}
+            </button>
+          </div>
+        </div>
+      </div>
+    }
+
+    <!-- Invoice Detail modal — shared standalone component. Opens
+         whenever activeInvoiceId is set; the ✕ / Done / backdrop click
+         emits (closed) which nulls the id + reloads the list so
+         status/paid changes reflect on the summary immediately. -->
+    <app-invoice-detail-modal
+      [invoiceId]="activeInvoiceId()"
+      (closed)="onInvoiceDetailClosed()">
+    </app-invoice-detail-modal>
+
+    <!-- Edit price modal for a catalogue service attached to this client.
+         Opens from the ✎ button on each service row. Uses the global
+         .modal-* classes (see feedback_modal_styles_global memory). -->
+    @if (priceEditOpen()) {
+      <div class="modal-backdrop" (click)="closeEditServicePrice()">
+        <div class="modal" (click)="$event.stopPropagation()">
+          <div class="modal-head">
+            <h3>Edit price</h3>
+            <button class="ghost icon-btn" (click)="closeEditServicePrice()">✕</button>
+          </div>
+          <div class="modal-body">
+            <p class="muted small" style="margin: 0 0 12px 0;">
+              {{ priceEditServiceName() }} — overrides the catalogue default
+              for this client.
+            </p>
+            <label>Price (GBP)</label>
+            <input type="number" min="0" step="0.01"
+              [(ngModel)]="priceEditDraft.price" name="pe_price" placeholder="0.00" />
+
+            <label style="margin-top: 12px;">Billing</label>
+            <select [(ngModel)]="priceEditDraft.payment_type" name="pe_pt">
+              <option value="one_off">One-off</option>
+              <option value="recurring">Recurring</option>
+            </select>
+
+            @if (priceEditDraft.payment_type === 'recurring') {
+              <label style="margin-top: 12px;">Repeat every</label>
+              <select [(ngModel)]="priceEditDraft.repeat_duration" name="pe_rd">
+                <option [ngValue]="null">— pick a cadence —</option>
+                <option value="weekly">Weekly</option>
+                <option value="monthly">Monthly</option>
+                <option value="quarterly">Quarterly</option>
+                <option value="yearly">Yearly</option>
+              </select>
+            }
+
+            @if (priceEditError()) { <div class="error-msg" style="margin-top: 10px;">{{ priceEditError() }}</div> }
+          </div>
+          <div class="modal-foot">
+            <button class="ghost" (click)="closeEditServicePrice()">Cancel</button>
+            <button class="primary" (click)="saveEditServicePrice()"
+                    [disabled]="priceEditSaving()">
+              {{ priceEditSaving() ? 'Saving…' : 'Save' }}
+            </button>
+          </div>
+        </div>
+      </div>
+    }
   `,
   styles: [`
     .layout { display: grid; grid-template-columns: 480px; gap: 20px; padding: 20px; }
@@ -992,6 +1223,8 @@ type TabKey = 'info' | 'contacts' | 'services' | 'accounts' | 'contracts' | 'onb
     .services-list .slot.filled  { border-left: 3px solid var(--primary); }
     .services-list .slot.missing { border-left: 3px solid var(--muted); opacity: 0.85; }
     .services-list .slot-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; cursor: pointer; user-select: none; }
+    /* Keep the action cluster on one line — see feedback_button_link_nowrap. */
+    .services-list .row-actions { display: inline-flex; align-items: center; gap: 6px; flex: 0 0 auto; white-space: nowrap; }
     .services-list .slot-head .spacer { flex: 1; }
     .services-list .slot-head .caret {
       color: var(--muted); transition: transform 0.15s; flex-shrink: 0;
@@ -1097,6 +1330,73 @@ type TabKey = 'info' | 'contacts' | 'services' | 'accounts' | 'contracts' | 'onb
     .services-list .pill[data-pstatus="complete"] { color: var(--muted); border-color: var(--line); }
     .services-list .pill[data-pstatus="none"]     { color: var(--muted); border-style: dashed; }
     .services-list .pill[data-pstatus="catalog"]  { color: var(--primary); border-color: var(--primary); background: rgba(212,169,58,0.12); }
+    /* Invoice status pill — reuses .pill positioning but colour-keys off data-inv-status. */
+    .pill[data-inv-status="draft"]     { color: var(--muted); border-color: var(--line); background: transparent; }
+    .pill[data-inv-status="sent"]      { color: #f59e0b; border-color: #f59e0b; background: rgba(245,158,11,0.10); }
+    .pill[data-inv-status="part_paid"] { color: #60a5fa; border-color: #60a5fa; background: rgba(96,165,250,0.12); }
+    .pill[data-inv-status="paid"]      { color: #56c98a; border-color: #56c98a; background: rgba(86,201,138,0.12); }
+    .pill[data-inv-status="void"]      { color: var(--muted); border-color: var(--line); text-decoration: line-through; }
+    /* Invoice rows — mirrors the services-list card look but with
+       bigger padding + gaps because the row has fewer items so we can
+       breathe. Same class-scoping pattern as .services-list above. */
+    .invoices-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 12px; }
+    .invoices-list .slot {
+      background: var(--bg-2); border: 1px solid var(--line);
+      border-radius: var(--radius-sm); padding: 18px 22px;
+      display: flex; flex-direction: column; gap: 14px;
+    }
+    .invoices-list .slot.filled { border-left: 3px solid var(--primary); }
+    .invoices-list .slot-head {
+      display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+      user-select: none; cursor: pointer;
+    }
+    .invoices-list .slot-head strong { font-size: 15px; }
+    .invoices-list .slot-head .spacer { flex: 1; }
+    /* Bottom metadata row: 4 evenly-spaced columns using all available
+       width. Stacks the key over its value so it reads like a summary
+       card rather than a run-on line. */
+    .invoices-list .slot-meta {
+      display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px;
+      padding-top: 12px; border-top: 1px solid var(--line);
+      font-size: 13px;
+    }
+    .invoices-list .slot-meta > span { display: flex; flex-direction: column; gap: 4px; }
+    .invoices-list .slot-meta .k {
+      color: var(--muted); text-transform: uppercase;
+      letter-spacing: 0.5px; font-size: 11px; margin: 0;
+    }
+    .invoices-list .pill {
+      padding: 3px 10px; border-radius: 999px; font-size: 12px;
+      font-weight: 600; letter-spacing: 0.3px;
+      background: var(--bg-3); color: var(--muted);
+      border: 1px solid transparent;
+    }
+    .invoices-list .terms-pill {
+      padding: 3px 10px; border-radius: 4px; font-size: 12px;
+      background: var(--bg-3); border: 1px solid var(--line); color: var(--fg);
+    }
+    .invoices-list .monthly-chip {
+      padding: 4px 12px; border-radius: 6px;
+      background: rgba(212,169,58,0.12); border: 1px solid var(--primary);
+      color: var(--primary); font-size: 14px;
+    }
+    /* Row chips (invoice + contract) — same base shape. */
+    .invoice-chip, .contract-chip { padding: 2px 8px; border-radius: 4px; font-size: 12px; border: 1px solid var(--line); background: var(--bg-3); color: var(--fg); cursor: pointer; white-space: nowrap; }
+    .contract-chip { color: var(--muted); }
+    .contract-chip.signed { color: #56c98a; border-color: #56c98a; }
+    .invoice-chip:hover, .contract-chip:hover { border-color: var(--primary); }
+    .invoice-chip[data-inv-status="sent"]      { color: #f59e0b; border-color: #f59e0b; }
+    .invoice-chip[data-inv-status="part_paid"] { color: #60a5fa; border-color: #60a5fa; }
+    .invoice-chip[data-inv-status="paid"]      { color: #56c98a; border-color: #56c98a; }
+    .invoice-chip[data-inv-status="void"]      { color: var(--muted); text-decoration: line-through; }
+    /* New-invoice service picker + detail-modal service list. */
+    ul.new-invoice-services { list-style: none; padding: 0; margin: 6px 0 0 0; }
+    ul.new-invoice-services li {
+      display: flex; align-items: center; gap: 10px;
+      padding: 8px 10px; border: 1px solid var(--line); border-radius: 6px;
+      margin-bottom: 6px; background: var(--bg-2);
+    }
+    ul.new-invoice-services li .check { display: flex; align-items: center; gap: 10px; margin: 0; text-transform: none; letter-spacing: normal; white-space: nowrap; }
     /* Catalogue rows have no expand caret — pull the title back to the edge. */
     .services-list .slot-head.no-caret { cursor: default; }
     .services-list .terms-pill {
@@ -1268,6 +1568,7 @@ export class ClientsAdmin {
     { key: 'info',       label: 'Info' },
     { key: 'contacts',   label: 'Contacts' },
     { key: 'services',   label: 'Services' },
+    { key: 'invoices',   label: 'Invoices' },
     { key: 'accounts',   label: 'Accounts' },
     { key: 'contracts',  label: 'Contracts' },
     { key: 'onboarding', label: 'Onboarding' },
@@ -1375,6 +1676,7 @@ export class ClientsAdmin {
   onTabClick(key: TabKey, clientId: number) {
     this.activeTab.set(key);
     if (key === 'feedback') this.loadFeedback(clientId);
+    if (key === 'invoices') this.loadInvoices(clientId);
   }
 
   loadFeedback(clientId: number) {
@@ -1521,8 +1823,42 @@ export class ClientsAdmin {
   addServiceOpen = signal(false);
   // Encoded selection: 'svc:<id>' = catalogue service, 'form:<id>' = onboarding.
   addServiceSel: string | null = null;
+  /** Set only when the selected catalogue service has is_variable_price=1.
+   *  Cleared whenever the user changes the selection or closes the form. */
+  addServicePrice: number | null = null;
   addServiceSaving = signal(false);
   addServiceError = signal<string | null>(null);
+
+  /** True when the current selection is a catalogue service (svc:...) AND
+   *  that service has is_variable_price=1 — drives the price input in the
+   *  attach form. Plain method so it re-evaluates each CD cycle without
+   *  needing addServiceSel to be a signal. */
+  selectedVariablePriceService(): boolean {
+    const sel = this.addServiceSel;
+    if (!sel || !sel.startsWith('svc:')) return false;
+    const id = Number(sel.slice(4));
+    const svc = this.serviceOfferings().find(s => s.id === id);
+    return !!svc?.is_variable_price;
+  }
+
+  /** Reacts to the catalogue picker changing: when the user lands on a
+   *  variable-priced service we pre-fill the price input with the
+   *  catalogue default; when they move away, we clear it so a stale
+   *  value from a previous pick can't leak into the payload. */
+  onAddServiceSelChange(next: string | null) {
+    this.addServiceSel = next;
+    if (next && next.startsWith('svc:')) {
+      const id = Number(next.slice(4));
+      const svc = this.serviceOfferings().find(s => s.id === id);
+      if (svc?.is_variable_price) {
+        const def = svc.price;
+        this.addServicePrice = (def === null || def === undefined || (def as any) === '')
+          ? null : Number(def);
+        return;
+      }
+    }
+    this.addServicePrice = null;
+  }
 
   // Collapsible service rows — keyed by onboarding_client_id (per memory.md
   // collapsible-section pattern: Set signal + caret + conditional body).
@@ -1541,6 +1877,228 @@ export class ClientsAdmin {
   clientSubmissionsBySvc = signal<Map<number, FormSubmissionLinkGroup[]>>(new Map());
   /** Which submission (link_id) is currently open under a service row. */
   openServiceSubs = signal<Set<number>>(new Set());
+
+  // ── Invoices tab state ───────────────────────────────────────────
+  invoices = signal<Invoice[]>([]);
+  invoicesLoading = signal(false);
+
+  /** Latest invoice per service_link_id (client_service_offerings.id).
+   *  Powers the "invoice raised" chip on each Services-tab row so staff
+   *  can jump straight from a service to its current invoice without
+   *  hopping to the Invoices tab. Recomputed on every invoices reload. */
+  invoiceByServiceLink = computed<Map<number, Invoice>>(() => {
+    const map = new Map<number, Invoice>();
+    // Invoices come back sorted DESC by issue_date + id, so the FIRST
+    // entry we see for a given service is the latest — Map preserves
+    // insertion order; check-then-skip keeps that latest one.
+    for (const inv of this.invoices()) {
+      for (const svc of (inv.services || [])) {
+        if (!map.has(svc.client_service_offering_id)) {
+          map.set(svc.client_service_offering_id, inv);
+        }
+      }
+    }
+    return map;
+  });
+
+  /** All contracts rolled out to this client, loaded alongside services
+   *  so the Services tab can render a "🔗 contract" chip per row. Uses
+   *  the same audience-scoped endpoint as the Contracts tab. */
+  clientContracts = signal<EntityContract[]>([]);
+  contractsByServiceLink = computed<Map<number, EntityContract[]>>(() => {
+    const map = new Map<number, EntityContract[]>();
+    for (const c of this.clientContracts()) {
+      const sid = c.client_service_offering_id;
+      if (sid == null) continue;
+      const arr = map.get(sid) ?? [];
+      arr.push(c);
+      map.set(sid, arr);
+    }
+    return map;
+  });
+  contractsForService(s: ClientService): EntityContract[] {
+    if (s.service_link_id == null) return [];
+    return this.contractsByServiceLink().get(s.service_link_id) ?? [];
+  }
+
+  latestInvoiceForService(s: ClientService): Invoice | null {
+    if (s.service_link_id == null) return null;
+    return this.invoiceByServiceLink().get(s.service_link_id) ?? null;
+  }
+
+  /** Row-level "£" button on a catalogue service. Priority:
+   *   1. Service-linked invoice → open it (jumped to via chip too).
+   *   2. Any other invoice on this client → open the latest so the user
+   *      can review + attach this service to it if they like. Handles
+   *      the legacy case where invoices were created before the
+   *      service-link plumbing existed.
+   *   3. No invoices at all → open the New Invoice modal, this service
+   *      pre-ticked, so the user just hits Create draft. */
+  openOrCreateInvoiceForService(s: ClientService, e?: Event) {
+    e?.stopPropagation();
+    const existing = this.latestInvoiceForService(s);
+    if (existing?.id) {
+      this.openInvoiceDetail(existing.id);
+      return;
+    }
+    const clientInvoices = this.invoices();
+    if (clientInvoices.length > 0 && clientInvoices[0].id) {
+      this.openInvoiceDetail(clientInvoices[0].id);
+      return;
+    }
+    if (s.service_link_id == null) return;
+    this.activeTab.set('invoices');
+    this.openNewInvoice();
+    this.newInvoiceSelected = new Set<number>([s.service_link_id]);
+  }
+
+  /** Button label reflects what actually happens on click, so the icon
+   *  doesn't lie: "£" for open-existing, "＋£" only when nothing exists. */
+  invoiceButtonLabel(s: ClientService): string {
+    if (this.latestInvoiceForService(s)) return '£';
+    if (this.invoices().length > 0) return '£';
+    return '＋£';
+  }
+
+  invoiceButtonTitle(s: ClientService): string {
+    const svcInv = this.latestInvoiceForService(s);
+    if (svcInv) return `Open ${svcInv.invoice_number}`;
+    const anyInv = this.invoices()[0];
+    if (anyInv) return `Open ${anyInv.invoice_number} (client's latest — not tied to this service yet)`;
+    return 'Create invoice for this service';
+  }
+
+  // New-invoice modal
+  newInvoiceOpen = signal(false);
+  newInvoiceSaving = signal(false);
+  newInvoiceError = signal<string | null>(null);
+  /** service_link_ids ticked in the picker. Set so add/remove is O(1). */
+  newInvoiceSelected = new Set<number>();
+  newInvoiceDraft: { issue_date: string; due_date: string | null } = {
+    issue_date: this.todayIso(),
+    due_date: null,
+  };
+
+  // Detail modal — shared component driven by a single signal. Setting
+  // this to a number opens the modal; the modal's (closed) handler
+  // clears it back to null and triggers a list reload.
+  activeInvoiceId = signal<number | null>(null);
+
+  /** Only catalogue services can be invoiced (they carry a stable
+   *  service_link_id that maps to client_service_offerings). Onboarding
+   *  rows don't have that column. */
+  catalogServices(): ClientService[] {
+    return this.services().filter(s => s.kind === 'catalog' && s.service_link_id != null);
+  }
+
+  invoiceStatusLabel(st?: InvoiceStatus | string | null): string {
+    switch (st) {
+      case 'draft':     return 'Draft';
+      case 'sent':      return 'Not paid';
+      case 'part_paid': return 'Part paid';
+      case 'paid':      return 'Paid';
+      case 'void':      return 'Void';
+      default:          return String(st ?? '');
+    }
+  }
+
+  private todayIso(): string {
+    // Templates and pipes handle timezones; for a date input we just
+    // want a stable local yyyy-mm-dd. Uses Intl to avoid new Date().
+    const parts = new Intl.DateTimeFormat('en-CA', { timeZone: 'UTC' })
+      .formatToParts(new Date(0));
+    // formatToParts on epoch gives 1970-01-01 — we actually want today.
+    // Fall back to a plain constructor since this is a one-off UI helper.
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  }
+
+  private loadInvoices(clientId: number) {
+    this.invoicesLoading.set(true);
+    this.api.listInvoices({ clientId }).subscribe({
+      next: r => { this.invoices.set(r.invoices || []); this.invoicesLoading.set(false); },
+      error: () => { this.invoices.set([]); this.invoicesLoading.set(false); },
+    });
+  }
+
+  openNewInvoice() {
+    this.newInvoiceSelected = new Set();
+    this.newInvoiceDraft = { issue_date: this.todayIso(), due_date: null };
+    this.newInvoiceError.set(null);
+    this.newInvoiceOpen.set(true);
+  }
+  closeNewInvoice() { this.newInvoiceOpen.set(false); this.newInvoiceError.set(null); }
+
+  isNewInvoiceServiceChecked(id: number): boolean { return this.newInvoiceSelected.has(id); }
+  toggleNewInvoiceService(id: number) {
+    if (this.newInvoiceSelected.has(id)) this.newInvoiceSelected.delete(id);
+    else this.newInvoiceSelected.add(id);
+    // Signal-free Set won't trigger CD, but template re-checks via
+    // isNewInvoiceServiceChecked() during any input event on the modal.
+  }
+
+  saveNewInvoice() {
+    const client = this.current();
+    if (!client?.id) return;
+    if (this.newInvoiceSelected.size === 0) {
+      this.newInvoiceError.set('Pick at least one service');
+      return;
+    }
+    const chosen = this.catalogServices()
+      .filter(s => this.newInvoiceSelected.has(s.service_link_id!));
+    const lines = chosen.map(s => ({
+      description: s.form_title || s.name || 'Service',
+      quantity: 1,
+      unit_price: s.price === null || s.price === undefined ? 0 : Number(s.price),
+      tax_rate: 0,
+    }));
+    this.newInvoiceSaving.set(true);
+    this.newInvoiceError.set(null);
+    this.api.createInvoice({
+      client_id: client.id,
+      bill_to_name: client.name || 'Client',
+      bill_to_email: client.email || null,
+      issue_date: this.newInvoiceDraft.issue_date,
+      due_date: this.newInvoiceDraft.due_date || null,
+      currency: 'GBP',
+      lines,
+      service_link_ids: chosen.map(s => s.service_link_id!).filter(Boolean),
+    }).subscribe({
+      next: (r) => {
+        this.newInvoiceSaving.set(false);
+        this.closeNewInvoice();
+        this.loadInvoices(client.id!);
+        this.openInvoiceDetail(r.id);
+      },
+      error: (e: any) => {
+        this.newInvoiceSaving.set(false);
+        this.newInvoiceError.set(e?.error?.error || 'Create failed');
+      },
+    });
+  }
+
+  openInvoiceDetail(id: number) { this.activeInvoiceId.set(id); }
+
+  /** Fired by the shared <app-invoice-detail-modal> when the user closes
+   *  it. Reload the list so any status / paid / line edits reflect. */
+  onInvoiceDetailClosed() {
+    this.activeInvoiceId.set(null);
+    const clientId = this.current()?.id;
+    if (clientId) this.loadInvoices(clientId);
+  }
+
+  async deleteInvoice(inv: Invoice, e?: Event) {
+    e?.stopPropagation();
+    if (!inv.id) return;
+    const ok = await this.dialog.confirm(
+      `Delete invoice ${inv.invoice_number}?`,
+      { title: 'Delete invoice', confirmLabel: 'Delete', variant: 'danger' }
+    );
+    if (!ok) return;
+    this.api.deleteInvoice(inv.id).subscribe({
+      next: () => { const cid = this.current()?.id; if (cid) this.loadInvoices(cid); },
+    });
+  }
 
   isServiceExpanded(rowKey: string): boolean {
     return this.expandedServices().has(rowKey);
@@ -1623,9 +2181,9 @@ export class ClientsAdmin {
     return String(v);
   }
 
-  formatMoney(v: number | null | undefined): string {
-    if (v === null || v === undefined) return '—';
-    const n = Number(v);
+  formatMoney(v: number | string | null | undefined): string {
+    if (v === null || v === undefined || v === '') return '—';
+    const n = typeof v === 'number' ? v : Number(v);
     if (!isFinite(n)) return '—';
     return n.toLocaleString(undefined, { style: 'currency', currency: 'GBP' });
   }
@@ -2071,6 +2629,16 @@ export class ClientsAdmin {
         this.servicesTotals.set(null);
       },
     });
+    // Pre-load invoices too — cheap request, and it lets each service
+    // row show its latest-invoice chip without the user first opening
+    // the Invoices tab. Also refreshes after each service change.
+    this.loadInvoices(clientId);
+    // Contracts alongside — powers the "🔗 contract" chip on service
+    // rows without needing the user to open the Contracts tab first.
+    this.api.listEntityContracts('client', clientId).subscribe({
+      next: r => this.clientContracts.set(r.documents || []),
+      error: () => this.clientContracts.set([]),
+    });
 
     // Also pull the form-submission linkage for this client so each
     // catalog service row can surface the onboarding data captured
@@ -2110,6 +2678,7 @@ export class ClientsAdmin {
   }
   openAddService() {
     this.addServiceSel = null;
+    this.addServicePrice = null;
     this.addServiceError.set(null);
     this.addServiceOpen.set(true);
     // Lazy-load the catalogue services + Services-attached onboarding forms.
@@ -2137,13 +2706,27 @@ export class ClientsAdmin {
     if (!clientId) return;
     const sel = this.addServiceSel;
     if (!sel) { this.addServiceError.set('Pick a service'); return; }
+
+    // Variable-priced catalogue services pre-fill from the catalogue
+    // default; if staff have cleared it or entered something invalid
+    // we ask for a value before saving.
+    let priceOverride: number | null = null;
+    if (this.selectedVariablePriceService()) {
+      const raw = this.addServicePrice;
+      if (raw === null || raw === undefined || (raw as any) === '' || Number(raw) < 0) {
+        this.addServiceError.set('Enter a price for this service');
+        return;
+      }
+      priceOverride = Number(raw);
+    }
+
     this.addServiceSaving.set(true);
     this.addServiceError.set(null);
 
     const [kind, idStr] = sel.split(':');
     const refId = Number(idStr);
     const req: Observable<unknown> = kind === 'svc'
-      ? this.api.addClientServiceOffering(clientId, refId)
+      ? this.api.addClientServiceOffering(clientId, refId, priceOverride)
       : this.api.addClientService(clientId, refId);
     req.subscribe({
       next: () => {
@@ -2157,6 +2740,71 @@ export class ClientsAdmin {
       },
     });
   }
+  // ── Edit-price modal state ────────────────────────────────────
+  // Reuses the global .modal-* classes; scoped to a single service row.
+  priceEditOpen = signal(false);
+  priceEditSaving = signal(false);
+  priceEditError = signal<string | null>(null);
+  priceEditLinkId: number | null = null;
+  priceEditServiceName = signal('');
+  priceEditDraft: {
+    price: number | null;
+    payment_type: 'one_off' | 'recurring';
+    repeat_duration: 'weekly' | 'monthly' | 'quarterly' | 'yearly' | null;
+  } = { price: null, payment_type: 'one_off', repeat_duration: null };
+
+  openEditServicePrice(s: ClientService, e?: Event) {
+    e?.stopPropagation();
+    if (s.service_link_id == null) return;
+    this.priceEditLinkId = s.service_link_id;
+    this.priceEditServiceName.set(s.form_title || s.name || 'service');
+    this.priceEditDraft = {
+      price: s.price === null || s.price === undefined ? null : Number(s.price),
+      payment_type: s.payment_type === 'recurring' ? 'recurring' : 'one_off',
+      repeat_duration: s.repeat_duration ?? null,
+    };
+    this.priceEditError.set(null);
+    this.priceEditOpen.set(true);
+  }
+
+  closeEditServicePrice() {
+    this.priceEditOpen.set(false);
+    this.priceEditError.set(null);
+    this.priceEditLinkId = null;
+  }
+
+  saveEditServicePrice() {
+    const clientId = this.current()?.id;
+    const linkId = this.priceEditLinkId;
+    if (!clientId || linkId == null) return;
+
+    const d = this.priceEditDraft;
+    const priceOk = d.price === null || d.price === undefined || Number(d.price) >= 0;
+    if (!priceOk) { this.priceEditError.set('Enter a valid price'); return; }
+    if (d.payment_type === 'recurring' && !d.repeat_duration) {
+      this.priceEditError.set('Pick a cadence for recurring billing');
+      return;
+    }
+
+    this.priceEditSaving.set(true);
+    this.priceEditError.set(null);
+    this.api.updateClientServiceOffering(clientId, linkId, {
+      price: d.price === null || (d.price as any) === '' ? null : Number(d.price),
+      payment_type: d.payment_type,
+      repeat_duration: d.payment_type === 'recurring' ? d.repeat_duration : null,
+    }).subscribe({
+      next: () => {
+        this.priceEditSaving.set(false);
+        this.closeEditServicePrice();
+        this.loadServices(clientId);
+      },
+      error: (e: any) => {
+        this.priceEditSaving.set(false);
+        this.priceEditError.set(e?.error?.error || 'Save failed');
+      },
+    });
+  }
+
   async removeCatalogService(s: ClientService, e?: Event) {
     e?.stopPropagation();
     const clientId = this.current()?.id;

@@ -2,13 +2,17 @@ import { Component, computed, inject, signal } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { DatePipe } from '@angular/common';
 import { Api } from '../../core/api';
+import { EntityContracts } from '../../shared/entity-contracts';
+import { InvoiceDetailModal } from '../accounting/invoice-detail-modal';
 import {
+  Invoice,
+  InvoiceStatus,
   ServiceClientDetail as ServiceClientDetailModel,
   ServiceClientStatus,
   ServiceOffering,
 } from '../../core/models';
 
-type TabKey = 'status' | 'onboarding' | 'tasks';
+type TabKey = 'status' | 'onboarding' | 'tasks' | 'invoices' | 'contracts';
 
 /**
  * /admin/services/:sid/client/:key
@@ -25,7 +29,7 @@ type TabKey = 'status' | 'onboarding' | 'tasks';
  */
 @Component({
   selector: 'app-service-client-detail',
-  imports: [RouterLink, DatePipe],
+  imports: [RouterLink, DatePipe, EntityContracts, InvoiceDetailModal],
   template: `
     <div class="toolbar">
       <button class="ghost" (click)="back()">← Back</button>
@@ -107,7 +111,7 @@ type TabKey = 'status' | 'onboarding' | 'tasks';
             @for (t of tabs; track t.key) {
               <button class="tab-btn"
                       [class.active]="activeTab() === t.key"
-                      (click)="activeTab.set(t.key)">
+                      (click)="onTabClick(t.key)">
                 {{ t.label }}
               </button>
             }
@@ -258,11 +262,93 @@ type TabKey = 'status' | 'onboarding' | 'tasks';
                   </div>
                 }
               }
+
+              <!-- ─ Invoices ─ -->
+              @case ('invoices') {
+                <div class="tab-head">
+                  <h3>Invoices</h3>
+                  <span class="spacer"></span>
+                  @if (c.client_id) {
+                    <a class="ghost small"
+                       [routerLink]="['/admin/clients']"
+                       [queryParams]="{ client: c.client_id, tab: 'invoices' }">
+                      Manage on client →
+                    </a>
+                  }
+                </div>
+                @if (invoicesLoading()) {
+                  <p class="muted">Loading invoices…</p>
+                } @else if (invoicesForLink().length === 0) {
+                  <p class="muted">
+                    No invoices raised for this client on this service yet.
+                    @if (c.client_id) {
+                      Generate one from the client's <strong>Invoices</strong> tab.
+                    }
+                  </p>
+                } @else {
+                  <table class="data invoices-table">
+                    <thead><tr>
+                      <th>#</th>
+                      <th>Issued</th>
+                      <th>Due</th>
+                      <th>Status</th>
+                      <th style="text-align: right;">Total</th>
+                    </tr></thead>
+                    <tbody>
+                      @for (inv of invoicesForLink(); track inv.id) {
+                        <tr class="clickable" (click)="openInvoice(inv.id!)">
+                          <td><strong>{{ inv.invoice_number }}</strong></td>
+                          <td>{{ inv.issue_date || '—' }}</td>
+                          <td>{{ inv.due_date || '—' }}</td>
+                          <td><span class="status-pill" [attr.data-status]="inv.status">{{ invoiceStatusLabel(inv.status) }}</span></td>
+                          <td style="text-align: right;">{{ formatMoney(inv.total) }}</td>
+                        </tr>
+                      }
+                    </tbody>
+                  </table>
+                }
+              }
+
+              <!-- ─ Contracts ─
+                   Uses the shared <app-entity-contracts> component with
+                   this client's services + a default service link so the
+                   attach modal pre-selects "Management system" (or
+                   whichever service this per-client page belongs to). -->
+              @case ('contracts') {
+                <div class="tab-head">
+                  <h3>Contracts</h3>
+                  <span class="spacer"></span>
+                  @if (c.client_id) {
+                    <a class="ghost small"
+                       [routerLink]="['/admin/clients']"
+                       [queryParams]="{ client: c.client_id, tab: 'contracts' }">
+                      Manage on client →
+                    </a>
+                  }
+                </div>
+                @if (c.client_id) {
+                  <app-entity-contracts
+                    audience="client"
+                    [entityId]="+c.client_id"
+                    [services]="clientCatalogServices()"
+                    [defaultServiceLinkId]="defaultServiceLinkIdForAttach()">
+                  </app-entity-contracts>
+                } @else {
+                  <p class="muted">This client isn't attached via the catalogue yet — contracts open once the client is fully set up.</p>
+                }
+              }
             }
           </div>
         </section>
       </div>
     }
+
+    <!-- Shared invoice detail modal — opens in place so staff can view
+         and edit the invoice without leaving the per-client view. -->
+    <app-invoice-detail-modal
+      [invoiceId]="activeInvoiceId()"
+      (closed)="onInvoiceClosed()">
+    </app-invoice-detail-modal>
   `,
   styles: [`
     :host { display: block; min-width: 0; }
@@ -322,6 +408,15 @@ type TabKey = 'status' | 'onboarding' | 'tasks';
       background: var(--bg-2); color: var(--muted);
       border: 1px solid transparent;
     }
+    /* Invoice status colours — matches the client-side Invoices tab. */
+    .status-pill[data-status="draft"]     { color: var(--muted); }
+    .status-pill[data-status="sent"]      { color: #f59e0b; border-color: #f59e0b; background: rgba(245,158,11,0.10); }
+    .status-pill[data-status="part_paid"] { color: #60a5fa; border-color: #60a5fa; background: rgba(96,165,250,0.12); }
+    .status-pill[data-status="paid"]      { color: #56c98a; border-color: #56c98a; background: rgba(86,201,138,0.12); }
+    .status-pill[data-status="void"]      { color: var(--muted); text-decoration: line-through; }
+    /* Clickable rows in the Invoices table (only) — hover cue + pointer. */
+    .invoices-table tr.clickable { cursor: pointer; }
+    .invoices-table tr.clickable:hover { background: var(--bg-3); }
     /* 8-state colour scheme. Onboarding phase tints sit on cool
        hues (slate / blue / amber / gold); work phase moves through
        warm green completion + a muted hold. */
@@ -423,7 +518,104 @@ export class ServiceClientDetail {
     { key: 'status',     label: 'Status' },
     { key: 'onboarding', label: 'Onboarding' },
     { key: 'tasks',      label: 'Tasks' },
+    { key: 'invoices',   label: 'Invoices' },
+    { key: 'contracts',  label: 'Contracts' },
   ];
+
+  // ── Invoices tab state ───────────────────────────────────────────
+  // Loaded once (lazy on first tab click), filtered by service_link_id
+  // when the row came from the catalogue attach path, or by client_id
+  // otherwise (onboarding-only clients don't map to a CSO row yet).
+  invoicesLoading = signal(false);
+  invoices = signal<Invoice[]>([]);
+  private invoicesLoadedFor: string | null = null;
+
+  /** For catalogue rows the fetch is already narrowed by service_link_id
+   *  so no client-side filter is needed. For onboarding rows we ask for
+   *  the whole client's invoice list and show everything (the user is
+   *  looking at *this client's* work on the service either way). */
+  invoicesForLink(): Invoice[] { return this.invoices(); }
+
+  onTabClick(key: TabKey) {
+    this.activeTab.set(key);
+    if (key === 'invoices') this.loadInvoicesForCurrentClient();
+  }
+
+  /** Synthetic single-item services list for the entity-contracts
+   *  attach picker. We're already viewing THIS specific service, so
+   *  offering the whole catalogue would be noise — one option is
+   *  enough and the modal auto-selects it. */
+  clientCatalogServices(): any[] {
+    const c = this.client();
+    if (!c?.link_id || c.source !== 'catalogue') return [];
+    return [{
+      kind: 'catalog',
+      service_link_id: Number(c.link_id),
+      name: c.form_title || 'Service',
+      form_title: c.form_title || null,
+    }];
+  }
+
+  /** Passed as `defaultServiceLinkId` to <app-entity-contracts> so the
+   *  attach modal opens with this service already ticked. Null when
+   *  the row came in via the onboarding-only path (no CSO row yet). */
+  defaultServiceLinkIdForAttach(): number | null {
+    const c = this.client();
+    if (c?.source === 'catalogue' && c.link_id != null) return Number(c.link_id);
+    return null;
+  }
+
+  // Drives the shared <app-invoice-detail-modal>. Setting to a number
+  // opens the modal; the modal's (closed) handler clears it back to
+  // null and triggers a reload so status / paid changes reflect.
+  activeInvoiceId = signal<number | null>(null);
+  openInvoice(id: number) { this.activeInvoiceId.set(id); }
+  onInvoiceClosed() {
+    this.activeInvoiceId.set(null);
+    // Force a re-fetch so any status / paid edits show on the list.
+    this.invoicesLoadedFor = null;
+    this.loadInvoicesForCurrentClient();
+  }
+
+  invoiceStatusLabel(st?: InvoiceStatus | string | null): string {
+    switch (st) {
+      case 'draft':     return 'Draft';
+      case 'sent':      return 'Not paid';
+      case 'part_paid': return 'Part paid';
+      case 'paid':      return 'Paid';
+      case 'void':      return 'Void';
+      default:          return String(st ?? '');
+    }
+  }
+
+  /** Match the money formatting used elsewhere in this component. Some
+   *  callers (line_total etc.) come back as strings from PHP/PDO. */
+  formatMoney(v: number | string | null | undefined): string {
+    if (v === null || v === undefined || v === '') return '£0.00';
+    const n = typeof v === 'number' ? v : Number(v);
+    if (!Number.isFinite(n)) return '£0.00';
+    return '£' + n.toFixed(2);
+  }
+
+  private loadInvoicesForCurrentClient() {
+    const c = this.client();
+    if (!c) return;
+    // Cache-bust key: link_id if catalogue-source, else client_id.
+    const key = c.source === 'catalogue' && c.link_id != null
+      ? `link:${c.link_id}`
+      : c.client_id != null ? `client:${c.client_id}` : null;
+    if (!key || key === this.invoicesLoadedFor) return;
+    this.invoicesLoadedFor = key;
+
+    this.invoicesLoading.set(true);
+    const filter = c.source === 'catalogue' && c.link_id != null
+      ? { serviceLinkId: Number(c.link_id) }
+      : c.client_id != null ? { clientId: Number(c.client_id) } : {};
+    this.api.listInvoices(filter).subscribe({
+      next: r => { this.invoices.set(r.invoices || []); this.invoicesLoading.set(false); },
+      error: () => { this.invoices.set([]); this.invoicesLoading.set(false); },
+    });
+  }
 
   /** Two phases of the 8-state workflow, rendered as separate chip
    *  rows so the funnel reads top-down. Clicking through the

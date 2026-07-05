@@ -1,6 +1,7 @@
 import { Component, computed, inject, signal } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { FormsModule } from '@angular/forms';
+import { environment } from '@env/environment';
 import { Api } from '../../core/api';
 import { DialogService } from '../../core/dialog';
 import {
@@ -61,6 +62,60 @@ let _localCounter = 1;
           <input type="checkbox" id="pub" [(ngModel)]="form.is_published" name="is_published" />
           <label for="pub">Published (clients can be invited)</label>
         </div>
+
+        <!-- ── Open link ──────────────────────────────────────────
+             Token-less public URL. When on, anyone with the URL can
+             fill this form; on submit the backend auto-provisions a
+             client or lead (see public_target). Off by default so
+             existing forms stay invite-only. -->
+        <div class="checkbox-row">
+          <input type="checkbox" id="pub_open"
+                 [(ngModel)]="form.is_public_open" name="is_public_open"
+                 [disabled]="!form.is_published" />
+          <label for="pub_open">
+            Open link (anyone with the URL can submit)
+            @if (!form.is_published) {
+              <span class="muted small">— publish the form first</span>
+            }
+          </label>
+        </div>
+
+        @if (form.is_public_open && form.is_published) {
+          <div style="margin: 10px 0 4px 0;">
+            <label>On public submit, create</label>
+            <select [(ngModel)]="form.public_target" name="public_target">
+              <option value="client">Client + attach linked service</option>
+              <option value="lead">Lead</option>
+              <option value="none">Nothing (store the submission only)</option>
+            </select>
+          </div>
+
+          <label style="margin-top: 12px;">Redirect after submit (optional)</label>
+          <input type="text" [(ngModel)]="form.post_submit_url" name="post_submit_url"
+                 placeholder="/cc/login  or  https://example.com/booking" />
+          <p class="muted small">
+            Send the submitter here after a brief "Thanks" screen. Leave
+            blank to stay on the confirmation card. Absolute (https://…)
+            or root-relative (starts with <code>/</code>).
+          </p>
+
+          <label>Public URL</label>
+          <div class="url-row">
+            <input type="text" readonly [value]="publicOpenUrl()" (focus)="$any($event.target).select()" />
+            <button type="button" class="ghost" (click)="copyPublicUrl()">
+              {{ urlCopied() ? 'Copied ✓' : 'Copy' }}
+            </button>
+            <a class="ghost" [href]="publicOpenUrl()" target="_blank" rel="noopener">Open ↗</a>
+          </div>
+          <p class="muted small">
+            Share this URL anywhere — website, email, socials. Every submit
+            @switch (form.public_target) {
+              @case ('client') { creates or updates a client and attaches the linked service. }
+              @case ('lead')   { creates a new lead in the CRM. }
+              @default         { is stored but no CRM record is created. }
+            }
+          </p>
+        }
 
         <hr />
         <h2>Main section (qualified clients)</h2>
@@ -296,6 +351,11 @@ let _localCounter = 1;
        label aligns with the checkbox instead of sitting 12px lower. */
     .meta .checkbox-row label { margin-top: 0; }
     .meta hr { border: none; border-top: 1px solid var(--line); margin: 20px 0 16px 0; }
+    /* Public URL row — readonly input + Copy + Open buttons. */
+    .url-row { display: flex; gap: 6px; align-items: center; }
+    .url-row input { flex: 1; font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 12px; }
+    .url-row .ghost { padding: 6px 12px; background: transparent; color: var(--fg); border: 1px solid var(--line); border-radius: var(--radius-sm); cursor: pointer; font-size: 12px; text-decoration: none; white-space: nowrap; }
+    .url-row .ghost:hover { border-color: var(--primary); color: var(--primary); }
 
     /* Confirmation chip showing the resolved service after picking
        one — gives admins visual feedback that pricing is now coming
@@ -387,10 +447,16 @@ export class OnboardingBuilder {
     service_offering_id: null,
     broadcast_to_all_clients: 0,
     broadcast_to_all_leads: 0,
+    is_public_open: 0,
+    public_target: 'client',
+    post_submit_url: null,
     has_price: false, price: null,
     payment_type: 'one_off', repeat_duration: null,
     contract_length_months: null, is_indefinite: false,
   };
+
+  /** Flips true briefly after Copy so the button reads "Copied ✓". */
+  urlCopied = signal(false);
 
   /** Catalogue services available to link this onboarding to. Fetched
    *  once on init; the picker just renders names + a price summary. */
@@ -496,6 +562,9 @@ export class OnboardingBuilder {
             ? Number(res.form.service_offering_id) : null,
           broadcast_to_all_clients: res.form.broadcast_to_all_clients ? 1 : 0,
           broadcast_to_all_leads:   res.form.broadcast_to_all_leads   ? 1 : 0,
+          is_public_open: !!res.form.is_public_open,
+          public_target:  (res.form.public_target as any) || 'client',
+          post_submit_url: res.form.post_submit_url ?? null,
           show_in_sidenav_root: !!res.form.show_in_sidenav_root,
           has_price: !!res.form.has_price,
           // Decimal columns come back as strings from PHP/PDO — coerce so the
@@ -672,6 +741,27 @@ export class OnboardingBuilder {
 
   back() { this.router.navigateByUrl('/admin/onboarding'); }
 
+  /** Fully-qualified public URL for the open-link flow. Built from the
+   *  configured basePath so it works whether the frontend is served on
+   *  localhost:4200, /cc in prod, or /builtrightstudio/cms locally. */
+  publicOpenUrl(): string {
+    const slug = (this.form.slug || '').trim();
+    if (!slug) return '';
+    return `${window.location.origin}${environment.basePath}/onboarding/open/${slug}`;
+  }
+
+  async copyPublicUrl() {
+    const url = this.publicOpenUrl();
+    if (!url) return;
+    try {
+      await navigator.clipboard.writeText(url);
+      this.urlCopied.set(true);
+      setTimeout(() => this.urlCopied.set(false), 2000);
+    } catch {
+      this.dialog.alert('Could not copy to clipboard — select and copy manually.', { title: 'Copy failed', variant: 'danger' });
+    }
+  }
+
   save() {
     this.error.set(null);
     if (!this.form.title || !this.form.slug) { this.error.set('Title and slug are required'); return; }
@@ -708,6 +798,12 @@ export class OnboardingBuilder {
       parent_process_form_id: this.form.parent_process_form_id ?? null,
       team_id: this.form.team_id ?? null,
       service_offering_id: this.form.service_offering_id ?? null,
+      // Open-link mode (migration 146) — only meaningful when published.
+      is_public_open: (this.form.is_published && this.form.is_public_open) ? 1 : 0,
+      public_target:  (this.form.public_target as any) || 'client',
+      // Redirect target (migration 147). Trim + normalise so empty
+      // strings don't accidentally become "everyone gets redirected".
+      post_submit_url: (this.form.post_submit_url || '').trim() || null,
       show_in_sidenav_root: this.form.show_in_sidenav_root ? 1 : 0,
       has_price: this.form.has_price ? 1 : 0,
       price: this.form.has_price && this.form.price != null && this.form.price !== ''

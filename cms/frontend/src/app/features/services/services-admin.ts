@@ -370,7 +370,10 @@ interface LinkedOnboardingForm {
 
             <div class="row two-col">
               <div>
-                <label>Price ({{ draft.currency || 'GBP' }})</label>
+                <label>
+                  {{ draft.is_variable_price ? 'Default price' : 'Price' }}
+                  ({{ draft.currency || 'GBP' }})
+                </label>
                 <input type="number" min="0" step="0.01"
                   [(ngModel)]="draft.price" name="price" placeholder="0.00" />
               </div>
@@ -382,6 +385,17 @@ interface LinkedOnboardingForm {
                 </select>
               </div>
             </div>
+
+            <label class="inline-toggle">
+              <input type="checkbox" [(ngModel)]="draft.is_variable_price" name="is_variable_price" />
+              Variable price — adjustable per client / lead
+              <span class="muted small inline-hint">
+                Bespoke work where the price depends on scope
+                (e.g. website builds). The price above is the default
+                that pre-fills the attach form — staff can override
+                it each time.
+              </span>
+            </label>
 
             @if (draft.payment_type === 'recurring') {
               <label>Repeat every</label>
@@ -1126,6 +1140,7 @@ export class ServicesAdmin {
         price: s.price !== null && s.price !== undefined && (s.price as any) !== '' ? Number(s.price) : null,
         is_active: !!s.is_active,
         allow_multiple: !!s.allow_multiple,
+        is_variable_price: !!s.is_variable_price,
       })));
       this.tryOpenPending();
     });
@@ -1218,6 +1233,7 @@ export class ServicesAdmin {
       repeat_duration: this.draft.payment_type === 'recurring' ? (this.draft.repeat_duration ?? null) : null,
       is_active: this.draft.is_active ? 1 : 0,
       allow_multiple: this.draft.allow_multiple ? 1 : 0,
+      is_variable_price: this.draft.is_variable_price ? 1 : 0,
     };
 
     this.saving.set(true);

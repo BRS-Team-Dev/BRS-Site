@@ -258,6 +258,9 @@ import { labelSlug, renderPdfDocBlob } from './pdf-doc-renderer';
       background: var(--bg-2); border: 1px solid var(--line); border-radius: 999px;
       font-size: 12px; color: var(--muted); cursor: pointer;
       user-select: none;
+      /* Keep the "Signature footer" label on one line — the parent
+         page-toolbar is flex and letters were wrapping to two rows. */
+      white-space: nowrap; flex: 0 0 auto;
     }
     .sign-toggle input { margin: 0; cursor: pointer; }
     .sign-toggle:hover { border-color: var(--primary); color: var(--primary); }

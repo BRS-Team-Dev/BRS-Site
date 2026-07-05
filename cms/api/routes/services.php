@@ -50,15 +50,25 @@ return function (string $method, array $segs): void {
             $currency = strtoupper(trim((string)($body['currency'] ?? 'GBP')));
             if (strlen($currency) !== 3) $currency = 'GBP';
 
+            // Variable-price services still keep the catalogue price —
+            // it's the default that pre-fills each attach form. The flag
+            // only signals that the attach picker should let staff
+            // override it before saving.
+            $isVariable = !empty($body['is_variable_price']) ? 1 : 0;
+            $priceVal = (isset($body['price']) && $body['price'] !== '' && $body['price'] !== null)
+                ? (float)$body['price']
+                : null;
+
             $ins = $pdo->prepare(
                 'INSERT INTO service_offerings
-                 (name, description, price, currency, payment_type, repeat_duration, is_active, allow_multiple, sort_order)
-                 VALUES (?,?,?,?,?,?,?,?,?)'
+                 (name, description, price, is_variable_price, currency, payment_type, repeat_duration, is_active, allow_multiple, sort_order)
+                 VALUES (?,?,?,?,?,?,?,?,?,?)'
             );
             $ins->execute([
                 $name,
                 trim((string)($body['description'] ?? '')) ?: null,
-                isset($body['price']) && $body['price'] !== '' && $body['price'] !== null ? (float)$body['price'] : null,
+                $priceVal,
+                $isVariable,
                 $currency,
                 $payType,
                 $cadence,
@@ -392,16 +402,25 @@ return function (string $method, array $segs): void {
         $currency = strtoupper(trim((string)($body['currency'] ?? $service['currency'])));
         if (strlen($currency) !== 3) $currency = (string)$service['currency'];
 
+        $isVariable = array_key_exists('is_variable_price', $body)
+            ? (!empty($body['is_variable_price']) ? 1 : 0)
+            : (int)($service['is_variable_price'] ?? 0);
+        // Keep the catalogue price even when is_variable_price=1 — it's
+        // the default the attach form pre-fills. Empty/null incoming
+        // price clears it; missing key leaves the existing value alone.
+        $priceUpd = array_key_exists('price', $body)
+            ? ($body['price'] === '' || $body['price'] === null ? null : (float)$body['price'])
+            : $service['price'];
+
         $pdo->prepare(
             'UPDATE service_offerings
-             SET name=?, description=?, price=?, currency=?, payment_type=?, repeat_duration=?, is_active=?, allow_multiple=?, sort_order=?
+             SET name=?, description=?, price=?, is_variable_price=?, currency=?, payment_type=?, repeat_duration=?, is_active=?, allow_multiple=?, sort_order=?
              WHERE id = ?'
         )->execute([
             $name,
             array_key_exists('description', $body) ? (trim((string)$body['description']) ?: null) : $service['description'],
-            array_key_exists('price', $body)
-                ? ($body['price'] === '' || $body['price'] === null ? null : (float)$body['price'])
-                : $service['price'],
+            $priceUpd,
+            $isVariable,
             $currency,
             $payType,
             $cadence,

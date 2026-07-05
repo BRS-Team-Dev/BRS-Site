@@ -11,6 +11,39 @@ return function (string $method, array $segs): void {
     Auth::require();
     $pdo = Db::tpdo();
 
+    // GET /api/settings/logo-fetch?url=<encoded>
+    // Server-side proxy for logo bytes. The PDF drawer converts the
+    // logo to a base64 data URL client-side; when the logo lives on a
+    // different origin (dev on :4200 vs prod on the same host as an
+    // externally-hosted brand asset) the browser CORS check blocks
+    // that fetch. Routing it through the API is same-origin from the
+    // frontend, so the fetch always succeeds. Auth-gated to keep this
+    // from becoming a general-purpose open URL proxy.
+    if (($segs[1] ?? '') === 'logo-fetch' && $method === 'GET') {
+        $url = (string)($_GET['url'] ?? '');
+        if (!filter_var($url, FILTER_VALIDATE_URL) || !preg_match('#^https?://#i', $url)) {
+            Json::fail('Invalid url', 400);
+        }
+        $ctx = stream_context_create([
+            'http'  => ['timeout' => 5, 'follow_location' => 1, 'max_redirects' => 3, 'user_agent' => 'BRS-Logo/1.0'],
+            'https' => ['timeout' => 5, 'follow_location' => 1, 'max_redirects' => 3, 'user_agent' => 'BRS-Logo/1.0'],
+        ]);
+        $bytes = @file_get_contents($url, false, $ctx);
+        if ($bytes === false) Json::fail('Fetch failed', 502);
+        if (strlen($bytes) > 5 * 1024 * 1024) Json::fail('Image too large', 413);
+        // Sniff the content type from response headers; default to
+        // PNG for anything the origin doesn't label (still valid for
+        // jsPDF's addImage, which reads the data URL prefix).
+        $ct = 'image/png';
+        foreach ($http_response_header ?? [] as $h) {
+            if (preg_match('#^content-type:\s*([^;\s]+)#i', $h, $m)) { $ct = strtolower($m[1]); break; }
+        }
+        header('Content-Type: ' . $ct);
+        header('Cache-Control: private, max-age=3600');
+        echo $bytes;
+        exit;
+    }
+
     // /api/settings/logo — upload a brand logo image. Multipart POST
     // with a single `file` field. Stores under uploads/branding/{tenant_id}/
     // and returns the public URL. The frontend writes the URL into
@@ -106,7 +139,10 @@ return function (string $method, array $segs): void {
             if (!is_array($body)) Json::fail('Invalid body', 400);
             $up = $pdo->prepare('INSERT INTO settings (k,v) VALUES (?,?) ON DUPLICATE KEY UPDATE v = VALUES(v)');
             foreach ($body as $k => $v) {
-                if (!is_string($k) || !preg_match('/^[a-z_][a-z0-9_]{0,79}$/', $k)) continue;
+                // Allow dot-namespaced keys (e.g. `invoice.bank_name`) so
+                // grouped settings don't collide with the flat keys we
+                // shipped earlier. Still guards against SQL / control chars.
+                if (!is_string($k) || !preg_match('/^[a-z_][a-z0-9_.]{0,79}$/', $k)) continue;
                 // Don't overwrite secrets with the masked placeholder
                 if ($isSecret($k) && $v === $maskedPlaceholder) continue;
                 $up->execute([$k, is_scalar($v) ? (string)$v : json_encode($v)]);

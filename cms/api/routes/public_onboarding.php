@@ -27,6 +27,21 @@ return function (string $method, array $segs): void {
     // Hardcoded to BRS (tenant 1) until per-tenant public routing
     // lands in Phase 5 (subdomain detection / per-tenant API key).
     Tenant::setForPublic();
+
+    // ── Open-link (token-less) variant ────────────────────────────
+    // /api/public/onboarding/slug/:slug           GET  → schema by slug
+    // /api/public/onboarding/slug/:slug/submit    POST → anon submit
+    //
+    // Gated by forms.is_public_open (migration 146). Runs the same
+    // auto-provision block as the invite flow, differing in that a
+    // fresh onboarding_clients row is minted per submission and the
+    // provisioning target (client vs lead) comes from forms.public_target.
+    // Anti-spam: honeypot field `_hp` + per-IP rate limit (5/min).
+    if (($segs[2] ?? '') === 'slug') {
+        handleOpenOnboarding($method, $segs);
+        return;
+    }
+
     $formId = (int)($segs[2] ?? 0);
     $token  = (string)($segs[3] ?? '');
     if ($formId <= 0 || strlen($token) !== 64 || !ctype_xdigit($token)) {
@@ -582,3 +597,308 @@ return function (string $method, array $segs): void {
 
     Json::fail('Not found', 404);
 };
+
+/**
+ * Token-less "open link" public onboarding handler.
+ *
+ *   GET  /api/public/onboarding/slug/:slug
+ *   POST /api/public/onboarding/slug/:slug/submit  { _hp?, name, email, phone, ...field values }
+ *
+ * Loads the form by slug (must be form_type='onboarding' AND is_public_open=1
+ * AND is_published=1). On submit, guards with a honeypot + per-IP rate limit,
+ * creates an on-the-fly onboarding_clients row (client_token minted internally
+ * so audit rows still have a stable id), writes all provided values into the
+ * per-form table, then branches on forms.public_target:
+ *   - client → find-or-create clients row + attach linked service
+ *   - lead   → INSERT INTO leads (name, email, phone, company, url, notes)
+ *   - none   → submission stored, no CRM record created
+ * Notifications + task auto-create mirror the invite flow so the admin
+ * experience is identical either way.
+ */
+function handleOpenOnboarding(string $method, array $segs): void
+{
+    $pdo  = Db::tpdo();
+    $slug = (string)($segs[3] ?? '');
+    if ($slug === '' || !preg_match('/^[a-z][a-z0-9_]{0,60}$/', $slug)) {
+        Json::fail('Invalid onboarding link', 400);
+    }
+
+    // Load form — must be an onboarding form flagged as open + published.
+    $fs = $pdo->prepare(
+        "SELECT * FROM forms
+          WHERE slug = ? AND form_type = 'onboarding' AND is_public_open = 1 AND is_published = 1"
+    );
+    $fs->execute([$slug]);
+    $form = $fs->fetch();
+    if (!$form) Json::fail('Onboarding not found', 404);
+
+    $formId = (int)$form['id'];
+    $table  = Ddl::tableName($form['slug']);
+
+    // Sections + fields — same shape the invite flow returns so the
+    // frontend renderer works unchanged.
+    $secStmt = $pdo->prepare('SELECT id, slug, title, description, sort_order FROM form_sections WHERE form_id = ? ORDER BY sort_order, id');
+    $secStmt->execute([$formId]);
+    $sections = $secStmt->fetchAll();
+
+    $fieldStmt = $pdo->prepare('SELECT id, section_id, name, label, type, is_required, options_json, placeholder, help_text, sort_order
+                                FROM form_fields WHERE form_id = ? ORDER BY sort_order, id');
+    $fieldStmt->execute([$formId]);
+    $fields = $fieldStmt->fetchAll();
+    foreach ($fields as &$row) {
+        $decoded = !empty($row['options_json']) ? json_decode($row['options_json'], true) : [];
+        $row['options'] = is_array($decoded) ? $decoded : [];
+        unset($row['options_json']);
+    }
+    unset($row);
+
+    $fieldsBySection = [];
+    foreach ($fields as $fl) {
+        $sid = $fl['section_id'] !== null ? (int)$fl['section_id'] : 0;
+        $fieldsBySection[$sid][] = $fl;
+    }
+    foreach ($sections as &$s) {
+        $s['fields'] = $fieldsBySection[(int)$s['id']] ?? [];
+    }
+    unset($s);
+
+    $fieldsByName = [];
+    foreach ($fields as $fl) { $fieldsByName[$fl['name']] = $fl; }
+
+    // ── GET → schema + branding ──
+    if ($method === 'GET') {
+        $brandRows = $pdo->query("SELECT k, v FROM settings WHERE k IN ('public_form_bg_color','brand_name','brand_logo_url')")->fetchAll();
+        $brand = ['public_form_bg_color' => '', 'brand_name' => '', 'brand_logo_url' => ''];
+        foreach ($brandRows as $r) { $brand[$r['k']] = (string)$r['v']; }
+
+        Json::send([
+            'form' => [
+                'id'                => $formId,
+                'slug'              => $form['slug'],
+                'title'             => $form['title'],
+                'description'       => $form['description'],
+                'intro_html'        => $form['intro_html'],
+                'submit_label'      => $form['submit_label'],
+                'thank_you_message' => $form['thank_you_message'],
+                'public_target'     => $form['public_target'] ?? 'client',
+                'post_submit_url'   => $form['post_submit_url'] ?? null,
+            ],
+            'sections' => $sections,
+            'branding' => [
+                'bg_color' => $brand['public_form_bg_color'],
+                'name'     => $brand['brand_name'],
+                'logo_url' => $brand['brand_logo_url'],
+            ],
+        ]);
+    }
+
+    // ── POST submit → create + provision ──
+    if ($method === 'POST' && ($segs[4] ?? '') === 'submit') {
+        $isJson = stripos($_SERVER['CONTENT_TYPE'] ?? '', 'application/json') !== false;
+        $input  = $isJson ? Json::readBody() : $_POST;
+        if (!is_array($input)) $input = [];
+
+        // Honeypot — bots typically fill every field. Real users don't
+        // see this input (rendered display:none), so any non-empty value
+        // is a bot signal. Return 200 to avoid tipping them off.
+        if (!empty($input['_hp'])) {
+            Json::send(['ok' => true, 'thank_you_message' => $form['thank_you_message'] ?: 'Thanks — your onboarding has been received.']);
+        }
+
+        // Rate limit — 5 hits per 60s per (IP, form).
+        $ip = (string)($_SERVER['REMOTE_ADDR'] ?? '0.0.0.0');
+        try {
+            // Prune old rows for this IP first so the table doesn't grow
+            // unbounded; no cron needed.
+            $pdo->prepare('DELETE FROM public_onboarding_rate WHERE ip = ? AND hit_at < (NOW() - INTERVAL 10 MINUTE)')
+                ->execute([$ip]);
+            $rlChk = $pdo->prepare(
+                'SELECT COUNT(*) FROM public_onboarding_rate
+                  WHERE ip = ? AND form_id = ? AND hit_at > (NOW() - INTERVAL 60 SECOND)'
+            );
+            $rlChk->execute([$ip, $formId]);
+            if ((int)$rlChk->fetchColumn() >= 5) Json::fail('Too many submissions — try again in a minute.', 429);
+            $pdo->prepare('INSERT INTO public_onboarding_rate (ip, form_id) VALUES (?, ?)')
+                ->execute([$ip, $formId]);
+        } catch (\PDOException $e) {
+            // Don't let rate-limit table issues block real submissions.
+            error_log('[open-onboarding] rate limit table error: ' . $e->getMessage());
+        }
+
+        // Pull the submitter's identity off the form. Field names follow
+        // the same convention the invite flow expects.
+        $email = strtolower(trim((string)($input['email'] ?? $input['contact_email'] ?? '')));
+        if ($email === '' || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            Json::fail('A valid email is required', 400);
+        }
+        $name  = trim((string)($input['name'] ?? $input['contact_name'] ?? $input['admin_name'] ?? ''));
+
+        // Insert the per-form submission row, coercing values field-by-
+        // field so bad types get rejected but ordinary ones save clean.
+        $cols   = ['ip_address'];
+        $vals   = [$ip];
+        $ph     = ['?'];
+        foreach ($input as $k => $v) {
+            if (!isset($fieldsByName[$k])) continue;
+            $f = $fieldsByName[$k];
+            if (in_array($f['type'], ['file','multi_file'], true)) continue;   // files unsupported on open-link (no session)
+            $cols[] = "`$k`";
+            $ph[]   = '?';
+            switch ($f['type']) {
+                case 'checkbox':
+                    $vals[] = is_array($v) ? json_encode(array_values($v), JSON_UNESCAPED_UNICODE) : ($v === '' ? null : (string)$v);
+                    break;
+                case 'number':
+                    $vals[] = is_numeric($v) ? (string)$v : null;
+                    break;
+                case 'datetime':
+                    $vals[] = ($v === '' || $v === null) ? null : str_replace('T', ' ', (string)$v);
+                    break;
+                default:
+                    $vals[] = ($v === '' || $v === null) ? null : (string)$v;
+            }
+        }
+        $pdo->prepare("INSERT INTO `$table` (" . implode(',', $cols) . ") VALUES (" . implode(',', $ph) . ")")
+            ->execute($vals);
+        $submissionId = (int)$pdo->lastInsertId();
+
+        // Mint an internal client_token so downstream code that expects
+        // one (audit trails, task deep-links) has a stable value. Not
+        // shareable — this row is created + owned by the anonymous
+        // submitter and never re-visited.
+        //
+        // Timestamps are bound as parameters rather than NOW() literals
+        // because the multi-tenant SQL rewriter's non-greedy regex
+        // splices `, ?` at the FIRST `)` inside `VALUES(...)`, which
+        // would tear a bare `NOW()` in half.
+        $token = bin2hex(random_bytes(32));
+        $now   = date('Y-m-d H:i:s');
+        $pdo->prepare("INSERT INTO onboarding_clients
+                          (form_id, client_email, client_name, client_token,
+                           submission_id, submitted_at, qualified_at, last_edited_at)
+                       VALUES (?, ?, ?, ?, ?, ?, ?, ?)")
+            ->execute([$formId, $email, $name ?: null, $token, $submissionId, $now, $now, $now]);
+        $onbClientId = (int)$pdo->lastInsertId();
+
+        // ── Provision (client or lead) ──
+        $target = (string)($form['public_target'] ?? 'client');
+        $svcId  = !empty($form['service_offering_id']) ? (int)$form['service_offering_id'] : 0;
+
+        // Company / contact details for downstream inserts.
+        $rowFull = [];
+        try {
+            $rs = $pdo->prepare("SELECT * FROM `$table` WHERE id = ?");
+            $rs->execute([$submissionId]);
+            $rowFull = $rs->fetch() ?: [];
+        } catch (\Throwable $e) { /* ignore */ }
+        $companyName = $rowFull['company_name'] ?? $rowFull['company'] ?? null;
+        $companyUrl  = $rowFull['company_url']  ?? $rowFull['url'] ?? $rowFull['website'] ?? null;
+        $phone       = $rowFull['contact_phone'] ?? $rowFull['phone'] ?? null;
+        $contactName = $rowFull['contact_name']  ?? $rowFull['admin_name'] ?? $rowFull['name'] ?? $name ?: null;
+
+        try {
+            if ($target === 'client') {
+                // Reuse the exact code path the invite flow runs: find
+                // or create clients row, attach service, spawn CRM task
+                // + task_project when the form has team_id.
+                $cFind = $pdo->prepare('SELECT id FROM clients WHERE LOWER(email) = LOWER(?) LIMIT 1');
+                $cFind->execute([$email]);
+                $clientsId = $cFind->fetchColumn();
+                if (!$clientsId) {
+                    $pdo->prepare('INSERT INTO clients (name, email, phone, company, url, notes) VALUES (?,?,?,?,?,?)')
+                        ->execute([
+                            $contactName ?: ($companyName ?: 'New client'),
+                            $email, $phone ?: null, $companyName ?: null, $companyUrl ?: null,
+                            'Auto-created from open onboarding link.',
+                        ]);
+                    $clientsId = (int)$pdo->lastInsertId();
+                } else {
+                    $clientsId = (int)$clientsId;
+                }
+                // NOTE: We deliberately don't touch parent_client_id.
+                // The column's FK actually points at onboarding_clients(id),
+                // not clients(id), so setting it here would trip an
+                // FK violation whenever the new clients.id doesn't
+                // coincidentally exist in onboarding_clients. The
+                // invite flow has the same latent bug but works by
+                // coincidence; we just skip it here.
+
+                if ($svcId > 0) {
+                    // Attach the service unless it's already there and
+                    // the service isn't marked allow_multiple.
+                    $svcStmt = $pdo->prepare('SELECT name, price, payment_type, repeat_duration, allow_multiple FROM service_offerings WHERE id = ?');
+                    $svcStmt->execute([$svcId]);
+                    $svc = $svcStmt->fetch();
+                    $allowMultiple = $svc ? (int)($svc['allow_multiple'] ?? 0) === 1 : false;
+                    $existingLink = null;
+                    if (!$allowMultiple) {
+                        $lf = $pdo->prepare('SELECT id FROM client_service_offerings WHERE client_id = ? AND service_offering_id = ? LIMIT 1');
+                        $lf->execute([$clientsId, $svcId]);
+                        $existingLink = $lf->fetchColumn() ?: null;
+                    }
+                    if (!$existingLink && $svc) {
+                        $payType = in_array(($svc['payment_type'] ?? ''), ['one_off','recurring'], true) ? $svc['payment_type'] : 'one_off';
+                        $cadence = $payType === 'recurring' ? ($svc['repeat_duration'] ?? null) : null;
+                        $pdo->prepare(
+                            'INSERT INTO client_service_offerings
+                               (client_id, service_offering_id, name, price, payment_type, repeat_duration, status)
+                             VALUES (?,?,?,?,?,?,?)'
+                        )->execute([
+                            $clientsId, $svcId, (string)$svc['name'],
+                            $svc['price'] !== null && $svc['price'] !== '' ? (float)$svc['price'] : null,
+                            $payType, $cadence, 'qualified',
+                        ]);
+                        $newLinkId = (int)$pdo->lastInsertId();
+
+                        // CRM task — matches the invite-flow format.
+                        $displayName = trim((string)($contactName ?: $companyName ?: $email));
+                        $pdo->prepare(
+                            'INSERT INTO crm_tasks (title, description, category, priority, status, service_client_link_id)
+                             VALUES (?, ?, ?, ?, ?, ?)'
+                        )->execute([
+                            'New client — ' . $displayName . ' · ' . (string)$svc['name'],
+                            'Auto-created from open onboarding link. Contact: ' . $email . ($phone ? ' · ' . $phone : ''),
+                            'client', 'high', 'to_do', $newLinkId,
+                        ]);
+                    }
+                }
+            } elseif ($target === 'lead') {
+                // Leads have a similar shape to clients but live in the
+                // separate `leads` table. Dedupe by email so a repeat
+                // form submission doesn't spawn N lead rows.
+                $lf = $pdo->prepare('SELECT id FROM leads WHERE LOWER(email) = LOWER(?) LIMIT 1');
+                $lf->execute([$email]);
+                if (!$lf->fetchColumn()) {
+                    $pdo->prepare(
+                        'INSERT INTO leads (name, email, phone, company, url, notes, source)
+                         VALUES (?,?,?,?,?,?,?)'
+                    )->execute([
+                        $contactName ?: ($companyName ?: 'New lead'),
+                        $email, $phone ?: null, $companyName ?: null, $companyUrl ?: null,
+                        'Auto-created from open onboarding link.',
+                        'onboarding',
+                    ]);
+                }
+            }
+            // target === 'none' → submission stored, no CRM row created.
+        } catch (\Throwable $e) {
+            error_log('[open-onboarding] provision failed for form ' . $formId . ': ' . $e->getMessage());
+        }
+
+        // Notify admins — same event as invite flow so notification rules apply uniformly.
+        try {
+            NotificationDispatcher::fire('crm.onboarding.submitted', [
+                'title'    => 'Onboarding submitted (open link) — ' . ($name ?: $email),
+                'body'     => 'Form: ' . ($form['title'] ?? 'Onboarding'),
+                'link_url' => '/admin/onboarding/' . $formId . '/clients/' . $onbClientId,
+            ]);
+        } catch (\Throwable $e) { /* best-effort */ }
+
+        Json::send([
+            'ok' => true,
+            'thank_you_message' => $form['thank_you_message'] ?: 'Thanks — your onboarding has been received.',
+        ]);
+    }
+
+    Json::fail('Method not allowed', 405);
+}

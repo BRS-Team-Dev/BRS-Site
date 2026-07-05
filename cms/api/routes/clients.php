@@ -349,12 +349,24 @@ return function (string $method, array $segs): void {
 
             $payType = in_array($svc['payment_type'], ['one_off', 'recurring'], true) ? $svc['payment_type'] : 'one_off';
             $cadence = $payType === 'recurring' ? $svc['repeat_duration'] : null;
+
+            // The catalogue price is always the default. body.price
+            // overrides it (variable-priced services surface an editable
+            // input; a fixed-price service can also be overridden if the
+            // caller explicitly sends a price).
+            $bodyPrice = null;
+            if (isset($body['price']) && $body['price'] !== '' && $body['price'] !== null) {
+                $bodyPrice = (float)$body['price'];
+            }
+            $catPrice = $svc['price'] !== null && $svc['price'] !== '' ? (float)$svc['price'] : null;
+            $snapPrice = $bodyPrice ?? $catPrice;
+
             $ins = $pdo->prepare('INSERT INTO client_service_offerings
                 (client_id, service_offering_id, name, price, payment_type, repeat_duration)
                 VALUES (?,?,?,?,?,?)');
             $ins->execute([
                 $id, $soId, $svc['name'],
-                $svc['price'] !== null && $svc['price'] !== '' ? (float)$svc['price'] : null,
+                $snapPrice,
                 $payType, $cadence,
             ]);
             Json::send(['ok' => true, 'service_link_id' => (int)$pdo->lastInsertId()], 201);
@@ -415,6 +427,54 @@ return function (string $method, array $segs): void {
             'project_id'           => $newProjectId,
             'token'                => $token,
         ], 201);
+    }
+
+    // PUT /api/clients/:id/services/offering/:linkId — edit the pricing
+    // snapshot on a catalogue-attached client_service_offerings row.
+    // Body: { price?: number|null, payment_type?: 'one_off'|'recurring',
+    //         repeat_duration?: 'weekly'|'monthly'|'quarterly'|'yearly'|null }
+    // Any omitted key leaves the existing column alone. Used from the
+    // Services tab's inline "Edit price" affordance to override the
+    // catalogue default for this client without detach + re-attach.
+    if (($segs[2] ?? '') === 'services' && ($segs[3] ?? '') === 'offering' && $method === 'PUT') {
+        $linkId = isset($segs[4]) ? (int)$segs[4] : 0;
+        if ($linkId <= 0) Json::fail('Invalid id', 400);
+        $sel = $pdo->prepare('SELECT id FROM client_service_offerings WHERE id = ? AND client_id = ?');
+        $sel->execute([$linkId, $id]);
+        if (!$sel->fetchColumn()) Json::fail('Service link not found', 404);
+
+        $body = Json::readBody();
+        $sets = [];
+        $args = [];
+        if (array_key_exists('price', $body)) {
+            $sets[] = 'price = ?';
+            $args[] = ($body['price'] === '' || $body['price'] === null) ? null : (float)$body['price'];
+        }
+        if (array_key_exists('payment_type', $body)) {
+            $pt = $body['payment_type'];
+            if (!in_array($pt, ['one_off', 'recurring'], true)) Json::fail('Invalid payment_type', 400);
+            $sets[] = 'payment_type = ?';
+            $args[] = $pt;
+            // Recurring without cadence is meaningless; one_off clears it.
+            if ($pt === 'one_off' && !array_key_exists('repeat_duration', $body)) {
+                $sets[] = 'repeat_duration = ?';
+                $args[] = null;
+            }
+        }
+        if (array_key_exists('repeat_duration', $body)) {
+            $rd = $body['repeat_duration'];
+            if ($rd !== null && !in_array($rd, ['weekly','monthly','quarterly','yearly'], true)) {
+                Json::fail('Invalid repeat_duration', 400);
+            }
+            $sets[] = 'repeat_duration = ?';
+            $args[] = $rd;
+        }
+        if (!$sets) Json::send(['ok' => true]);
+
+        $args[] = $linkId;
+        $pdo->prepare('UPDATE client_service_offerings SET ' . implode(', ', $sets) . ' WHERE id = ?')
+            ->execute($args);
+        Json::send(['ok' => true]);
     }
 
     // DELETE /api/clients/:id/services/offering/:linkId — detach a catalogue

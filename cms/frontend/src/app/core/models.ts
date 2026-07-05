@@ -185,6 +185,22 @@ export interface FormDef {
    *  `service_offering_id` — enforced server-side on save. */
   broadcast_to_all_clients?: 0 | 1 | boolean;
   broadcast_to_all_leads?:   0 | 1 | boolean;
+  /** Open-link mode (migration 146). When true, the form has a token-less
+   *  public URL at `/onboarding/open/:slug`. Anonymous submissions create
+   *  an on-the-fly `onboarding_clients` row and auto-provision per
+   *  `public_target` (client / lead / none). Off by default so no
+   *  existing form goes live silently. */
+  is_public_open?: 0 | 1 | boolean;
+  /** Where an anonymous submission from the open link lands.
+   *  `client` runs the same find-or-create + service-attach the invite
+   *  flow does; `lead` inserts into `leads`; `none` stores the
+   *  submission without creating any CRM row. Only used when
+   *  `is_public_open` is on. */
+  public_target?: 'client' | 'lead' | 'none';
+  /** Optional redirect target after a successful public submission
+   *  (migration 147). Absolute (http/https) or root-relative (`/…`);
+   *  frontend + backend both validate. Null → stay on the Thanks card. */
+  post_submit_url?: string | null;
   // When true, the form gets a standalone top-level sidenav entry in addition
   // to whatever sidenav placement it has via Onboarding/Forms grouping.
   show_in_sidenav_root?: 0 | 1 | boolean;
@@ -230,6 +246,10 @@ export interface ServiceOffering {
    *  style services keep this false so re-submission is idempotent.
    *  Migration 118. */
   allow_multiple?: 0 | 1 | boolean;
+  /** When true, the catalogue carries no fixed price — the actual
+   *  price must be set at each attach (client or lead). Bespoke work
+   *  like website builds where the quote depends on scope. Migration 142. */
+  is_variable_price?: 0 | 1 | boolean;
   sort_order?: number;
   created_at?: string;
   updated_at?: string;
@@ -525,6 +545,9 @@ export interface LeadServiceLink {
   price?: number | string | null;
   payment_type?: 'one_off' | 'recurring' | null;
   repeat_duration?: 'weekly' | 'monthly' | 'quarterly' | 'yearly' | null;
+  /** True when the parent catalogue service is variable-priced —
+   *  price above is the snapshot set at attach time. Migration 142. */
+  is_variable_price?: 0 | 1 | boolean;
   created_at?: string;
 }
 
@@ -686,7 +709,7 @@ export interface ClientInfo {
 // Accounting
 // ============================================================================
 
-export type InvoiceStatus = 'draft' | 'sent' | 'paid' | 'void';
+export type InvoiceStatus = 'draft' | 'sent' | 'part_paid' | 'paid' | 'void';
 
 export interface Invoice {
   id?: number;
@@ -704,6 +727,9 @@ export interface Invoice {
   subtotal?: number | string;
   tax_total?: number | string;
   total?: number | string;
+  /** Running paid total. NULL until any money is received; equals `total`
+   *  when status = 'paid'. Migration 143. */
+  amount_paid?: number | string | null;
   notes?: string | null;
   sent_at?: string | null;
   paid_at?: string | null;
@@ -711,6 +737,9 @@ export interface Invoice {
   updated_at?: string;
   // joined
   client_name?: string | null;
+  /** Summary of client_service_offerings billed on this invoice — filled
+   *  by the list endpoint so rows can show the service names inline. */
+  services?: Array<{ client_service_offering_id: number; name: string }>;
 }
 
 export interface InvoiceLine {
@@ -723,6 +752,32 @@ export interface InvoiceLine {
   line_total?: number | string;
   line_tax?: number | string;
   sort_order?: number;
+}
+
+/** User-uploaded HTML invoice template. Migration 144. Rendered by
+ *  the backend with mustache-style {{var}} + {{#lines}}…{{/lines}}
+ *  substitution; the resulting HTML is what the Download / View flow
+ *  opens in a new tab (Ctrl+P → Save as PDF for the actual export). */
+export interface InvoiceTemplate {
+  id?: number;
+  name: string;
+  html?: string;
+  is_default?: 0 | 1 | boolean;
+  created_at?: string;
+  updated_at?: string;
+}
+
+/** Row from invoice_service_links joined to client_service_offerings —
+ *  returned in the detail GET so the invoice modal can show which
+ *  services it bills for (and let staff detach / add more). */
+export interface InvoiceServiceLink {
+  link_id: number;
+  client_service_offering_id: number;
+  sort_order: number;
+  name: string;
+  price?: number | string | null;
+  payment_type?: 'one_off' | 'recurring' | null;
+  repeat_duration?: 'weekly' | 'monthly' | 'quarterly' | 'yearly' | null;
 }
 
 // ============================================================================
@@ -1016,6 +1071,29 @@ export interface EntityContract {
   uploaded_at: string;
   is_required: 0 | 1;
   type_name: string | null;
+  /** Client audience only (migration 145) — nullable link to a specific
+   *  client_service_offerings row. When set, the Services tab shows a
+   *  contract chip on the row and the Contracts tab tags the service. */
+  client_service_offering_id?: number | null;
+  service_name?: string | null;
+}
+
+/** hr_document_types row — a reusable contract template that admin can
+ *  attach to an entity via the "+ Attach contract" flow. */
+export interface ContractTemplate {
+  id: number;
+  name: string;
+  description: string | null;
+  kind: 'contract' | 'signed' | 'upload';
+  /** The audience this template was originally created for. The attach
+   *  picker no longer gates on this — every template is offered — but
+   *  it's still surfaced as a badge so admins can tell them apart. */
+  audience?: string;
+  audience_match?: 0 | 1;
+  contract_type_id: number | null;
+  template_path: string | null;
+  template_mime: string | null;
+  is_required: 0 | 1;
 }
 
 export interface EntityContractsSummary {
@@ -1956,6 +2034,115 @@ export interface Tender {
   notes?: string | null;
   created_at?: string;
   updated_at?: string;
+}
+
+/**
+ * A scraped tender opportunity ("lead") returned by the UK tender aggregator
+ * endpoint (`cms/scraper/tenders.php` — Find a Tender + Contracts Finder).
+ * Read-only feed; a lead can be promoted into a tracked {@link Tender}.
+ */
+export interface TenderLeadContact { name?: string | null; email?: string | null; phone?: string | null; url?: string | null; }
+export interface TenderLeadAddress { street?: string | null; locality?: string | null; region?: string | null; postcode?: string | null; country?: string | null; }
+export interface TenderLeadParty {
+  name?: string | null;
+  id?: string | null;
+  roles?: string[];
+  buyerType?: string | null;
+  website?: string | null;
+  contact?: TenderLeadContact | null;
+  address?: TenderLeadAddress | null;
+}
+export interface TenderLeadValue { amount: number | null; currency: string; }
+export interface TenderLeadCriterion { type?: string | null; name?: string | null; weight?: number | string | null; description?: string | null; }
+export interface TenderLeadLot {
+  id?: string | null;
+  title?: string | null;
+  description?: string | null;
+  value?: { amount?: number | null; currency?: string | null };
+  contractPeriod?: { start?: string | null; end?: string | null; days?: number | null };
+  suitableForSME?: boolean | null;
+  suitableForVCSE?: boolean | null;
+  hasRenewal?: boolean | null;
+  renewal?: string | null;
+  hasOptions?: boolean | null;
+  options?: string | null;
+  awardCriteria?: TenderLeadCriterion[];
+}
+export interface TenderLeadMilestone { type?: string | null; title?: string | null; dueDate?: string | null; }
+export interface TenderLeadDocument {
+  title?: string | null;
+  type?: string | null;
+  description?: string | null;
+  url: string;
+  format?: string | null;
+  language?: string | null;
+  published?: string | null;
+}
+export interface TenderLeadFramework { isFramework?: boolean; method?: string | null; periodEnd?: string | null; maxParticipants?: number | null; description?: string | null; }
+export interface TenderLeadSubmission { methods?: unknown; url?: string | null; electronicAuction?: boolean | null; languages?: unknown; variantPolicy?: string | null; }
+export interface TenderLeadParticipation { fees?: unknown; reservedParticipation?: unknown; minimumCandidates?: number | null; }
+export interface TenderLeadDeliveryAddress { street?: string | null; locality?: string | null; region?: string | null; postcode?: string | null; description?: string | null; }
+
+export interface TenderLead {
+  id: string;
+  noticeId?: string | null;
+  source: string;
+  noticeType?: string | null;
+  language?: string | null;
+  title: string;
+  description?: string;
+  status?: string;
+  types: string[];
+  buyer?: TenderLeadParty | null;
+  parties?: TenderLeadParty[];
+  value?: TenderLeadValue | null;
+  cpvCodes?: string[];
+  mainCategory?: string | null;
+  regions?: string[];
+  deliveryAddresses?: TenderLeadDeliveryAddress[];
+  publishedDate?: string | null;
+  deadline?: string | null;
+  enquiryDeadline?: string | null;
+  contractStart?: string | null;
+  contractEnd?: string | null;
+  contractDays?: number | null;
+  procedureType?: string | null;
+  legalBasis?: string | null;
+  coveredByGPA?: boolean | null;
+  suitableForSME?: boolean | null;
+  suitableForVCSE?: boolean | null;
+  framework?: TenderLeadFramework | null;
+  lots?: TenderLeadLot[];
+  lotCount?: number;
+  milestones?: TenderLeadMilestone[];
+  selectionCriteria?: TenderLeadCriterion[];
+  awardCriteria?: TenderLeadCriterion[];
+  submission?: TenderLeadSubmission | null;
+  participation?: TenderLeadParticipation | null;
+  link?: string | null;
+  documents?: TenderLeadDocument[];
+  importedAt?: string | null;
+}
+export interface TenderLeadFeed {
+  meta: {
+    generatedAt?: string;
+    window?: { from: string; to: string };
+    count: number;
+    sources?: string[];
+    stored?: boolean;
+    filters?: { type: string[]; cpv?: string[]; q: string };
+    errors?: { source: string; url?: string; httpCode?: number; error: string }[];
+  };
+  tenders: TenderLead[];
+}
+export interface TenderLeadImportResult {
+  imported: number;
+  updated: number;
+  skipped?: number;
+  fetched: number;
+  days?: number;
+  window?: { from: string; to: string } | null;
+  errors?: { source: string; error: string }[];
 }
 
 export interface TenderInfo {

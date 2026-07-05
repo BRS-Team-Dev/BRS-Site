@@ -102,38 +102,41 @@ const slugify = (s: string): string =>
         </div>
       } @else {
         <div class="table-wrap">
-          <table class="data">
+          <table class="data leads-table">
             <thead><tr>
-              <th>Title</th>
-              <th>Buyer</th>
-              <th>Value</th>
-              <th>Deadline</th>
-              <th>Status</th>
-              <th></th>
+              <th class="c-type">Type</th>
+              <th class="c-op">Opportunity</th>
+              <th class="num c-val sortable" (click)="cycleValueSort()" title="Sort by value">Value{{ valueSortIndicator() }}</th>
+              <th class="c-dead">Deadline</th>
+              <th class="c-status">Status</th>
+              <th class="c-act"></th>
             </tr></thead>
             <tbody>
-              @for (t of visible(); track t.id) {
+              @for (t of sortedVisible(); track t.id) {
                 <tr (click)="view(t)">
-                  <td><strong>{{ t.title }}</strong>
-                    @if (t.reference) { <div class="muted small">Ref: {{ t.reference }}</div> }
+                  <td class="c-type">
+                    @if (t.category) { <span class="chip">{{ t.category }}</span> } @else { <span class="muted small">—</span> }
                   </td>
-                  <td>{{ t.buyer || '—' }}</td>
-                  <td>
+                  <td class="c-op op">
+                    <div class="clip strong">{{ t.title }}</div>
+                    <div class="clip muted small">{{ t.buyer || (t.reference ? ('Ref: ' + t.reference) : '—') }}</div>
+                  </td>
+                  <td class="num c-val">
                     @if (t.value !== null && t.value !== undefined && t.value !== '') {
                       {{ t.currency }} {{ formatValue(t.value) }}
                     } @else { — }
                   </td>
-                  <td>
+                  <td class="c-dead">
                     @if (t.submission_deadline) {
-                      <span [class.overdue]="isOverdue(t)">{{ formatDeadline(t.submission_deadline) }}</span>
+                      <span [class.overdue]="isOverdue(t)">{{ fmtDate(t.submission_deadline) }}</span>
                     } @else { — }
                   </td>
-                  <td>
+                  <td class="c-status">
                     <span class="status-pill" [attr.data-status]="t.status || 'planning'">
                       {{ statusLabel(t.status || 'planning') }}
                     </span>
                   </td>
-                  <td class="actions">
+                  <td class="c-act actions" (click)="$event.stopPropagation()">
                     <button class="ghost icon-btn" (click)="view(t, $event)" title="View" aria-label="View">👁</button>
                     <button class="ghost icon-btn" (click)="edit(t, $event)" title="Edit" aria-label="Edit">✎</button>
                     <button class="ghost icon-btn danger" (click)="del(t, $event)" title="Delete" aria-label="Delete">✕</button>
@@ -609,6 +612,30 @@ const slugify = (s: string): string =>
     .status-pill[data-status="withdrawn"] { color: var(--muted); }
     .overdue { color: var(--danger); font-weight: 600; }
 
+    /* Lead Gen-style list table: fixed layout so long titles clip to one line
+       with an ellipsis instead of overflowing into the next column. */
+    .leads-table { table-layout: fixed; width: 100%; }
+    table.data.leads-table th, table.data.leads-table td {
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .c-type   { width: 150px; }
+    .c-val    { width: 140px; }
+    .c-dead   { width: 118px; }
+    .c-status { width: 128px; }
+    .c-act    { width: 154px; }
+    /* .c-op takes the remaining width */
+    .op .clip { display: block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .op .clip.strong { font-weight: 600; }
+    td.num, th.num { text-align: right; }
+    th.sortable { cursor: pointer; user-select: none; }
+    th.sortable:hover { color: var(--primary); }
+    .chip {
+      display: inline-block; padding: 2px 8px; border-radius: 999px;
+      background: var(--bg-3); border: 1px solid var(--line);
+      font-size: 11px; white-space: nowrap;
+    }
+    .c-act.actions { white-space: nowrap; text-align: right; overflow: visible; text-overflow: clip; }
+
     .row.two { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
     .field { display: flex; flex-direction: column; gap: 4px; }
     .field label { margin-top: 0; }
@@ -975,6 +1002,39 @@ export class TendersAdmin {
     const list = this.tenders();
     return f ? list.filter(t => (t.status || 'planning') === f) : list;
   });
+  /** none | desc | asc — sort the list by value (nulls last), toggled from the
+   *  Value column header (mirrors the Lead Gen table). */
+  valueSort = signal<'none' | 'desc' | 'asc'>('none');
+  cycleValueSort() {
+    const s = this.valueSort();
+    this.valueSort.set(s === 'none' ? 'desc' : s === 'desc' ? 'asc' : 'none');
+  }
+  valueSortIndicator(): string {
+    const s = this.valueSort();
+    return s === 'desc' ? ' ↓' : s === 'asc' ? ' ↑' : '';
+  }
+  sortedVisible = computed(() => {
+    const list = this.visible();
+    const s = this.valueSort();
+    if (s === 'none') return list;
+    const dir = s === 'desc' ? -1 : 1;
+    const num = (v: number | string | null | undefined) =>
+      (v === null || v === undefined || v === '') ? null : Number(v);
+    return [...list].sort((a, b) => {
+      const av = num(a.value), bv = num(b.value);
+      if (av == null && bv == null) return 0;
+      if (av == null) return 1;   // nulls last
+      if (bv == null) return -1;
+      return (av - bv) * dir;
+    });
+  });
+  /** Short readable date for the list (e.g. "17 Jul 2026"), matching Lead Gen. */
+  fmtDate(iso?: string | null): string {
+    if (!iso) return '—';
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return '—';
+    return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+  }
   sectionsCompleteCount = computed(() => this.sections().filter(s => !!s.is_completed).length);
   docsForSection = (sectionId: number): TenderDocument[] =>
     this.documents().filter(d => d.section_id === sectionId);
