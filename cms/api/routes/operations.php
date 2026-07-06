@@ -503,7 +503,8 @@ function handleTenderLeadImport(\PDO|\BRS\TenantPdo $pdo): void {
     }
     $data = json_decode($body, true);
     if (!is_array($data) || !isset($data['tenders']) || !is_array($data['tenders'])) {
-        Json::fail('The tender aggregator returned an unexpected response.', 502);
+        $snippet = trim(substr(strip_tags((string)$body), 0, 200));
+        Json::fail('The tender aggregator returned an unexpected response: ' . ($snippet !== '' ? $snippet : 'empty body'), 502);
     }
 
     $tenantId = \BRS\Tenant::id();

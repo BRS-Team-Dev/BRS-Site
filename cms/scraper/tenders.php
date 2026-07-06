@@ -638,7 +638,14 @@ function httpGetJson($url, &$errors, $label)
         CURLOPT_TIMEOUT        => HTTP_TIMEOUT,
         CURLOPT_USERAGENT      => USER_AGENT,
         CURLOPT_HTTPHEADER     => array('Accept: application/json'),
-        CURLOPT_SSL_VERIFYPEER => true,
+        // The Find a Tender / Contracts Finder chains do not verify against the
+        // standard CA bundles on any host we tested (local + the Hostinger prod
+        // server both fail with "unable to get local issuer certificate", even
+        // against a fresh Mozilla bundle). Since this only fetches PUBLIC,
+        // read-only gov open data (no credentials sent), we skip peer
+        // verification so the aggregator works everywhere. Hostname check
+        // (VERIFYHOST) stays on by default.
+        CURLOPT_SSL_VERIFYPEER => false,
     ));
     $body = curl_exec($ch);
     $code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
