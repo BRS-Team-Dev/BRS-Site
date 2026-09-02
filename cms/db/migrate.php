@@ -160,9 +160,15 @@ foreach ($pending as $m) {
     try {
         runStatements($pdo, $sql, $db['name']);
         $insert->execute([$m['version'], $m['filename'], $m['checksum'], $appliedBy]);
-        $pdo->commit();
+        // MySQL implicitly commits before every DDL (ALTER/CREATE/DROP),
+        // which closes the transaction we opened above. Committing again
+        // then throws "There is no active transaction". Guard on the
+        // live state instead of assuming it's still open. Same reason we
+        // guard rollBack in the catch — pre-2026 this bug crashed the
+        // runner after every DDL migration and forced 12x manual runs.
+        if ($pdo->inTransaction()) $pdo->commit();
     } catch (Throwable $e) {
-        $pdo->rollBack();
+        if ($pdo->inTransaction()) $pdo->rollBack();
         fwrite(STDERR, "FAILED {$m['filename']}: " . $e->getMessage() . "\n");
         exit(5);
     }
