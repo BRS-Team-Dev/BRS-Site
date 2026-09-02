@@ -15,6 +15,8 @@ use BRS\Json;
 // `require_once` after it never fires (function declarations are hoisted at
 // parse time, but require_once is a runtime statement).
 require_once __DIR__ . '/../lib/hr_course.php';
+require_once __DIR__ . '/../lib/my_tasks.php';
+require_once __DIR__ . '/../lib/my_commissions.php';
 
 return function (string $method, array $segs): void {
     Auth::require();
@@ -69,6 +71,23 @@ function handleMe(\PDO|\BRS\TenantPdo $pdo, string $method, array $segs): void {
     if ($sub === '') {
         if ($method === 'GET') Json::send(['employee' => $emp]);
         Json::fail('Method not allowed', 405);
+    }
+    // ── /api/hr/me/overview ────────────────────────────────────────
+    if ($sub === 'overview' && $method === 'GET') {
+        Json::send(['overview' => my_overview_for_employee($pdo, (int)$emp['admin_user_id'])]);
+    }
+    // ── /api/hr/me/tasks ───────────────────────────────────────────
+    // Merged crm_tasks + task_items feed for the signed-in employee's user id.
+    if ($sub === 'tasks' && !isset($segs[3]) && $method === 'GET') {
+        Json::send(['tasks' => my_tasks_for_user($pdo, (int)$emp['admin_user_id'])]);
+    }
+    // ── PATCH /api/hr/me/tasks/crm/:id { status } ──────────────────
+    if ($sub === 'tasks' && ($segs[3] ?? '') === 'crm' && isset($segs[4]) && $method === 'PATCH') {
+        my_tasks_patch_crm_status($pdo, (int)$segs[4], (int)$emp['admin_user_id']);
+    }
+    // ── /api/hr/me/commissions ─────────────────────────────────────
+    if ($sub === 'commissions' && $method === 'GET') {
+        Json::send(my_commissions_for_user($pdo, (int)$emp['admin_user_id']));
     }
     if ($sub === 'payslips') {
         if ($method !== 'GET') Json::fail('Method not allowed', 405);
@@ -1038,8 +1057,8 @@ function handleEmployees(\PDO|\BRS\TenantPdo $pdo, string $method, array $segs):
                     $tempPassword = bin2hex(random_bytes(6));
                     $hash = password_hash($tempPassword, PASSWORD_DEFAULT);
                     $role = pickEnum($b['role'] ?? null, ['admin','member','viewer'], 'member');
-                    $insUser = $pdo->prepare('INSERT INTO admin_users (email, display_name, password_hash, role, is_active)
-                                              VALUES (?,?,?,?,1)');
+                    $insUser = $pdo->prepare('INSERT INTO admin_users (email, display_name, password_hash, role, is_active, must_change_password)
+                                              VALUES (?,?,?,?,1,1)');
                     $insUser->execute([$email, trim($firstName . ' ' . $lastName), $hash, $role]);
                     $userId = (int)$pdo->lastInsertId();
                 }
@@ -2987,7 +3006,7 @@ function handleApplications(\PDO|\BRS\TenantPdo $pdo, string $method, array $seg
         if (!$userId) {
             $tempPass = bin2hex(random_bytes(8));
             $hash = password_hash($tempPass, PASSWORD_DEFAULT);
-            $u = $pdo->prepare('INSERT INTO admin_users (email, display_name, password_hash, role, is_active) VALUES (?,?,?, "member", 1)');
+            $u = $pdo->prepare('INSERT INTO admin_users (email, display_name, password_hash, role, is_active, must_change_password) VALUES (?,?,?, "member", 1, 1)');
             $u->execute([$app['email'], trim($app['first_name'] . ' ' . $app['last_name']), $hash]);
             $userId = (int)$pdo->lastInsertId();
         }

@@ -80,6 +80,62 @@ const BLANK_DRAFT = (): NewModelDraft => ({
         </section>
 
         <section class="card">
+          <h2>Companies House crawler</h2>
+          <p class="muted small">Stage 3 (Google Business profiles) uses the official <strong>Google Places API</strong>. Paste a Google Maps Platform API key with the <em>Places API (New)</em> enabled and billing on — the $200/month Maps credit keeps typical use free, and you can set a budget cap so it never charges. Stored server-side and shown as <code>••••••••</code> once set.</p>
+          <label>Google Maps API key</label>
+          <input
+            type="password"
+            [ngModel]="s['google_maps_api_key']"
+            (ngModelChange)="s['google_maps_api_key'] = $event"
+            name="google_maps_api_key"
+            placeholder="(unchanged)"
+            autocomplete="off" />
+
+          <p class="muted small" style="margin-top:16px">Stage 5 (LinkedIn staff) — <strong>optional</strong>. The no-key scraper only finds the company's LinkedIn URL (LinkedIn blocks unauthenticated requests). To pull staff, paste your own <code>li_at</code> session cookie below. <strong>⚠ This drives your logged-in LinkedIn session — against LinkedIn's ToS, and heavy use can get your account restricted. Use sparingly.</strong></p>
+          <label>LinkedIn <code>li_at</code> cookie</label>
+          <input
+            type="password"
+            [ngModel]="s['linkedin_li_at']"
+            (ngModelChange)="s['linkedin_li_at'] = $event"
+            name="linkedin_li_at"
+            placeholder="(unchanged)"
+            autocomplete="off" />
+          <label>LinkedIn <code>JSESSIONID</code> <span class="muted">(optional, improves reliability)</span></label>
+          <input
+            type="password"
+            [ngModel]="s['linkedin_csrf']"
+            (ngModelChange)="s['linkedin_csrf'] = $event"
+            name="linkedin_csrf"
+            placeholder="(unchanged)"
+            autocomplete="off" />
+
+          <h2 style="margin-top:24px">Sync targets (push local → dev / prod)</h2>
+          <p class="muted small">The LinkedIn crawlers need a headless browser, which only runs <strong>locally</strong>. Do the crawling + enrichment here, then <strong>push the finished leads</strong> up to dev or prod (which stay curl-only) from the pipeline's <em>Sync</em> control. Enter each target's API base URL and a login it can use to import.</p>
+          @for (t of ['dev', 'prod']; track t) {
+            <label>{{ t === 'dev' ? 'Dev' : 'Prod' }} API base URL <span class="muted">(e.g. https://…/cc/api)</span></label>
+            <input type="text" [ngModel]="s['sync_' + t + '_url']" (ngModelChange)="s['sync_' + t + '_url'] = $event" [name]="'sync_' + t + '_url'" placeholder="https://…/api" autocomplete="off" />
+            <div class="row" style="gap:10px">
+              <div style="flex:1">
+                <label>{{ t }} login email</label>
+                <input type="text" [ngModel]="s['sync_' + t + '_email']" (ngModelChange)="s['sync_' + t + '_email'] = $event" [name]="'sync_' + t + '_email'" placeholder="admin@…" autocomplete="off" />
+              </div>
+              <div style="flex:1">
+                <label>{{ t }} password</label>
+                <input type="password" [ngModel]="s['sync_' + t + '_pass']" (ngModelChange)="s['sync_' + t + '_pass'] = $event" [name]="'sync_' + t + '_pass'" placeholder="(unchanged)" autocomplete="off" />
+              </div>
+            </div>
+          }
+
+          <div class="row sticky-save">
+            <span class="spacer"></span>
+            @if (savedAt()) { <span class="muted small">Saved {{ savedAt() }}</span> }
+            <button class="primary" (click)="saveCreds()" [disabled]="saving()">
+              {{ saving() ? 'Saving…' : 'Save' }}
+            </button>
+          </div>
+        </section>
+
+        <section class="card">
           <h2>Custom models</h2>
           <p class="muted small">Add new model IDs as they ship from existing providers (no code change needed), or point a row at a self-hosted/third-party OpenAI-compatible endpoint (Ollama, vLLM, Together, Groq, Fireworks, etc.). Custom rows merge with the built-in registry; matching <code>model_id</code> overrides the built-in.</p>
 
@@ -236,6 +292,13 @@ export class LeadgenSettings {
       const s = this.providerSecretSetting(p);
       if (this.s[k] !== undefined) aiOnly[k] = this.s[k];
       if (this.s[s] !== undefined) aiOnly[s] = this.s[s];
+    }
+    // Companies House crawler keys (Stage 3 Google + Stage 5 LinkedIn) ride
+    // along in the same save.
+    for (const k of ['google_maps_api_key', 'linkedin_li_at', 'linkedin_csrf',
+      'sync_dev_url', 'sync_dev_email', 'sync_dev_pass',
+      'sync_prod_url', 'sync_prod_email', 'sync_prod_pass']) {
+      if (this.s[k] !== undefined) aiOnly[k] = this.s[k];
     }
     this.svc.update(aiOnly).subscribe({
       next: () => { this.saving.set(false); this.savedAt.set(new Date().toLocaleTimeString()); },

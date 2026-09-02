@@ -1,5 +1,7 @@
 import { Component, computed, inject, signal } from '@angular/core';
-import { NavigationEnd, Router } from '@angular/router';
+import { NavigationEnd, Router, RouterLink } from '@angular/router';
+import { MyTaskRow, UserTaskTracker } from '../../shared/user-task-tracker';
+import { UserAccounts } from '../../shared/user-accounts';
 import { filter } from 'rxjs';
 import { environment } from '@env/environment';
 import { DecimalPipe } from '@angular/common';
@@ -11,14 +13,14 @@ import { SignaturePad } from './signature-pad';
 import { HrCoursePlayer } from './hr-course-player';
 import { DocumentViewer, ViewableDoc } from '../../shared/document-viewer';
 
-type Tab = 'profile' | 'payslips' | 'time' | 'shifts' | 'documents' | 'reviews' | 'learning' | 'goals' | 'skills' | 'feedback' | 'voice';
+type Tab = 'overview' | 'tasks' | 'accounts' | 'profile' | 'payslips' | 'time' | 'shifts' | 'documents' | 'reviews' | 'learning' | 'goals' | 'skills' | 'feedback' | 'voice';
 
 /**
  * /hr/me — employee self-service portal. Shows the signed-in user's own HR data.
  */
 @Component({
   selector: 'app-hr-me',
-  imports: [DecimalPipe, FormsModule, SignaturePad, HrCoursePlayer, DocumentViewer],
+  imports: [DecimalPipe, FormsModule, RouterLink, SignaturePad, HrCoursePlayer, DocumentViewer, UserTaskTracker, UserAccounts],
   template: `
     @if (employee(); as e) {
       <div class="toolbar">
@@ -27,6 +29,68 @@ type Tab = 'profile' | 'payslips' | 'time' | 'shifts' | 'documents' | 'reviews' 
       </div>
 
       <div class="content">
+        @if (tab() === 'overview' && overview(); as ov) {
+          <div class="ov-hero">
+            <h2>Welcome back, {{ e.first_name }}</h2>
+            <p class="muted small">Everything on your plate — one glance.</p>
+          </div>
+          <div class="ov-grid">
+            <a class="ov-kpi" routerLink="/me/tasks">
+              <div class="k-value" [class.k-danger]="ov.tasks.overdue > 0">{{ ov.tasks.total }}</div>
+              <div class="k-label">Open tasks</div>
+              <div class="k-sub muted small">
+                {{ ov.tasks.in_progress }} in progress
+                @if (ov.tasks.overdue > 0) { · <span class="danger">{{ ov.tasks.overdue }} overdue</span> }
+              </div>
+            </a>
+            <a class="ov-kpi" routerLink="/me/time-off">
+              <div class="k-value">{{ ov.pending_timeoff }}</div>
+              <div class="k-label">Pending time-off</div>
+              <div class="k-sub muted small">Awaiting approval</div>
+            </a>
+            <a class="ov-kpi" routerLink="/me/reviews">
+              <div class="k-value">{{ ov.open_reviews }}</div>
+              <div class="k-label">Open reviews</div>
+              <div class="k-sub muted small">Awaiting your input</div>
+            </a>
+            <a class="ov-kpi" routerLink="/me/learning">
+              <div class="k-value">{{ ov.incomplete_courses }}</div>
+              <div class="k-label">Courses in progress</div>
+              <div class="k-sub muted small">Not yet complete</div>
+            </a>
+          </div>
+
+          <div class="section-card">
+            <div class="card-title-row">
+              <h3 class="card-title">Up next</h3>
+              <span class="spacer"></span>
+              <a class="link-btn" routerLink="/me/tasks">See all →</a>
+            </div>
+            @if (!ov.upcoming || ov.upcoming.length === 0) {
+              <p class="muted small">Nothing scheduled — enjoy the calm.</p>
+            } @else {
+              <ul class="upcoming">
+                @for (t of ov.upcoming; track t.source + ':' + t.id) {
+                  <li>
+                    <span class="src-pill" [attr.data-src]="t.source">{{ t.source === 'crm' ? 'CRM' : 'Taskboard' }}</span>
+                    <strong>{{ t.title }}</strong>
+                    @if (t.project_name) { <span class="muted small">— {{ t.project_name }}</span> }
+                    @if (t.due_at) { <span class="due muted small">due {{ t.due_at }}</span> }
+                  </li>
+                }
+              </ul>
+            }
+          </div>
+        }
+
+        @if (tab() === 'tasks') {
+          <app-user-task-tracker [tasks]="tasks()" (onStatusChange)="patchCrmTaskStatus($event.task, $event.next)" />
+        }
+
+        @if (tab() === 'accounts') {
+          <app-user-accounts source="hr" />
+        }
+
         @if (tab() === 'profile') {
           <div class="form-sections">
             <div class="section-card">
@@ -855,7 +919,7 @@ type Tab = 'profile' | 'payslips' | 'time' | 'shifts' | 'documents' | 'reviews' 
   styles: [`
     .toolbar { padding: 16px 20px; display: flex; align-items: baseline; gap: 12px; border-bottom: 1px solid var(--line); }
     .toolbar h1 { margin: 0; font-size: 22px; }
-    .content { padding: 20px 24px 32px; background: #ffffff; min-height: calc(100vh - 120px); }
+    .content { padding: 20px 24px 32px; background: var(--bg); min-height: calc(100vh - 120px); }
 
     /* Canonical section-card pattern (memory.md): each section is its own card. */
     .form-sections { display: flex; flex-direction: column; gap: 18px; }
@@ -1050,6 +1114,43 @@ type Tab = 'profile' | 'payslips' | 'time' | 'shifts' | 'documents' | 'reviews' 
 
     .empty { padding: 40px 20px; text-align: center; }
     .actions { text-align: right; }
+
+    /* Overview view */
+    .ov-hero { margin-bottom: 16px; }
+    .ov-hero h2 { margin: 0 0 4px 0; font-size: 22px; color: var(--fg); text-transform: none; letter-spacing: 0; }
+    .ov-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 16px; }
+    @media (max-width: 900px) { .ov-grid { grid-template-columns: repeat(2, 1fr); } }
+    @media (max-width: 500px) { .ov-grid { grid-template-columns: 1fr; } }
+    .ov-kpi {
+      display: flex; flex-direction: column; gap: 4px;
+      background: var(--bg-2); border: 1px solid var(--line);
+      border-radius: var(--radius-sm); padding: 14px 16px;
+      color: var(--fg); text-decoration: none;
+      transition: border-color 160ms ease, transform 160ms ease;
+    }
+    .ov-kpi:hover { border-color: var(--primary); transform: translateY(-1px); }
+    .k-value { font-size: 28px; font-weight: 700; font-variant-numeric: tabular-nums; }
+    .k-value.k-danger { color: var(--danger); }
+    .k-label { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; }
+    .k-sub { margin-top: 4px; }
+    .danger { color: var(--danger); font-weight: 700; }
+    .card-title-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+    .card-title-row .spacer { flex: 1; }
+    .link-btn { color: var(--primary); text-decoration: none; font-size: 12px; }
+    .link-btn:hover { text-decoration: underline; }
+    .upcoming { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+    .upcoming li {
+      display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+      background: var(--bg-3); border-radius: var(--radius-sm); padding: 8px 12px;
+    }
+    .upcoming .due { margin-left: auto; }
+    .src-pill {
+      display: inline-block; padding: 2px 8px; border-radius: 999px;
+      font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.3px;
+      border: 1px solid var(--line); color: var(--muted); white-space: nowrap;
+    }
+    .src-pill[data-src="crm"]       { color: var(--primary); border-color: var(--primary); }
+    .src-pill[data-src="taskboard"] { color: #56CCF2;        border-color: #56CCF2; }
   `],
 })
 export class HrMe {
@@ -1058,6 +1159,9 @@ export class HrMe {
   private dialog = inject(DialogService);
 
   readonly tabs: { key: Tab; label: string }[] = [
+    { key: 'overview',  label: 'Overview' },
+    { key: 'tasks',     label: 'Tasks' },
+    { key: 'accounts',  label: 'Accounts & commissions' },
     { key: 'profile',   label: 'My profile' },
     { key: 'payslips',  label: 'Payslips' },
     { key: 'time',      label: 'Time off' },
@@ -1070,6 +1174,8 @@ export class HrMe {
   errored = signal(false);
 
   employee = signal<HrEmployee | null>(null);
+  overview = signal<any | null>(null);
+  tasks    = signal<MyTaskRow[]>([]);
   payslips = signal<HrPayslip[]>([]);
   myTimeOff = signal<HrTimeOffEntry[]>([]);
   documents = signal<HrDocument[]>([]);
@@ -1196,7 +1302,10 @@ export class HrMe {
 
   /** Map between sidenav URL path segments and the internal tab key. */
   private static readonly URL_TO_TAB: Record<string, Tab> = {
-    '':           'profile',
+    '':           'overview',
+    'profile':    'profile',
+    'tasks':      'tasks',
+    'accounts':   'accounts',
     'payslips':   'payslips',
     'time-off':   'time',
     'shifts':     'shifts',
@@ -1223,6 +1332,12 @@ export class HrMe {
     this.router.events
       .pipe(filter(e => e instanceof NavigationEnd))
       .subscribe(() => this.syncTabFromUrl());
+
+    // Overview + tasks fire eagerly so the landing view is populated
+    // before the user even clicks it. Cheap COUNT queries + one merged
+    // task feed — one HTTP round-trip each.
+    this.api.getHrMeOverview().subscribe({ next: r => this.overview.set(r.overview) });
+    this.api.listHrMeTasks().subscribe({ next: r => this.tasks.set(r.tasks) });
 
     this.api.getHrMe().subscribe({
       next: r => {
@@ -1509,5 +1624,18 @@ export class HrMe {
     const e = this.employee();
     if (!e || !s.id) return;
     this.router.navigate(['/hr/payslip', s.period_id, s.id]);
+  }
+
+  patchCrmTaskStatus(task: MyTaskRow, next: string) {
+    // Optimistic update; roll back on error.
+    const previous = task.status;
+    this.tasks.set(this.tasks().map(t =>
+      t.source === task.source && t.id === task.id ? { ...t, status: next } : t));
+    this.api.patchHrMeCrmTaskStatus(task.id, next).subscribe({
+      error: () => {
+        this.tasks.set(this.tasks().map(t =>
+          t.source === task.source && t.id === task.id ? { ...t, status: previous } : t));
+      },
+    });
   }
 }

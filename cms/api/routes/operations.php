@@ -37,6 +37,7 @@ return function (string $method, array $segs): void {
         if ($sub === 'promote' && $method === 'POST') { handleTenderLeadPromote($pdo); return; }
         if ($sub === 'types'   && $method === 'GET')  { handleTenderLeadTypeCounts($pdo); return; }
         if ($sub === '' && $method === 'GET')         { handleTenderLeadList($pdo); return; }
+        if ($sub === '' && $method === 'DELETE')      { handleTenderLeadPurge($pdo); return; }
         Json::fail('Not found', 404);
     }
 
@@ -550,6 +551,14 @@ function handleTenderLeadImport(\PDO|\BRS\TenantPdo $pdo): void {
         'window'   => $data['meta']['window'] ?? null,
         'errors'   => $data['meta']['errors'] ?? [],
     ]);
+}
+
+/** DELETE /api/operations/tender-leads — purge every stored lead for the
+ *  current tenant (the rewriter scopes the DELETE to tenant_id). */
+function handleTenderLeadPurge(\PDO|\BRS\TenantPdo $pdo): void {
+    $stmt = $pdo->prepare('DELETE FROM tender_leads');
+    $stmt->execute();
+    Json::send(['deleted' => $stmt->rowCount()]);
 }
 
 /** POST /api/operations/tender-leads/promote — create a tracked Tender from a

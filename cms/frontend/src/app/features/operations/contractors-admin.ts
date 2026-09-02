@@ -4,9 +4,10 @@ import { FormsModule } from '@angular/forms';
 import { Api } from '../../core/api';
 import { DialogService } from '../../core/dialog';
 import { EntityContracts } from '../../shared/entity-contracts';
+import { Auth } from '../../core/auth';
 import {
   Contractor, ContractorStatus, ContractorType, ContractorSource,
-  EngagementType, Ir35Status, ContractorNote,
+  EngagementType, Ir35Status, ContractorNote, ContractorPermissions,
 } from '../../core/models';
 
 type Mode = 'list' | 'view' | 'edit';
@@ -165,6 +166,100 @@ const blankNote = (): ContractorNote => ({ title: '', body: '', sort_order: 0 })
           <div class="kv"><div class="notes">{{ c.notes }}</div></div>
         }
         <div class="kv"><label>Project manager</label><div>{{ c.manager_email || '—' }}</div></div>
+      </div>
+
+      <div class="card">
+        <div class="tab-head" style="margin-bottom: 12px;">
+          <h2 style="margin: 0;">Account</h2>
+          <span class="spacer"></span>
+          @if (c.admin_user_id) {
+            <span class="badge" [attr.data-active]="c.account_active ? '1' : '0'">
+              {{ c.account_active ? 'Login active' : 'Login disabled' }}
+            </span>
+          } @else {
+            <span class="muted small">No login yet</span>
+          }
+        </div>
+
+        @if (!c.admin_user_id) {
+          <p class="muted" style="margin: 0 0 12px 0;">
+            Give this contractor a login so they can see their own contracts and documents at <code>/contractor/me</code>.
+          </p>
+          <div class="acct-row">
+            <input type="email" [(ngModel)]="acctEmail" name="acct_email"
+                   [placeholder]="c.primary_email || 'contractor@example.com'" />
+            <button class="primary" (click)="enableLogin(c)" [disabled]="acctBusy()" style="white-space: nowrap;">
+              {{ acctBusy() ? 'Working…' : 'Enable login' }}
+            </button>
+          </div>
+        } @else {
+          <div class="kv"><label>Login email</label><div>{{ c.account_email || '—' }}</div></div>
+          <div class="acct-row">
+            @if (c.account_active) {
+              <button class="ghost" (click)="signInAs(c)" [disabled]="acctBusy()" style="white-space: nowrap;">
+                🔑 Sign in as this contractor
+              </button>
+            }
+            <button class="ghost" (click)="resetPassword(c)" [disabled]="acctBusy()" style="white-space: nowrap;">
+              Reset password
+            </button>
+            @if (c.account_active) {
+              <button class="ghost danger" (click)="disableLogin(c)" [disabled]="acctBusy()" style="white-space: nowrap;">
+                Disable login
+              </button>
+            } @else {
+              <button class="ghost" (click)="reactivateLogin(c)" [disabled]="acctBusy()" style="white-space: nowrap;">
+                Reactivate
+              </button>
+            }
+          </div>
+        }
+      </div>
+
+      <div class="card">
+        <div class="tab-head" style="margin-bottom: 12px;">
+          <h2 style="margin: 0;">Security &amp; permissions</h2>
+          <span class="spacer"></span>
+          <button class="primary" (click)="saveSecurity(c)" [disabled]="!c.admin_user_id || secBusy()" style="white-space: nowrap;">
+            {{ secBusy() ? 'Saving…' : 'Save permissions' }}
+          </button>
+        </div>
+        @if (!c.admin_user_id) {
+          <p class="muted small">Enable login above before granting permissions.</p>
+        } @else {
+          <p class="muted small" style="margin: 0 0 12px 0;">
+            Toggle what this contractor can see inside their own portal. All flags default off — grant only what they need.
+          </p>
+          <div class="perm-grid">
+            <label class="check nowrap"><input type="checkbox" [(ngModel)]="secPerms.view_clients"     name="p_vc" /> See assigned clients</label>
+            <label class="check nowrap"><input type="checkbox" [(ngModel)]="secPerms.view_tasks"       name="p_vt" /> See assigned tasks</label>
+            <label class="check nowrap"><input type="checkbox" [(ngModel)]="secPerms.view_invoices"    name="p_vi" /> See invoices</label>
+            <label class="check nowrap"><input type="checkbox" [(ngModel)]="secPerms.upload_documents" name="p_ud" /> Upload documents</label>
+            <label class="check nowrap"><input type="checkbox" [(ngModel)]="secPerms.edit_profile"     name="p_ep" /> Edit own contact details</label>
+          </div>
+        }
+      </div>
+
+      <div class="card">
+        <div class="tab-head" style="margin-bottom: 12px;">
+          <h2 style="margin: 0;">Assigned clients</h2>
+        </div>
+        @if (assignedClients().length === 0) {
+          <p class="muted small">Not assigned to any client yet. Attach from the client's detail page → Contractors tab.</p>
+        } @else {
+          <table class="data">
+            <thead><tr><th>Client</th><th>Role</th><th>Added</th></tr></thead>
+            <tbody>
+              @for (r of assignedClients(); track r.link_id) {
+                <tr>
+                  <td><a [routerLink]="['/admin/clients', r.client_id]">{{ r.client_name }}</a></td>
+                  <td>{{ r.role || '—' }}</td>
+                  <td>{{ r.added_at }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        }
       </div>
 
       <div class="card">
@@ -360,10 +455,25 @@ const blankNote = (): ContractorNote => ({ title: '', body: '', sort_order: 0 })
     .note-head { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
     .note-head .spacer { flex: 1; }
     .note-body { margin: 0; white-space: pre-wrap; color: var(--fg); font-size: 14px; line-height: 1.6; }
+
+    .acct-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .acct-row input { flex: 1; min-width: 220px; }
+    .badge[data-active="1"] { color: var(--success); border-color: var(--success); }
+    .badge[data-active="0"] { color: var(--muted); border-color: var(--line); }
+
+    .perm-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 20px; }
+    @media (max-width: 720px) { .perm-grid { grid-template-columns: 1fr; } }
+    .perm-grid label.check {
+      display: flex; align-items: center; gap: 8px; margin: 0;
+      text-transform: none; letter-spacing: normal; font-size: 14px;
+      color: var(--fg); white-space: nowrap;
+    }
+    .perm-grid label.check input { width: 16px; height: 16px; }
   `],
 })
 export class ContractorsAdmin {
   private api = inject(Api);
+  private auth = inject(Auth);
   private dialog = inject(DialogService);
   private route = inject(ActivatedRoute);
   private router = inject(Router);
@@ -392,6 +502,16 @@ export class ContractorsAdmin {
   notes = signal<ContractorNote[]>([]);
   noteFormOpen = signal(false);
   noteDraft: ContractorNote = blankNote();
+
+  acctEmail = '';
+  acctBusy = signal(false);
+
+  secBusy = signal(false);
+  secPerms: ContractorPermissions = {
+    view_clients: false, view_tasks: false, view_invoices: false,
+    upload_documents: false, edit_profile: true,
+  };
+  assignedClients = signal<Array<{ link_id: number; role: string | null; added_at: string; client_id: number; client_name: string }>>([]);
 
   visible = computed(() => {
     let list = this.contractors();
@@ -435,6 +555,8 @@ export class ContractorsAdmin {
       this.mode.set(target);
       if (target === 'view') {
         this.api.listContractorNotes(id).subscribe(n => this.notes.set(n.notes));
+        this.api.getContractorSecurity(id).subscribe(s => this.secPerms = s.permissions);
+        this.api.listContractorClients(id).subscribe(r => this.assignedClients.set(r.clients));
       }
     });
   }
@@ -529,6 +651,99 @@ export class ContractorsAdmin {
     if (!ok) return;
     this.api.deleteContractorNote(id, n.id).subscribe(() => {
       this.api.listContractorNotes(id).subscribe(r => this.notes.set(r.notes));
+    });
+  }
+
+  async enableLogin(c: Contractor) {
+    const email = (this.acctEmail || c.primary_email || '').trim();
+    if (!email) { await this.dialog.alert('Enter an email address first.'); return; }
+    this.acctBusy.set(true);
+    this.api.enableContractorLogin(c.id!, email).subscribe({
+      next: async r => {
+        this.acctBusy.set(false); this.acctEmail = '';
+        await this.dialog.alert(
+          `Login enabled for ${r.email}.\n\nTemporary password: ${r.temp_password}\n\nShare it with the contractor — they can change it after signing in.`,
+          { title: 'Login created' },
+        );
+        this.loadOne(c.id!, 'view');
+      },
+      error: async e => {
+        this.acctBusy.set(false);
+        await this.dialog.alert(e?.error?.error || 'Failed to enable login.');
+      },
+    });
+  }
+  async resetPassword(c: Contractor) {
+    const ok = await this.dialog.confirm(
+      `Reset password for ${c.account_email}? A new temporary password will be generated.`,
+      { title: 'Reset contractor password', confirmLabel: 'Reset' },
+    );
+    if (!ok) return;
+    this.acctBusy.set(true);
+    this.api.resetContractorPassword(c.id!).subscribe({
+      next: async r => {
+        this.acctBusy.set(false);
+        await this.dialog.alert(`New temporary password: ${r.temp_password}`, { title: 'Password reset' });
+        this.loadOne(c.id!, 'view');
+      },
+      error: async e => {
+        this.acctBusy.set(false);
+        await this.dialog.alert(e?.error?.error || 'Reset failed.');
+      },
+    });
+  }
+  async disableLogin(c: Contractor) {
+    const ok = await this.dialog.confirm(
+      `Disable login for ${c.account_email}? They will not be able to sign in until reactivated.`,
+      { title: 'Disable contractor login', confirmLabel: 'Disable', variant: 'danger' },
+    );
+    if (!ok) return;
+    this.acctBusy.set(true);
+    this.api.disableContractorLogin(c.id!).subscribe({
+      next: () => { this.acctBusy.set(false); this.loadOne(c.id!, 'view'); },
+      error: async e => { this.acctBusy.set(false); await this.dialog.alert(e?.error?.error || 'Failed to disable.'); },
+    });
+  }
+  async signInAs(c: Contractor) {
+    if (!c.admin_user_id) return;
+    const ok = await this.dialog.confirm(
+      `Sign in as ${c.name}? You will land in their contractor portal. Click "Switch back" in the banner at the top to return.`,
+      { title: 'Sign in as contractor', confirmLabel: 'Sign in' },
+    );
+    if (!ok) return;
+    this.acctBusy.set(true);
+    this.auth.impersonateUser(c.admin_user_id).subscribe({
+      // Stay inside the SPA — the Angular Router respects the app's
+      // baseHref (`/builtrightstudio/cms/` local, `/cc/` prod) and the
+      // HttpClient reads the new JWT from Auth on the next call, so no
+      // full page reload is needed. Reloading via window.location.href
+      // dropped us out of the SPA on the dev server for URLs it didn't
+      // recognise; navigateByUrl doesn't.
+      next: () => { this.router.navigateByUrl('/contractor/me'); },
+      error: async e => {
+        this.acctBusy.set(false);
+        await this.dialog.alert(e?.error?.error || 'Impersonation failed.');
+      },
+    });
+  }
+
+  saveSecurity(c: Contractor) {
+    if (!c.id) return;
+    this.secBusy.set(true);
+    this.api.updateContractorSecurity(c.id, this.secPerms).subscribe({
+      next: () => this.secBusy.set(false),
+      error: async e => {
+        this.secBusy.set(false);
+        await this.dialog.alert(e?.error?.error || 'Save failed.');
+      },
+    });
+  }
+
+  reactivateLogin(c: Contractor) {
+    this.acctBusy.set(true);
+    this.api.reactivateContractorLogin(c.id!).subscribe({
+      next: () => { this.acctBusy.set(false); this.loadOne(c.id!, 'view'); },
+      error: async e => { this.acctBusy.set(false); await this.dialog.alert(e?.error?.error || 'Failed to reactivate.'); },
     });
   }
 

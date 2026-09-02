@@ -3,7 +3,7 @@ import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import {
   AdminSection, AdminUser, AdminUserRecord, AppSettings, BillingProfile, BillingSummary, FormInvite, FormSubmissionCandidateGroup, FormSubmissionLinkGroup, PaymentMethod, StripeConfig, StripeSetupIntent, StripeSubscribeResult, SubscriptionInvoice, SubscriptionPlan, SubscriptionTier, UsersSubscription,
-  AppNotification, Client, ClientAccount, ClientContact, ClientInfo, ClientNote, ClientService, ClientServicesTotals, CrmDashboardOverview, CrmTask, CrmTaskNote, CrmTaskStats, CustomTheme, EmailProvider, EmailRouting, FeedbackForm, FeedbackQuestion, FeedbackResponse, Invoice, InvoiceLine, InvoiceServiceLink, InvoiceTemplate, Lead, LeadIndustrySummary, LeadInfo, LeadNote, LeadServiceLink, NotificationEventDef, NotificationRule, NotificationSection, NotificationUnreadCount, ServiceClientDetail, ServiceClientLink, ServicePoolEntry,
+  AppNotification, ChFetchResult, ChFoundCounts, ChLastRun, ChMilestones, ChOfficersResult, ChProfilesResult, ChQualifyResult, ChStaffResult, CompanyLead, CompanyLeadDetail, Client, ClientAccount, ClientContact, ClientInfo, ClientNote, ClientService, ClientServicesTotals, CrmDashboardOverview, CrmTask, CrmTaskNote, CrmTaskStats, CustomTheme, EmailProvider, EmailRouting, FeedbackForm, FeedbackQuestion, FeedbackResponse, Invoice, InvoiceLine, InvoiceServiceLink, InvoiceTemplate, Lead, LeadIndustrySummary, LeadInfo, LeadNote, LeadServiceLink, NotificationEventDef, NotificationRule, NotificationSection, NotificationUnreadCount, ServiceClientDetail, ServiceClientLink, ServicePoolEntry,
   FormDef, FormField, FormSection,
   HrCertification, HrChangeRequest, HrComplianceNote, HrComplianceTask, HrCourse, HrCourseAssignment,
   HrEmployeeNote,
@@ -21,7 +21,8 @@ import {
   TenderSection, TenderTracker, TenderLeadFeed, TenderLeadImportResult, OperationTask, OperationTaskStatus,
   OperationsDocument, OperationsDocumentsBrowse,
   Partner, PartnerContact, PartnerNote, PartnerAccount,
-  Contractor, ContractorNote,
+  Contractor, ContractorNote, ContractorPermissions, ClientContractorLink,
+  AssignmentGroup, AssigneeOption, AssignmentRole, AssigneeType,
   Affiliate, AffiliateNote,
   RecruitmentCandidate, RecruitmentCandidateDocument, RecruitmentCandidateNote,
   RecruitmentCandidateStatus, RecruitmentDocGroup, RecruitmentDocType, RecruitmentDocumentRow, RecruitmentOnboarding,
@@ -30,6 +31,7 @@ import {
   ServiceOffering,
   SuperAuditEntry,
   TenantSummary,
+  UnifiedLead, UnifiedLeadSource,
 } from './models';
 import { AiModel, CustomAiModel } from './ai-models';
 import { environment } from '@env/environment';
@@ -77,6 +79,14 @@ export class Api {
       tenant: TenantBranding; impersonating: { from: number };
     }>(`${BASE}/auth/impersonate`, { tenant_id: tenantId });
   }
+  /** Admin: sign in as a user in the same tenant (typically a contractor). */
+  impersonateUser(userId: number): Observable<{
+    token: string; user: AdminUser; tenant: TenantBranding; impersonating: { from_user: number };
+  }> {
+    return this.http.post<{
+      token: string; user: AdminUser; tenant: TenantBranding; impersonating: { from_user: number };
+    }>(`${BASE}/auth/impersonate-user`, { user_id: userId });
+  }
   /** Persist a new colour-theme slug for the current tenant. The
    *  backend writes `tenants.color_theme` + flushes the APCu row cache
    *  so /auth/me reflects the change immediately. */
@@ -107,6 +117,10 @@ export class Api {
   }
   changePassword(current_password: string, new_password: string): Observable<{ ok: boolean }> {
     return this.http.post<{ ok: boolean }>(`${BASE}/auth/change-password`, { current_password, new_password });
+  }
+  /** For temp-password accounts: caller's JWT is proof of the temp pw. */
+  setInitialPassword(new_password: string): Observable<{ ok: boolean }> {
+    return this.http.post<{ ok: boolean }>(`${BASE}/auth/set-initial-password`, { new_password });
   }
 
   // ── CRM tasks ────────────────────────────────────────────────────
@@ -612,6 +626,83 @@ export class Api {
   listAiModels(): Observable<{ models: AiModel[] }> {
     return this.http.get<{ models: AiModel[] }>(`${BASE}/leadgen/models`);
   }
+
+  // Companies House enrichment pipeline — its own `company_leads` staging area,
+  // isolated from `leads` until promoted. See routes/company_leads.php.
+  chPipeline(source?: string): Observable<{ stages: Record<string, number>; milestones?: ChMilestones; last_run?: ChLastRun | null }> {
+    const q = source ? '?source=' + encodeURIComponent(source) : '';
+    return this.http.get<{ stages: Record<string, number>; milestones?: ChMilestones; last_run?: ChLastRun | null }>(`${BASE}/company-leads/pipeline${q}`);
+  }
+  saveChLastRun(body: { checked: number; enriched: number; found: ChFoundCounts; source?: string }): Observable<{ ok: boolean }> {
+    return this.http.post<{ ok: boolean }>(`${BASE}/company-leads/last-run`, body);
+  }
+  chFetchCompanies(opts: { days?: number; limit?: number; sector?: string; status?: string }): Observable<ChFetchResult> {
+    return this.http.post<ChFetchResult>(`${BASE}/company-leads/fetch`, opts);
+  }
+  /** Push the local pipeline (optionally one source) to a dev/prod target that
+   *  can't run the headless crawlers. Local exports + ships to the target's import. */
+  chPush(opts: { target: 'dev' | 'prod'; source?: string; ids?: number[] }): Observable<{ target: string; pushed: number; result: { inserted: number; skipped: number } }> {
+    return this.http.post<{ target: string; pushed: number; result: { inserted: number; skipped: number } }>(`${BASE}/company-leads/push`, opts);
+  }
+  /** LinkedIn Stage-1 source pull — captures a company list from LinkedIn.
+   *  With a stored li_at cookie it paginates the real faceted search
+   *  (keyword + region via search_url/geo); otherwise falls back to the
+   *  keyless DuckDuckGo index (keyword only). */
+  chFetchLinkedin(opts: { keyword?: string; location?: string; search_url?: string; geo?: string; sizes?: string[]; start_page?: number; pages?: number }): Observable<ChFetchResult & { total: number; to_page: number; next_page: number; done: boolean }> {
+    return this.http.post<ChFetchResult & { total: number; to_page: number; next_page: number; done: boolean }>(`${BASE}/company-leads/fetch-linkedin`, opts);
+  }
+  chEnrichOfficers(limit: number): Observable<ChOfficersResult> {
+    return this.http.post<ChOfficersResult>(`${BASE}/company-leads/officers`, { limit });
+  }
+  chFindProfiles(method: 'api' | 'scrape'): Observable<ChProfilesResult> {
+    return this.http.post<ChProfilesResult>(`${BASE}/company-leads/profiles`, { method });
+  }
+  chFindStaff(method: 'scrape' | 'cookie'): Observable<ChStaffResult> {
+    return this.http.post<ChStaffResult>(`${BASE}/company-leads/staff`, { method });
+  }
+  // Qualify — one bundled enrichment pass per record, cursor-chunked.
+  chQualify(opts: { after_id: number; limit?: number; ids?: number[]; source?: string; google_method?: 'api' | 'scrape'; linkedin_method?: 'scrape' | 'cookie' }): Observable<ChQualifyResult> {
+    return this.http.post<ChQualifyResult>(`${BASE}/company-leads/qualify`, opts);
+  }
+  /** Run ONE enrichment step on a single pipeline record — the isolated
+   *  "get google / get linkedin / …" APIs, reusable from any section. */
+  chEnrichStep(
+    id: number,
+    step: 'officers' | 'google' | 'linkedin' | 'domain' | 'contact',
+    opts: { google_method?: 'api' | 'scrape'; linkedin_method?: 'scrape' | 'cookie' } = {},
+  ): Observable<{ ok: boolean; step: string; found: Record<string, number | string | boolean>;
+                  lead: { id: number; phone: string | null; url: string | null; url_status: string | null; address: string | null; email: string | null } }> {
+    return this.http.post<{ ok: boolean; step: string; found: Record<string, number | string | boolean>;
+                            lead: { id: number; phone: string | null; url: string | null; url_status: string | null; address: string | null; email: string | null } }>(
+      `${BASE}/company-leads/${id}/${step}`, opts);
+  }
+  // Pipeline records (the list on the Companies House page).
+  listCompanyLeads(opts: { stage?: number; q?: string; source?: string } = {}): Observable<{ company_leads: CompanyLead[] }> {
+    const qs = new URLSearchParams();
+    if (opts.stage != null) qs.set('stage', String(opts.stage));
+    if (opts.q) qs.set('q', opts.q);
+    if (opts.source) qs.set('source', opts.source);
+    const s = qs.toString();
+    return this.http.get<{ company_leads: CompanyLead[] }>(`${BASE}/company-leads${s ? '?' + s : ''}`);
+  }
+  getCompanyLead(id: number): Observable<CompanyLeadDetail> {
+    return this.http.get<CompanyLeadDetail>(`${BASE}/company-leads/${id}`);
+  }
+  /** Amalgamated list for the unified Lead Gen landing page — every lead
+   *  across both the company_leads pipeline and the funnel `leads` table. */
+  listAllLeads(q?: string): Observable<{ leads: UnifiedLead[]; sources: UnifiedLeadSource[] }> {
+    const s = q ? '?q=' + encodeURIComponent(q) : '';
+    return this.http.get<{ leads: UnifiedLead[]; sources: UnifiedLeadSource[] }>(`${BASE}/company-leads/all${s}`);
+  }
+  promoteCompanyLead(id: number): Observable<{ ok: boolean; lead_id: number }> {
+    return this.http.post<{ ok: boolean; lead_id: number }>(`${BASE}/company-leads/${id}/promote`, {});
+  }
+  deleteCompanyLead(id: number): Observable<{ ok: boolean; deleted: number }> {
+    return this.http.delete<{ ok: boolean; deleted: number }>(`${BASE}/company-leads/${id}`);
+  }
+  purgeCompanyLeads(): Observable<{ ok: boolean; deleted: number }> {
+    return this.http.delete<{ ok: boolean; deleted: number }>(`${BASE}/company-leads`);
+  }
   listCustomAiModels(): Observable<{ models: CustomAiModel[] }> {
     return this.http.get<{ models: CustomAiModel[] }>(`${BASE}/leadgen/models/custom`);
   }
@@ -693,6 +784,10 @@ export class Api {
   /** Friendly type → stored-lead count, for the Lead Gen sidenav sub-menu. */
   tenderLeadTypeCounts(): Observable<{ types: { type: string; count: number }[] }> {
     return this.http.get<{ types: { type: string; count: number }[] }>(`${BASE}/operations/tender-leads/types`);
+  }
+  /** Delete every stored tender lead for the current tenant. */
+  purgeTenderLeads(): Observable<{ deleted: number }> {
+    return this.http.delete<{ deleted: number }>(`${BASE}/operations/tender-leads`);
   }
   /** Promote a stored lead into a tracked Tender, copying all its info into the
    *  new tender's Info tab as individual entries. Returns the new tender id. */
@@ -927,6 +1022,178 @@ export class Api {
   }
   deleteContractorNote(id: number, nid: number): Observable<{ ok: boolean }> {
     return this.http.delete<{ ok: boolean }>(`${BASE}/contractors/${id}/notes/${nid}`);
+  }
+  enableContractorLogin(id: number, email?: string): Observable<{ ok: boolean; admin_user_id: number; email: string; temp_password: string; onboarding_token: string }> {
+    return this.http.post<{ ok: boolean; admin_user_id: number; email: string; temp_password: string; onboarding_token: string }>(
+      `${BASE}/contractors/${id}/account/enable`,
+      email ? { email } : {},
+    );
+  }
+  disableContractorLogin(id: number): Observable<{ ok: boolean }> {
+    return this.http.post<{ ok: boolean }>(`${BASE}/contractors/${id}/account/disable`, {});
+  }
+  reactivateContractorLogin(id: number): Observable<{ ok: boolean }> {
+    return this.http.post<{ ok: boolean }>(`${BASE}/contractors/${id}/account/reactivate`, {});
+  }
+  resetContractorPassword(id: number): Observable<{ ok: boolean; temp_password: string }> {
+    return this.http.post<{ ok: boolean; temp_password: string }>(`${BASE}/contractors/${id}/account/reset-password`, {});
+  }
+  getContractorSecurity(id: number): Observable<{ permissions: ContractorPermissions }> {
+    return this.http.get<{ permissions: ContractorPermissions }>(`${BASE}/contractors/${id}/security`);
+  }
+  updateContractorSecurity(id: number, permissions: ContractorPermissions): Observable<{ ok: boolean }> {
+    return this.http.put<{ ok: boolean }>(`${BASE}/contractors/${id}/security`, { permissions });
+  }
+  listContractorClients(id: number): Observable<{ clients: Array<{ link_id: number; role: string | null; added_at: string; client_id: number; client_name: string }> }> {
+    return this.http.get<{ clients: Array<{ link_id: number; role: string | null; added_at: string; client_id: number; client_name: string }> }>(`${BASE}/contractors/${id}/clients`);
+  }
+
+  // ── Assignments (shared between client + lead detail) ──────────
+  listAssignees(): Observable<{ assignees: AssigneeOption[] }> {
+    return this.http.get<{ assignees: AssigneeOption[] }>(`${BASE}/assignees`);
+  }
+  listAssignments(entity: 'client' | 'lead', entityId: number): Observable<{ assignments: AssignmentGroup[] }> {
+    return this.http.get<{ assignments: AssignmentGroup[] }>(`${BASE}/${entity}s/${entityId}/assignments`);
+  }
+  createAssignment(entity: 'client' | 'lead', entityId: number, payload: { role: AssignmentRole; assignee_type: AssigneeType; assignee_id: number; notes?: string | null }): Observable<{ id: number }> {
+    return this.http.post<{ id: number }>(`${BASE}/${entity}s/${entityId}/assignments`, payload);
+  }
+  endAssignment(entity: 'client' | 'lead', entityId: number, aid: number): Observable<{ ok: boolean }> {
+    return this.http.delete<{ ok: boolean }>(`${BASE}/${entity}s/${entityId}/assignments/${aid}`);
+  }
+
+  // ── Client -> contractors junction ─────────────────────────────
+  listClientContractors(clientId: number): Observable<{ contractors: ClientContractorLink[] }> {
+    return this.http.get<{ contractors: ClientContractorLink[] }>(`${BASE}/clients/${clientId}/contractors`);
+  }
+  attachClientContractor(clientId: number, contractorId: number, role?: string | null): Observable<{ id: number }> {
+    return this.http.post<{ id: number }>(`${BASE}/clients/${clientId}/contractors`, { contractor_id: contractorId, role });
+  }
+  updateClientContractor(clientId: number, linkId: number, role: string | null): Observable<{ ok: boolean }> {
+    return this.http.put<{ ok: boolean }>(`${BASE}/clients/${clientId}/contractors/${linkId}`, { role });
+  }
+  detachClientContractor(clientId: number, linkId: number): Observable<{ ok: boolean }> {
+    return this.http.delete<{ ok: boolean }>(`${BASE}/clients/${clientId}/contractors/${linkId}`);
+  }
+
+  // ───── Contractor self-service (/api/contractor/me/*) ───────────
+  getContractorMe(): Observable<{ contractor: Contractor; permissions: ContractorPermissions; account: { email: string; display_name: string } }> {
+    return this.http.get<{ contractor: Contractor; permissions: ContractorPermissions; account: { email: string; display_name: string } }>(`${BASE}/contractor/me`);
+  }
+  listContractorMeClients(): Observable<{ clients: any[] }> {
+    return this.http.get<{ clients: any[] }>(`${BASE}/contractor/me/clients`);
+  }
+  listContractorMeTasks(): Observable<{ tasks: import('../shared/user-task-tracker').MyTaskRow[] }> {
+    return this.http.get<{ tasks: import('../shared/user-task-tracker').MyTaskRow[] }>(`${BASE}/contractor/me/tasks`);
+  }
+  patchContractorMeCrmTaskStatus(taskId: number, status: string): Observable<{ ok: boolean }> {
+    return this.http.patch<{ ok: boolean }>(`${BASE}/contractor/me/tasks/crm/${taskId}`, { status });
+  }
+  getContractorMeOverview(): Observable<{ overview: any }> {
+    return this.http.get<{ overview: any }>(`${BASE}/contractor/me/overview`);
+  }
+  getHrMeOverview(): Observable<{ overview: any }> {
+    return this.http.get<{ overview: any }>(`${BASE}/hr/me/overview`);
+  }
+  // ── My accounts & commissions (both portals) ────────────────────
+  getHrMeCommissions(): Observable<any> {
+    return this.http.get<any>(`${BASE}/hr/me/commissions`);
+  }
+  getContractorMeCommissions(): Observable<any> {
+    return this.http.get<any>(`${BASE}/contractor/me/commissions`);
+  }
+  // Admin CRUD on the client detail Commissions tab.
+  listClientCommissions(clientId: number): Observable<{ commissions: any[] }> {
+    return this.http.get<{ commissions: any[] }>(`${BASE}/clients/${clientId}/commissions`);
+  }
+  createClientCommission(clientId: number, payload: any): Observable<{ id: number }> {
+    return this.http.post<{ id: number }>(`${BASE}/clients/${clientId}/commissions`, payload);
+  }
+  updateClientCommission(clientId: number, cid: number, payload: any): Observable<{ ok: boolean }> {
+    return this.http.put<{ ok: boolean }>(`${BASE}/clients/${clientId}/commissions/${cid}`, payload);
+  }
+  deleteClientCommission(clientId: number, cid: number): Observable<{ ok: boolean }> {
+    return this.http.delete<{ ok: boolean }>(`${BASE}/clients/${clientId}/commissions/${cid}`);
+  }
+  listClientCommissionRules(clientId: number): Observable<{ rules: any[] }> {
+    return this.http.get<{ rules: any[] }>(`${BASE}/clients/${clientId}/commission-rules`);
+  }
+  createClientCommissionRule(clientId: number, payload: any): Observable<{ id: number }> {
+    return this.http.post<{ id: number }>(`${BASE}/clients/${clientId}/commission-rules`, payload);
+  }
+  updateClientCommissionRule(clientId: number, rid: number, payload: any): Observable<{ ok: boolean }> {
+    return this.http.put<{ ok: boolean }>(`${BASE}/clients/${clientId}/commission-rules/${rid}`, payload);
+  }
+  deleteClientCommissionRule(clientId: number, rid: number): Observable<{ ok: boolean }> {
+    return this.http.delete<{ ok: boolean }>(`${BASE}/clients/${clientId}/commission-rules/${rid}`);
+  }
+  listHrMeTasks(): Observable<{ tasks: import('../shared/user-task-tracker').MyTaskRow[] }> {
+    return this.http.get<{ tasks: import('../shared/user-task-tracker').MyTaskRow[] }>(`${BASE}/hr/me/tasks`);
+  }
+  patchHrMeCrmTaskStatus(taskId: number, status: string): Observable<{ ok: boolean }> {
+    return this.http.patch<{ ok: boolean }>(`${BASE}/hr/me/tasks/crm/${taskId}`, { status });
+  }
+  updateContractorMe(payload: Partial<Contractor>): Observable<{ ok: boolean }> {
+    return this.http.patch<{ ok: boolean }>(`${BASE}/contractor/me`, payload);
+  }
+  changeContractorMePassword(current: string, next: string): Observable<{ ok: boolean }> {
+    return this.http.post<{ ok: boolean }>(`${BASE}/contractor/me/password`, { current_password: current, new_password: next });
+  }
+  listContractorMeContracts(): Observable<{ contracts: any[] }> {
+    return this.http.get<{ contracts: any[] }>(`${BASE}/contractor/me/contracts`);
+  }
+  listContractorMeDocuments(): Observable<{ documents: any[] }> {
+    return this.http.get<{ documents: any[] }>(`${BASE}/contractor/me/documents`);
+  }
+
+  // ───── Site Previews (marketing site-view.html data) ─────────────
+  listSitePreviews(): Observable<{ site_previews: any[] }> {
+    return this.http.get<{ site_previews: any[] }>(`${BASE}/site-previews`);
+  }
+  getSitePreview(slug: string): Observable<{ site_preview: any }> {
+    return this.http.get<{ site_preview: any }>(`${BASE}/site-previews/${slug}`);
+  }
+  createSitePreview(payload: any): Observable<{ id: number; slug: string }> {
+    return this.http.post<{ id: number; slug: string }>(`${BASE}/site-previews`, payload);
+  }
+  updateSitePreview(slug: string, payload: any): Observable<{ ok: boolean; slug: string }> {
+    return this.http.put<{ ok: boolean; slug: string }>(`${BASE}/site-previews/${slug}`, payload);
+  }
+  deleteSitePreview(slug: string): Observable<{ ok: boolean }> {
+    return this.http.delete<{ ok: boolean }>(`${BASE}/site-previews/${slug}`);
+  }
+
+  // ───── Lead bookings ─────────────────────────────────────────────
+  /** `from`/`to` are YYYY-MM-DD and half-open (from inclusive, to exclusive);
+   *  supplying them scopes the fetch to a date range for the calendar view. */
+  listLeadBookings(params?: { status?: string; lead_id?: number; from?: string; to?: string }): Observable<{ bookings: any[] }> {
+    let hp = new HttpParams();
+    if (params?.status) hp = hp.set('status', params.status);
+    if (params?.lead_id != null) hp = hp.set('lead_id', String(params.lead_id));
+    if (params?.from) hp = hp.set('from', params.from);
+    if (params?.to)   hp = hp.set('to',   params.to);
+    return this.http.get<{ bookings: any[] }>(`${BASE}/lead-bookings`, { params: hp });
+  }
+  getLeadBooking(id: number): Observable<{ booking: any }> {
+    return this.http.get<{ booking: any }>(`${BASE}/lead-bookings/${id}`);
+  }
+  createLeadBooking(payload: any): Observable<{ id: number; lead_id: number }> {
+    return this.http.post<{ id: number; lead_id: number }>(`${BASE}/lead-bookings`, payload);
+  }
+  searchLeadBookingPeople(q: string): Observable<{ people: Array<{ type: 'lead' | 'contact'; id: number; name: string; company: string | null; email: string | null; phone: string | null }> }> {
+    return this.http.get<any>(`${BASE}/lead-bookings/people`, { params: new HttpParams().set('q', q) });
+  }
+  updateLeadBooking(id: number, payload: any): Observable<{ ok: boolean }> {
+    return this.http.put<{ ok: boolean }>(`${BASE}/lead-bookings/${id}`, payload);
+  }
+  deleteLeadBooking(id: number): Observable<{ ok: boolean }> {
+    return this.http.delete<{ ok: boolean }>(`${BASE}/lead-bookings/${id}`);
+  }
+  resendLeadBookingNotifications(id: number): Observable<{ ok: boolean; message: string }> {
+    return this.http.post<{ ok: boolean; message: string }>(`${BASE}/lead-bookings/${id}/resend`, {});
+  }
+  getLeadBookingRecipientOptions(): Observable<{ people: Array<{ email: string; display_name: string }>; defaults: string[] }> {
+    return this.http.get<{ people: Array<{ email: string; display_name: string }>; defaults: string[] }>(`${BASE}/lead-bookings/recipient-options`);
   }
 
   // ───── Operations: Affiliates ────────────────────────────────────
@@ -1979,6 +2246,10 @@ export class Api {
     if (p.description != null) fd.append('description', p.description);
     if (template) fd.append('template', template);
     if (blocksJson !== undefined) fd.append('blocks_json', blocksJson);
+    // Class (audience) + contract type must be sent on edit too, or they'd
+    // silently revert. Always send them (empty contract_type_id = clear).
+    fd.append('audience', p.audience || 'employee');
+    fd.append('contract_type_id', p.contract_type_id != null ? String(p.contract_type_id) : '');
     // Always send group_id (empty = Ungrouped) so the bucket can be cleared.
     fd.append('group_id', p.group_id != null ? String(p.group_id) : '');
     fd.append('add_to_onboarding', p.add_to_onboarding ? '1' : '0');

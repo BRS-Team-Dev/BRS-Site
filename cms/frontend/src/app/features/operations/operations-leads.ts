@@ -50,6 +50,9 @@ const TYPE_OPTIONS: { key: string; label: string }[] = [
       </select>
       <input [(ngModel)]="q" name="q" placeholder="Keyword…" (keyup.enter)="refresh()" [disabled]="loading()" />
       <button class="ghost" (click)="refresh()" [disabled]="loading()">Refresh</button>
+      <button class="ghost purge" (click)="doPurge()" [disabled]="loading() || importing() || purging() || !leads().length" title="Delete all stored leads">
+        {{ purging() ? 'Purging…' : 'Purge' }}
+      </button>
       <select [(ngModel)]="importMode" name="importmode" [disabled]="importing()" title="Import window">
         <option value="since">Since last update</option>
         <option value="30">Last 30 days</option>
@@ -315,6 +318,8 @@ const TYPE_OPTIONS: { key: string; label: string }[] = [
     .toolbar select, .toolbar input { width: auto; min-width: 150px; }
     .meta-strip { display: flex; align-items: center; gap: 14px; padding: 10px 24px 14px; flex-wrap: wrap; }
     .import-msg { color: var(--primary); }
+    .purge { color: var(--danger, #ef4444); }
+    .purge:hover:not(:disabled) { border-color: var(--danger, #ef4444); }
     /* Fixed layout so long titles clip to a single line with an ellipsis
        instead of overflowing into the next column. */
     .leads-table { table-layout: fixed; width: 100%; }
@@ -374,6 +379,7 @@ export class OperationsLeads {
 
   loading = signal(false);
   importing = signal(false);
+  purging = signal(false);
   importMsg = signal<string | null>(null);
   error = signal<string | null>(null);
   feed = signal<TenderLeadFeed | null>(null);
@@ -451,6 +457,26 @@ export class OperationsLeads {
 
   /** Promote a lead to a tracked tender — the backend copies every field into
    *  the tender's Info tab as individual entries. */
+  async doPurge() {
+    if (this.purging() || !this.leads().length) return;
+    const ok = await this.dialog.confirm('Delete ALL stored leads? This removes the whole Lead Gen table and cannot be undone. (Tenders you have already created are not affected.)');
+    if (!ok) return;
+    this.purging.set(true);
+    this.importMsg.set(null);
+    this.api.purgeTenderLeads().subscribe({
+      next: (r) => {
+        this.purging.set(false);
+        this.importMsg.set(`Purged ${r.deleted} leads`);
+        this.added.set(new Set());
+        this.refresh();
+      },
+      error: (e) => {
+        this.purging.set(false);
+        this.dialog.alert(e?.error?.error || 'Could not purge leads.');
+      },
+    });
+  }
+
   addAsTender(l: TenderLead) {
     if (this.added().has(l.id) || this.busy().has(l.id)) return;
     this.busy.update((s) => new Set(s).add(l.id));

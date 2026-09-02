@@ -1,7 +1,8 @@
-import { Component, inject } from '@angular/core';
+import { Component, computed, inject } from '@angular/core';
 import { RouterLink, RouterLinkActive } from '@angular/router';
 import { Auth } from '../core/auth';
 import { SettingsService } from '../core/settings.service';
+import { environment } from '@env/environment';
 
 /**
  * Sidenav for the per-user "My Account" area (`/me/*`).
@@ -18,16 +19,26 @@ import { SettingsService } from '../core/settings.service';
   template: `
     <aside>
       <div class="brand">
-        @if (auth.user(); as u) {
-          <span class="mark">{{ initialsFor(u.display_name || u.email) }}</span>
-          <div class="who">
-            <span class="name">{{ u.display_name || u.email }}</span>
-            @if (u.display_name) { <span class="muted small">{{ u.email }}</span> }
-          </div>
+        @if (logoUrl()) {
+          <img class="logo" [src]="logoUrl()" alt="" (error)="logoFailed = true" [hidden]="logoFailed" />
         }
+        @if (!logoUrl() || logoFailed) {
+          <span class="mark">{{ initials() }}</span>
+        }
+        <span class="name">{{ brandName() }}</span>
       </div>
       <nav>
         <a routerLink="/me" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: true }">
+          <span class="icon">▦</span> Overview
+        </a>
+        <a routerLink="/me/tasks" routerLinkActive="active">
+          <span class="icon">✅</span> Tasks
+        </a>
+        <a routerLink="/me/accounts" routerLinkActive="active">
+          <span class="icon">💰</span> Accounts &amp; commissions
+        </a>
+        <div class="divider"></div>
+        <a routerLink="/me/profile" routerLinkActive="active">
           <span class="icon">👤</span> Profile
         </a>
         <a routerLink="/me/payslips" routerLinkActive="active">
@@ -86,14 +97,14 @@ import { SettingsService } from '../core/settings.service';
     }
     .brand .mark {
       display: inline-flex; align-items: center; justify-content: center;
-      width: 32px; height: 32px;
+      width: 30px; height: 30px;
       background: var(--primary); color: #0a0a0a;
       font-weight: 800; font-size: 12px; letter-spacing: 0.5px;
-      border-radius: 50%;
+      border-radius: var(--radius-sm);
       flex-shrink: 0;
     }
-    .who { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-    .who .name { font-weight: 700; font-size: 13px; color: var(--fg); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .brand .logo { width: 30px; height: 30px; object-fit: contain; border-radius: var(--radius-sm); flex-shrink: 0; }
+    .brand .name { font-weight: 700; font-size: 14px; letter-spacing: 0.4px; color: var(--fg); }
     nav {
       flex: 1;
       padding: 12px 10px;
@@ -117,12 +128,9 @@ export class MeSideNav {
   auth = inject(Auth);
   private svc = inject(SettingsService);
   brandName = this.svc.brandName;
+  initials = this.svc.brandInitials;
+  logoUrl = computed(() => this.svc.brandLogoUrl() || `${environment.basePath}/icon.png`);
+  logoFailed = false;
 
   constructor() { this.svc.ensureLoaded(); }
-
-  initialsFor(s: string | null | undefined): string {
-    if (!s) return '?';
-    const parts = s.includes('@') ? [s.split('@')[0]] : s.trim().split(/\s+/);
-    return parts.map(p => p.charAt(0).toUpperCase()).slice(0, 2).join('') || '?';
-  }
 }

@@ -2,7 +2,7 @@ import { Injectable, computed, inject, signal } from '@angular/core';
 import { NavigationEnd, Router } from '@angular/router';
 import { filter } from 'rxjs';
 
-export type SystemKey = 'cms' | 'hr' | 'management' | 'operations' | 'recruitment' | 'tasks' | 'accounting' | 'crm' | 'me' | 'support';
+export type SystemKey = 'cms' | 'hr' | 'management' | 'operations' | 'recruitment' | 'tasks' | 'accounting' | 'crm' | 'me' | 'contractor-me' | 'support';
 
 export interface SystemDef {
   key: SystemKey;
@@ -29,6 +29,8 @@ const SYSTEMS: SystemDef[] = [
   // Per-user area, reached from the user dropdown in the top nav. Hidden from
   // the system switcher so it doesn't sit alongside the functional systems.
   { key: 'me',         label: 'My Account', home: '/me',      hidden: true },
+  // Contractor self-service — only reachable when logged in with role='contractor'.
+  { key: 'contractor-me', label: 'My Account', home: '/contractor/me', hidden: true },
 ];
 
 @Injectable({ providedIn: 'root' })
@@ -45,6 +47,7 @@ export class SystemService {
     if (u.startsWith('/operations'))  return 'operations';
     if (u.startsWith('/recruitment')) return 'recruitment';
     if (u.startsWith('/hr'))         return 'hr';
+    if (u.startsWith('/contractor/me')) return 'contractor-me';
     if (u.startsWith('/me'))         return 'me';
     if (u.startsWith('/tasks'))      return 'tasks';
     if (u.startsWith('/accounting')) return 'accounting';

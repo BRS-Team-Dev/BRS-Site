@@ -28,7 +28,7 @@ export interface JwtClaims {
   super?: boolean;
   iat: number;
   exp: number;
-  impersonating?: { from: number };
+  impersonating?: { from?: number; from_user?: number };
 }
 
 @Injectable({ providedIn: 'root' })
@@ -58,6 +58,9 @@ export class Auth {
   readonly isImpersonating = computed(() => !!this.claims()?.impersonating);
   /** Tenant id the super-admin was operating in BEFORE impersonating. */
   readonly originalTenantId = computed(() => this.claims()?.impersonating?.from ?? null);
+  /** True when the current session was reached via admin -> user
+   *  impersonation (not tenant-level). */
+  readonly isImpersonatingUser = computed(() => !!this.claims()?.impersonating?.from_user);
 
   login(email: string, password: string) {
     return this.api.login(email, password).pipe(tap(res => {
@@ -92,6 +95,27 @@ export class Auth {
       this._tenant.set(res.tenant);
       // user record stays as the super-admin's own — they're still
       // *who they are*, just operating in someone else's tenant.
+    }));
+  }
+
+  /** Admin: sign in as a specific admin_user in the same tenant (typically
+   *  a contractor). Stashes the ORIGINAL token so switchBack() works. */
+  impersonateUser(targetUserId: number) {
+    return this.api.impersonateUser(targetUserId).pipe(tap(res => {
+      if (!localStorage.getItem(ORIGINAL_TOKEN_KEY) && !this.isImpersonating()) {
+        const curToken  = this._token();
+        const curUser   = localStorage.getItem(USER_KEY);
+        const curTenant = localStorage.getItem(TENANT_KEY);
+        if (curToken)  localStorage.setItem(ORIGINAL_TOKEN_KEY,  curToken);
+        if (curUser)   localStorage.setItem(ORIGINAL_USER_KEY,   curUser);
+        if (curTenant) localStorage.setItem(ORIGINAL_TENANT_KEY, curTenant);
+      }
+      localStorage.setItem(STORAGE_KEY, res.token);
+      localStorage.setItem(USER_KEY, JSON.stringify(res.user));
+      localStorage.setItem(TENANT_KEY, JSON.stringify(res.tenant));
+      this._token.set(res.token);
+      this._user.set(res.user);
+      this._tenant.set(res.tenant);
     }));
   }
 

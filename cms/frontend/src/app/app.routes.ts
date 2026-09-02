@@ -67,6 +67,11 @@ export const routes: Routes = [
       { path: 'admin/submissions/:id',           loadComponent: () => import('./features/submissions/submissions-list').then(m => m.SubmissionsList) },
       { path: 'admin/settings',                  loadComponent: () => import('./features/settings/settings').then(m => m.Settings) },
 
+      // Site previews — data behind /main-website/site-view.html
+      { path: 'admin/site-previews',             loadComponent: () => import('./features/site-previews/site-previews-admin').then(m => m.SitePreviewsAdmin) },
+      { path: 'admin/site-previews/new',         loadComponent: () => import('./features/site-previews/site-previews-admin').then(m => m.SitePreviewsAdmin) },
+      { path: 'admin/site-previews/:slug/edit',  loadComponent: () => import('./features/site-previews/site-previews-admin').then(m => m.SitePreviewsAdmin) },
+
       // Onboarding parent = hub (both surfaces). Multipart list moved
       // to /admin/onboarding/multipart so the parent link has its own
       // identity separate from the multipart child link.
@@ -92,6 +97,14 @@ export const routes: Routes = [
       // Static path MUST come before the :id parametrised route so the
       // router doesn't grab "import" as a lead id and render the list
       // page. Shares the LeadgenAdmin component in 'import' mode.
+      // Bookings — top-level CRM section (formerly under /admin/leads/bookings).
+      // Bookings open in an overlay from the list + calendar; there are no
+      // per-booking or "/new" routes any more.
+      { path: 'admin/bookings',                 loadComponent: () => import('./features/lead-bookings/lead-bookings-admin').then(m => m.LeadBookingsAdmin) },
+      { path: 'admin/bookings/calendar',        loadComponent: () => import('./features/lead-bookings/lead-bookings-calendar').then(m => m.LeadBookingsCalendar) },
+      // Legacy URL support for anyone with an old bookmark.
+      { path: 'admin/leads/bookings',           redirectTo: 'admin/bookings', pathMatch: 'full' },
+
       { path: 'admin/leads/import',    loadComponent: () => import('./features/leadgen/leadgen-admin').then(m => m.LeadgenAdmin),
         data: { mode: 'import' } },
       { path: 'admin/leads/:id',       loadComponent: () => import('./features/leads/leads-admin').then(m => m.LeadsAdmin) },
@@ -99,7 +112,15 @@ export const routes: Routes = [
 
       // Lazy-loaded so the SheetJS xlsx parser ships in its own chunk
       // rather than the initial bundle.
-      { path: 'admin/leadgen',           loadComponent: () => import('./features/leadgen/leadgen-admin').then(m => m.LeadgenAdmin) },
+      // Unified Lead Gen landing page — amalgamates every lead across both the
+      // company_leads pipeline and the funnel `leads` table, with a Source
+      // column. The AI-prompt generator moved to /admin/leadgen/ai.
+      { path: 'admin/leadgen',           loadComponent: () => import('./features/leadgen/leadgen-all').then(m => m.LeadgenAll) },
+      { path: 'admin/leadgen/ai',        loadComponent: () => import('./features/leadgen/leadgen-admin').then(m => m.LeadgenAdmin) },
+      { path: 'admin/leadgen/companies-house', loadComponent: () => import('./features/leadgen/leadgen-admin').then(m => m.LeadgenAdmin),
+        data: { mode: 'ch' } },
+      { path: 'admin/leadgen/linkedin', loadComponent: () => import('./features/leadgen/leadgen-admin').then(m => m.LeadgenAdmin),
+        data: { mode: 'linkedin' } },
       { path: 'admin/leadgen/settings',  loadComponent: () => import('./features/leadgen/leadgen-settings').then(m => m.LeadgenSettings) },
 
       { path: 'admin/feedback',          loadComponent: () => import('./features/feedback/feedback-admin').then(m => m.FeedbackAdmin) },
@@ -140,6 +161,9 @@ export const routes: Routes = [
       // Shell). All section URLs drive HrMe's active tab via path matching;
       // /me/account is the only non-tab page (password / appearance settings).
       { path: 'me',             loadComponent: () => import('./features/hr/hr-me').then(m => m.HrMe) },
+      { path: 'me/profile',     loadComponent: () => import('./features/hr/hr-me').then(m => m.HrMe) },
+      { path: 'me/tasks',       loadComponent: () => import('./features/hr/hr-me').then(m => m.HrMe) },
+      { path: 'me/accounts',    loadComponent: () => import('./features/hr/hr-me').then(m => m.HrMe) },
       { path: 'me/payslips',    loadComponent: () => import('./features/hr/hr-me').then(m => m.HrMe) },
       { path: 'me/time-off',    loadComponent: () => import('./features/hr/hr-me').then(m => m.HrMe) },
       { path: 'me/shifts',      loadComponent: () => import('./features/hr/hr-me').then(m => m.HrMe) },
@@ -151,6 +175,20 @@ export const routes: Routes = [
       { path: 'me/feedback',    loadComponent: () => import('./features/hr/hr-me').then(m => m.HrMe) },
       { path: 'me/engagement',  loadComponent: () => import('./features/hr/hr-me').then(m => m.HrMe) },
       { path: 'me/account',     loadComponent: () => import('./features/ess/my-account').then(m => m.MyAccount) },
+
+      // ────────── Contractor self-service ──────────
+      // Only reachable when logged in with role='contractor'. Backend
+      // 403s every non-/contractor/* route for this role, so an attempt
+      // to visit /admin/* bounces at the API. Login redirect (features/auth/login.ts)
+      // sends contractors here on sign-in.
+      { path: 'contractor/me',           loadComponent: () => import('./features/contractor-me/contractor-me').then(m => m.ContractorMe) },
+      { path: 'contractor/me/profile',   loadComponent: () => import('./features/contractor-me/contractor-me').then(m => m.ContractorMe) },
+      { path: 'contractor/me/contracts', loadComponent: () => import('./features/contractor-me/contractor-me').then(m => m.ContractorMe) },
+      { path: 'contractor/me/documents', loadComponent: () => import('./features/contractor-me/contractor-me').then(m => m.ContractorMe) },
+      { path: 'contractor/me/clients',   loadComponent: () => import('./features/contractor-me/contractor-me').then(m => m.ContractorMe) },
+      { path: 'contractor/me/tasks',     loadComponent: () => import('./features/contractor-me/contractor-me').then(m => m.ContractorMe) },
+      { path: 'contractor/me/accounts',  loadComponent: () => import('./features/contractor-me/contractor-me').then(m => m.ContractorMe) },
+      { path: 'contractor/me/account',   loadComponent: () => import('./features/contractor-me/contractor-me').then(m => m.ContractorMe) },
 
       // ────────── HR ──────────
       { path: 'hr', redirectTo: 'hr/dashboard', pathMatch: 'full' },

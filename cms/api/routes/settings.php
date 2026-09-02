@@ -122,7 +122,8 @@ return function (string $method, array $segs): void {
     // Settings keys treated as secrets — masked on read, ignored on write
     // when the caller sends back the masked placeholder unchanged.
     $isSecret = static fn(string $k): bool =>
-        $k === 'smtp_pass' || str_ends_with($k, '_api_key') || str_ends_with($k, '_secret');
+        $k === 'smtp_pass' || $k === 'linkedin_li_at' || $k === 'linkedin_csrf'
+        || str_ends_with($k, '_api_key') || str_ends_with($k, '_secret');
     $maskedPlaceholder = '••••••••';
 
     if (!isset($segs[1])) {

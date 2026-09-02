@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Built Right showcase — real screens from real CRM and CMS platforms we've built across industries.">
+  <link rel="icon" type="image/png" sizes="32x32" href="assets/images/favicon32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="assets/images/favicon16.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Poppins:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/platform.css">
+  <title>Showcase | Built Right</title>
+</head>
+<body>
+
+  <nav class="nav" id="nav">
+    <div class="container nav-inner">
+      <a href="index.html" class="brand" aria-label="Built Right home"><img src="assets/images/logo.png" alt="Built Right"><span class="brand-word"><b>Built Right</b><span>Studio</span></span></a>
+      <input type="checkbox" id="navCheck" class="nav-check" aria-label="Open menu">
+      <div class="nav-links" id="navLinks">
+        <a href="about.html">About</a>
+
+        <a href="solutions.html">Solutions</a>
+        <a href="pricing.html">Pricing</a>
+        <a href="showcase.html" class="active">Showcase</a>
+      </div>
+      <a href="contact.html" class="btn btn-primary nav-cta">Book a Demo</a>
+      <label class="nav-toggle" for="navCheck" aria-label="Open menu"><span></span><span></span><span></span></label>
+    </div>
+  </nav>
+
+  <header class="video-hero short" id="home">
+    <video class="vh-video" autoplay muted loop playsinline preload="auto">
+      <source src="assets/video/hero.mp4" type="video/mp4">
+    </video>
+    <div class="vh-overlay"></div>
+    <div class="vh-content">
+      <span class="eyebrow">Showcase</span>
+      <h1>The work, <span class="hl">in pictures</span></h1>
+      <p>Real screens from real platforms we've built. Filter by module or industry, click any shot to view it full-size.</p>
+    </div>
+  </header>
+
+  <!-- ============================ CASE STUDIES (by industry client) ============================ -->
+  <section>
+    <div class="container">
+      <div class="section-head reveal">
+        <span class="eyebrow">Case Studies</span>
+        <h2 class="section-title">Real clients, real <span class="hl">outcomes</span></h2>
+        <p class="lead">Platforms we've built across sectors. Filter by industry.</p>
+      </div>
+      <div class="filter-bar reveal">
+        <button class="filter-chip active" data-filter="all">All</button>
+        <button class="filter-chip" data-filter="healthcare">Healthcare</button>
+        <button class="filter-chip" data-filter="recruitment">Recruitment</button>
+        <button class="filter-chip" data-filter="education">Education</button>
+      </div>
+
+      <div class="gallery cases reveal">
+        <article class="shot" data-tags="healthcare" data-cap="All clients in one system — care provider CRM">
+          <img class="screen" src="assets/screens/clients.jpg" alt="Client management dashboard" loading="lazy">
+          <div class="case-body">
+            <h3>All clients in one system</h3>
+            <p>A care provider retired five spreadsheets for a single CRM — contracts, status and live pipeline value in one view.</p>
+            <div class="case-tags"><span>Healthcare</span><span>CRM</span><span>Bespoke</span></div>
+          </div>
+        </article>
+        <article class="shot" data-tags="healthcare" data-cap="Real-time business insights dashboard">
+          <img class="screen" src="assets/screens/dashboard.jpg" alt="Analytics dashboard" loading="lazy">
+          <div class="case-body">
+            <h3>Real-time business insights</h3>
+            <p>Live assignment and client analytics gave leadership numbers they could act on the same day, not next month.</p>
+            <div class="case-tags"><span>Healthcare</span><span>Dashboards</span><span>Bespoke</span></div>
+          </div>
+        </article>
+        <article class="shot" data-tags="healthcare" data-cap="Structured onboarding flow">
+          <img class="screen" src="assets/screens/onboarding.jpg" alt="Onboarding flow" loading="lazy">
+          <div class="case-body">
+            <h3>Structured, compliant onboarding</h3>
+            <p>A five-step, fully digital onboarding flow got new starters compliant and productive in days, not weeks.</p>
+            <div class="case-tags"><span>Healthcare</span><span>Onboarding</span><span>Bespoke</span></div>
+          </div>
+        </article>
+        <article class="shot" data-tags="recruitment" data-cap="Candidate journey pipeline">
+          <img class="screen" src="assets/screens/candidates.jpg" alt="Candidate pipeline" loading="lazy">
+          <div class="case-body">
+            <h3>Every candidate journey, tracked</h3>
+            <p>From new lead to placement — one structured pipeline showing availability, skills and compliance at a glance.</p>
+            <div class="case-tags"><span>Recruitment</span><span>Candidates</span><span>Tailored</span></div>
+          </div>
+        </article>
+        <article class="shot" data-tags="recruitment" data-cap="Placement tracking">
+          <img class="screen" src="assets/screens/placements.jpg" alt="Placement tracking" loading="lazy">
+          <div class="case-body">
+            <h3>Placements managed with precision</h3>
+            <p>Roles, locations and fulfilment tracked in real time, with headcount fill visible at a glance.</p>
+            <div class="case-tags"><span>Recruitment</span><span>Placements</span><span>Tailored</span></div>
+          </div>
+        </article>
+        <article class="shot" data-tags="recruitment" data-cap="Integrated job board">
+          <img class="screen" src="assets/screens/jobs.jpg" alt="Job board" loading="lazy">
+          <div class="case-body">
+            <h3>An integrated job board</h3>
+            <p>Roles went from draft to live application in one flow — 59 applicants across 4 live listings.</p>
+            <div class="case-tags"><span>Recruitment</span><span>Job Board</span><span>Subscription</span></div>
+          </div>
+        </article>
+        <article class="shot" data-tags="education" data-cap="Role-based access">
+          <img class="screen" src="assets/screens/roles.jpg" alt="Roles and permissions" loading="lazy">
+          <div class="case-body">
+            <h3>Role-based access for staff &amp; students</h3>
+            <p>Granular, audit-ready permissions gave every user exactly the view they need — and nothing they don't.</p>
+            <div class="case-tags"><span>Education</span><span>Access</span><span>Subscription</span></div>
+          </div>
+        </article>
+        <article class="shot" data-tags="education" data-cap="Programme task board">
+          <img class="screen" src="assets/screens/tasks.jpg" alt="Task board" loading="lazy">
+          <div class="case-body">
+            <h3>Programmes &amp; tasks, fully tracked</h3>
+            <p>Every task and stage visible across the institution — nothing slips between teams.</p>
+            <div class="case-tags"><span>Education</span><span>Workflow</span><span>Tailored</span></div>
+          </div>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================ BROWSE BY FEATURE (modules) ============================ -->
+  <section style="background:var(--ink-950)">
+    <div class="container">
+      <div class="section-head reveal">
+        <span class="eyebrow" style="color:var(--gold-light)">The Platform In Pictures</span>
+        <h2 class="section-title" style="color:#fff">Explore by <span class="hl" style="color:var(--gold-light)">feature</span></h2>
+        <p class="lead" style="color:var(--on-dark-mut)">Every module, captured. Filter by area, click any screen to enlarge.</p>
+      </div>
+      <div class="filter-bar reveal">
+        <button class="filter-chip active" data-filter="all">All</button>
+        <button class="filter-chip" data-filter="crm">CRM</button>
+        <button class="filter-chip" data-filter="cms">CMS</button>
+        <button class="filter-chip" data-filter="hr">HR</button>
+        <button class="filter-chip" data-filter="recruitment">Recruitment</button>
+        <button class="filter-chip" data-filter="dashboards">Dashboards</button>
+        <button class="filter-chip" data-filter="tasks">Tasks</button>
+        <button class="filter-chip" data-filter="support">Support</button>
+      </div>
+      <div class="gallery grid reveal">
+        <div class="shot" data-tags="crm" data-cap="CRM — clients, contracts &amp; value"><img class="screen" src="assets/screens/clients.jpg" alt="CRM clients" loading="lazy"></div>
+        <div class="shot" data-tags="crm" data-cap="CRM — roles &amp; permissions"><img class="screen" src="assets/screens/roles.jpg" alt="Roles and permissions" loading="lazy"></div>
+        <div class="shot" data-tags="cms" data-cap="CMS — job board &amp; listings"><img class="screen" src="assets/screens/jobs.jpg" alt="Job board" loading="lazy"></div>
+        <div class="shot" data-tags="hr" data-cap="HR — candidate onboarding"><img class="screen" src="assets/screens/onboarding.jpg" alt="Onboarding" loading="lazy"></div>
+        <div class="shot" data-tags="recruitment" data-cap="Recruitment — candidate pipeline"><img class="screen" src="assets/screens/candidates.jpg" alt="Candidate pipeline" loading="lazy"></div>
+        <div class="shot" data-tags="recruitment" data-cap="Recruitment — placements"><img class="screen" src="assets/screens/placements.jpg" alt="Placements" loading="lazy"></div>
+        <div class="shot" data-tags="dashboards" data-cap="Dashboards — real-time insights"><img class="screen" src="assets/screens/dashboard.jpg" alt="Dashboard" loading="lazy"></div>
+        <div class="shot" data-tags="tasks" data-cap="Tasks — workflow board"><img class="screen" src="assets/screens/tasks.jpg" alt="Task board" loading="lazy"></div>
+        <div class="shot" data-tags="support" data-cap="Support — ticket system"><img class="screen" src="assets/screens/support.jpg" alt="Support tickets" loading="lazy"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================ GUIDED-TOUR SLIDESHOW ============================ -->
+  <section class="car-light">
+    <div class="container">
+      <div class="section-head reveal">
+        <span class="eyebrow">A Guided Tour</span>
+        <h2 class="section-title">From lead to <span class="hl">delivery</span>, one platform</h2>
+      </div>
+      <div class="carousel reveal" data-carousel>
+        <button class="carousel-btn prev" aria-label="Previous"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m15 18-6-6 6-6"/></svg></button>
+        <button class="carousel-btn next" aria-label="Next"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m9 18 6-6-6-6"/></svg></button>
+        <div class="carousel-track">
+          <div class="carousel-slide"><div class="device"><div class="bar"><i></i><i></i><i></i><span class="url"></span></div><img class="screen" src="assets/screens/candidates.jpg" alt="1 · Capture" loading="lazy"></div><p class="carousel-cap">Leads land from forms, imports and AI lead-gen</p></div>
+          <div class="carousel-slide"><div class="device"><div class="bar"><i></i><i></i><i></i><span class="url"></span></div><img class="screen" src="assets/screens/onboarding.jpg" alt="2 · Qualify" loading="lazy"></div><p class="carousel-cap">Onboarding forms scope and price the work</p></div>
+          <div class="carousel-slide"><div class="device"><div class="bar"><i></i><i></i><i></i><span class="url"></span></div><img class="screen" src="assets/screens/tasks.jpg" alt="3 · Deliver" loading="lazy"></div><p class="carousel-cap">Qualified work flows into delivery automatically</p></div>
+          <div class="carousel-slide"><div class="device"><div class="bar"><i></i><i></i><i></i><span class="url"></span></div><img class="screen" src="assets/screens/dashboard.jpg" alt="4 · Account" loading="lazy"></div><p class="carousel-cap">Contract value and reporting stay in sync</p></div>
+        </div>
+        <div class="carousel-dots"></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="final-cta">
+    <div class="container reveal">
+      <span class="eyebrow" style="color:var(--gold-light)">Built Right Studio</span>
+      <h2>Like what you <span class="hl">see?</span></h2>
+      <p>Book a demo and we'll walk you through these screens on your own data.</p>
+      <div class="btn-group"><a href="contact.html" class="btn btn-primary btn-lg">Book a Demo</a><a href="solutions.html" class="btn btn-outline-light btn-lg">See the Platform</a></div>
+    </div>
+  </section>
+
+  <footer class="footer">
+    <div class="container">
+      <div class="footer-top">
+        <div><a href="index.html" class="brand"><img src="assets/images/logo.png" alt="Built Right" style="height:36px;filter:brightness(0) invert(1)"><span class="brand-word"><b>Built Right</b><span>Studio</span></span></a><p class="blurb">Bespoke CRM &amp; CMS platforms — built custom, subscription-ready, or tailored to you. For any industry.</p></div>
+        <div class="footer-col"><h5>Platform</h5><a href="solutions.html">Modules</a><a href="solutions.html">Features</a><a href="showcase.html">Showcase</a><a href="pricing.html">Pricing</a></div>
+        <div class="footer-col"><h5>Solutions</h5><a href="solutions.html#healthcare">Healthcare</a><a href="solutions.html#recruitment">Recruitment</a><a href="solutions.html#education">Education</a><a href="contact.html">Your industry</a></div>
+        <div class="footer-col"><h5>Company</h5><a href="about.html">About</a><a href="contact.html">Book a Demo</a><a href="contact.html">Contact</a></div>
+      </div>
+      <div class="footer-bottom"><span>© <span id="year"></span> Built Right Studio. Business platforms, built right.</span><span>Bespoke · Subscription · Tailored</span></div>
+    </div>
+  </footer>
+
+  <!-- Lightbox -->
+  <div class="lightbox" id="lightbox">
+    <button class="lb-close" aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+    <button class="lb-nav prev" aria-label="Previous"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m15 18-6-6 6-6"/></svg></button>
+    <img src="" alt="">
+    <button class="lb-nav next" aria-label="Next"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m9 18 6-6-6-6"/></svg></button>
+    <div class="lb-cap"></div>
+  </div>
+
+  <script src="js/platform.js"></script>
+</body>
+</html>

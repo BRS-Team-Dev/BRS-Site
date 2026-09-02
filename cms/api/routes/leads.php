@@ -237,6 +237,7 @@ return function (string $method, array $segs): void {
         Json::send(['inserted' => $inserted, 'errors' => $errors], 201);
     }
 
+
     $id = (int)$segs[1];
     if ($id <= 0) Json::fail('Invalid id', 400);
 
@@ -253,6 +254,11 @@ return function (string $method, array $segs): void {
     // already track multiple people pre-promotion. Same shape: list +
     // POST on the collection; PUT/DELETE on items; POST /primary to flip
     // which contact carries is_primary=1.
+    // ── /api/leads/:id/assignments[/:aid] ──────────────────────────
+    if (($segs[2] ?? '') === 'assignments') {
+        \BRS\Assignments::handle('lead', $id, $method, $segs);
+    }
+
     if (($segs[2] ?? '') === 'contacts') {
         $cid = isset($segs[3]) ? (int)$segs[3] : null;
 
@@ -313,15 +319,24 @@ return function (string $method, array $segs): void {
 
                 $wantPrimary = !empty($body['is_primary']) || !$hasPrimary($id);
 
+                // linkedin_url is optional (migration 150). Blank = "no
+                // profile"; non-blank must at least parse as a URL so
+                // the frontend can render it safely as an <a>.
+                $linkedin = trim((string)($body['linkedin_url'] ?? ''));
+                if ($linkedin !== '' && !filter_var($linkedin, FILTER_VALIDATE_URL)) {
+                    Json::fail('Invalid LinkedIn URL', 400);
+                }
+
                 $ins = $pdo->prepare('INSERT INTO lead_contacts
-                    (lead_id, first_name, last_name, position, email, verified, is_primary, sort_order)
-                    VALUES (?,?,?,?,?,?,?,?)');
+                    (lead_id, first_name, last_name, position, email, linkedin_url, verified, is_primary, sort_order)
+                    VALUES (?,?,?,?,?,?,?,?,?)');
                 $ins->execute([
                     $id,
                     $first,
                     trim((string)($body['last_name'] ?? '')) ?: null,
                     trim((string)($body['position']  ?? '')) ?: null,
                     $email !== '' ? $email : null,
+                    $linkedin !== '' ? $linkedin : null,
                     !empty($body['verified']) ? 1 : 0,
                     $wantPrimary ? 1 : 0,
                     (int)($body['sort_order'] ?? 0),
@@ -351,14 +366,24 @@ return function (string $method, array $segs): void {
             $email = trim((string)($body['email'] ?? $contact['email'] ?? ''));
             if ($email !== '' && !filter_var($email, FILTER_VALIDATE_EMAIL)) Json::fail('Invalid email', 400);
 
+            // Only validate linkedin_url when the caller sends it; a
+            // PUT that omits the key preserves the stored value.
+            $linkedin = array_key_exists('linkedin_url', $body)
+                ? trim((string)$body['linkedin_url'])
+                : trim((string)($contact['linkedin_url'] ?? ''));
+            if ($linkedin !== '' && !filter_var($linkedin, FILTER_VALIDATE_URL)) {
+                Json::fail('Invalid LinkedIn URL', 400);
+            }
+
             $upd = $pdo->prepare('UPDATE lead_contacts
-                SET first_name=?, last_name=?, position=?, email=?, verified=?, sort_order=?
+                SET first_name=?, last_name=?, position=?, email=?, linkedin_url=?, verified=?, sort_order=?
                 WHERE id = ?');
             $upd->execute([
                 $first,
                 trim((string)($body['last_name'] ?? $contact['last_name'] ?? '')) ?: null,
                 trim((string)($body['position']  ?? $contact['position']  ?? '')) ?: null,
                 $email !== '' ? $email : null,
+                $linkedin !== '' ? $linkedin : null,
                 !empty($body['verified']) ? 1 : 0,
                 (int)($body['sort_order'] ?? $contact['sort_order']),
                 $cid,

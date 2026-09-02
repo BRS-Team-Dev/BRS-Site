@@ -35,21 +35,27 @@ final class Auth
      *  is false. Existing tokens issued before this rollout are still
      *  accepted by verifyToken() but will not carry tenant_id; the
      *  middleware in {@see self::require()} falls back to 1 for those. */
-    public static function issueToken(int $userId, string $email, int $tenantId = 1, bool $super = false): string
+    public static function issueToken(int $userId, string $email, int $tenantId = 1, bool $super = false, ?array $impersonating = null): string
     {
         $cfg     = $GLOBALS['BRS_CONFIG'];
         $secret  = $cfg['jwt_secret'];
         $now     = time();
 
-        $header  = self::b64url(json_encode(['alg' => 'HS256', 'typ' => 'JWT']));
-        $payload = self::b64url(json_encode([
+        $claims = [
             'sub'       => $userId,
             'email'     => $email,
             'tenant_id' => $tenantId,
             'super'     => $super,
             'iat'       => $now,
             'exp'       => $now + (int)$cfg['jwt_ttl'],
-        ]));
+        ];
+        // Impersonation metadata baked into the JWT so the frontend can
+        // detect it from the decoded claims — response body alone isn't
+        // enough because a page refresh only has the stored token.
+        if ($impersonating) $claims['impersonating'] = $impersonating;
+
+        $header  = self::b64url(json_encode(['alg' => 'HS256', 'typ' => 'JWT']));
+        $payload = self::b64url(json_encode($claims));
         $sig     = self::b64url(hash_hmac('sha256', "$header.$payload", $secret, true));
         return "$header.$payload.$sig";
     }
@@ -82,6 +88,29 @@ final class Auth
      *      instantly because the kill-set has no TTL, only explicit
      *      invalidation by the super-admin actions in {@see Tenants}.
      */
+    /** Refuse the request if the caller is a contractor. Called from every
+     *  admin/HR/CRM route — contractors only have access to /api/contractor/*
+     *  and /api/auth/*. Cheap DB round-trip; APCu-cached below.
+     */
+    public static function requireNonContractor(array $claims): void
+    {
+        $uid = (int)($claims['sub'] ?? 0);
+        if ($uid <= 0) return;
+        $key = 'brs.role.' . $uid;
+        if (function_exists('apcu_fetch')) {
+            $hit = apcu_fetch($key, $ok);
+            if ($ok) {
+                if ($hit === 'contractor') Json::fail('Forbidden', 403);
+                return;
+            }
+        }
+        $q = Db::pdo()->prepare('SELECT role FROM admin_users WHERE id = ? LIMIT 1');
+        $q->execute([$uid]);
+        $role = (string)$q->fetchColumn();
+        if (function_exists('apcu_store')) apcu_store($key, $role, 60);
+        if ($role === 'contractor') Json::fail('Forbidden', 403);
+    }
+
     public static function require(): array
     {
         $hdr = $_SERVER['HTTP_AUTHORIZATION'] ?? '';
@@ -139,14 +168,28 @@ final class Auth
         $email = strtolower(trim($email));
         if ($email === '' || $password === '') return null;
 
-        // Step 1-3: resolve email domain → tenant
+        // Step 1-3: resolve email domain → tenant.
+        // Contractors and other externally-invited users won't have an
+        // email whose domain matches any tenant_email_domains row. In
+        // that case fall back to a direct admin_users lookup: if the
+        // email exists in exactly one tenant, use that tenant. Same
+        // email registered against two tenants stays ambiguous and we
+        // refuse rather than pick one.
         $tenantId = Tenants::resolveByEmail($email);
+        if ($tenantId === null) {
+            $probe = Db::pdo()->prepare(
+                'SELECT tenant_id FROM admin_users WHERE email = ? AND is_active = 1 LIMIT 2'
+            );
+            $probe->execute([$email]);
+            $matches = $probe->fetchAll(\PDO::FETCH_COLUMN, 0);
+            if (count($matches) === 1) $tenantId = (int)$matches[0];
+        }
         if ($tenantId === null) return null;
         if (Tenants::isKilled($tenantId)) return null;
 
         // Step 4-5: authenticate against admin_users for that tenant
         $u = Db::pdo()->prepare(
-            'SELECT id, email, password_hash, display_name, role, color_theme
+            'SELECT id, email, password_hash, display_name, role, color_theme, must_change_password
                FROM admin_users
               WHERE email = ? AND tenant_id = ?
               LIMIT 1'
@@ -156,13 +199,14 @@ final class Auth
         if (!$row || !password_verify($password, $row['password_hash'])) return null;
 
         return [
-            'id'           => (int)$row['id'],
-            'email'        => $row['email'],
-            'display_name' => $row['display_name'],
-            'role'         => $row['role'],
-            'color_theme'  => $row['color_theme'],   // per-user override or NULL → tenant default
-            'tenant_id'    => $tenantId,
-            'super'        => Tenants::isSuperAdmin($email),
+            'id'                    => (int)$row['id'],
+            'email'                 => $row['email'],
+            'display_name'          => $row['display_name'],
+            'role'                  => $row['role'],
+            'color_theme'           => $row['color_theme'],   // per-user override or NULL → tenant default
+            'tenant_id'             => $tenantId,
+            'super'                 => Tenants::isSuperAdmin($email),
+            'must_change_password'  => (bool)$row['must_change_password'],
         ];
     }
 }

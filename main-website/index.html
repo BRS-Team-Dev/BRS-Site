@@ -1,0 +1,1841 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Built Right Studio is a UK team building modern websites in 24 to 72 hours, plus software, IT support, branding and social media for small businesses. Fast, affordable, no agency wait.">
+  <meta name="keywords" content="Built Right Studio, web design UK, fast websites, small business websites, affordable web design, custom software, CRM, IT support, branding, social media marketing">
+  <meta name="author" content="Built Right Studio">
+  
+  <!-- Open Graph / Social Media -->
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://builtrightstudio.com/">
+  <meta property="og:title" content="Built Right Studio | Modern Websites in 24-72 Hours">
+  <meta property="og:description" content="Fast, affordable, premium web design for small businesses and startups. UK based team delivering quality websites quickly.">
+  <meta property="og:image" content="assets/images/og-image.jpg">
+  
+  <!-- Twitter -->
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Built Right Studio | Modern Websites in 24-72 Hours">
+  <meta name="twitter:description" content="Fast, affordable, premium web design for small businesses and startups.">
+  
+  <!-- Favicon -->
+  <link rel="icon" type="image/png" sizes="32x32" href="assets/images/icon.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="assets/images/icon.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="assets/images/icon.png">
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  
+  <!-- Stylesheet -->
+  <link rel="stylesheet" href="css/styles.css?v=5">
+  
+  <title>Built Right Studio | Modern Websites in 24-72 Hours</title>
+
+  <!-- Structured data: Organization + WebSite (SEO / answer engines) -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "Organization",
+        "name": "Built Right Studio",
+        "url": "https://builtrightstudio.com",
+        "logo": "https://builtrightstudio.com/assets/images/icon-removebg-preview.png",
+        "description": "A small UK studio building websites, custom software and CRM systems, brand kits, IT support and social media for small businesses.",
+        "areaServed": { "@type": "Country", "name": "United Kingdom" },
+        "email": "hello@builtrightstudio.com",
+        "founder": [
+          { "@type": "Person", "name": "Sean" },
+          { "@type": "Person", "name": "Bobby" }
+        ]
+      },
+      {
+        "@type": "WebSite",
+        "name": "Built Right Studio",
+        "url": "https://builtrightstudio.com"
+      }
+    ]
+  }
+  </script>
+</head>
+<body class="has-announcement">
+
+  <!-- ============================================
+       ANNOUNCEMENT BAR
+       ============================================ -->
+  <div class="announcement-bar">
+    <span><strong>24–72 Hour Website Delivery</strong> — Fast, Modern, Affordable. <a href="#pricing">View Pricing</a></span>
+    <button class="announcement-close" aria-label="Close announcement">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="18" y1="6" x2="6" y2="18"></line>
+        <line x1="6" y1="6" x2="18" y2="18"></line>
+      </svg>
+    </button>
+  </div>
+
+  <!-- ============================================
+       HEADER / NAVIGATION
+       ============================================ -->
+  <header class="header has-announcement">
+    <div class="header-inner">
+      <!-- Logo -->
+      <a href="index.html" class="logo">
+        <img src="assets/images/icon-removebg-preview.png" alt="Built Right Studio">
+      </a>
+      
+      <!-- Main Navigation -->
+      <nav class="nav-main" role="navigation" aria-label="Main navigation">
+        <a href="index.html" class="nav-link active">Home</a>
+        <div class="nav-dropdown">
+          <span class="nav-link" style="cursor: default;">Services
+            <svg class="nav-dropdown-caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+          </span>
+          <div class="nav-dropdown-menu">
+            <a href="websites.html">Websites</a>
+            <a href="software-solutions.html">Software Solutions</a>
+            <a href="it-services.html">IT Services</a>
+            <a href="brand-kit.html">Brand Kit</a>
+            <a href="social-media-marketing.html">Social Media Marketing</a>
+          </div>
+        </div>
+        <a href="casestudy.html" class="nav-link">Case Studies</a>
+        <a href="about.html" class="nav-link">About</a>
+        <a href="contact.html" class="nav-link">Contact</a>
+      </nav>
+      
+      <!-- Header CTA -->
+      <div class="header-cta">
+        <a href="contact.html" class="btn btn-primary">Get Started</a>
+        
+        <!-- Mobile Toggle -->
+        <button class="mobile-toggle" aria-label="Toggle menu" aria-expanded="false">
+          <span></span>
+        </button>
+      </div>
+    </div>
+    
+    <!-- Mobile Navigation -->
+    <nav class="nav-mobile" role="navigation" aria-label="Mobile navigation">
+      <a href="index.html" class="nav-link active">Home</a>
+      <div class="nav-mobile-dropdown">
+        <button class="nav-mobile-services-toggle" aria-expanded="false" aria-label="Toggle services menu">Services
+          <svg class="nav-dropdown-caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+        </button>
+        <div class="nav-mobile-submenu">
+          <a href="websites.html" class="nav-link">Websites</a>
+          <a href="software-solutions.html" class="nav-link">Software Solutions</a>
+          <a href="it-services.html" class="nav-link">IT Services</a>
+          <a href="brand-kit.html" class="nav-link">Brand Kit</a>
+          <a href="social-media-marketing.html" class="nav-link">Social Media Marketing</a>
+        </div>
+      </div>
+      <a href="casestudy.html" class="nav-link">Case Studies</a>
+      <a href="about.html" class="nav-link">About</a>
+        <a href="contact.html" class="nav-link">Contact</a>
+      <a href="contact.html" class="btn btn-primary" style="margin-top: var(--space-6);">Get Started</a>
+    </nav>
+  </header>
+
+  <!-- ============================================
+       MAIN CONTENT
+       ============================================ -->
+  <main>
+
+    <!-- ============================================
+         HERO SECTION
+         ============================================ -->
+    <section class="hero section-dark hero-cinematic" style="background: linear-gradient(135deg, rgba(0, 0, 0, var(--hero-bg-alpha)) 0%, rgba(0, 0, 0, calc(var(--hero-bg-alpha) / 0.6)) 100%);">
+      <div class="hero-background">
+        <!-- Hero background: use EITHER a video OR an image.
+             Comment out the one you don't want. -->
+
+        <!-- VIDEO background -->
+        <video autoplay muted loop playsinline preload="auto" poster="assets/images/1.jpg">
+          <source src="assets/video/VID-20260507-WA0012.mp4" type="video/mp4">
+        </video>
+
+        <!-- IMAGE background -->
+        <!-- <img src="assets/images/1.jpg" alt=""> -->
+
+        <div class="hero-overlay"></div>
+        <!-- Black intro layer: fades from solid black to reveal the video on load -->
+        <div class="hero-intro"></div>
+      </div>
+      
+      <div class="container container-2xl flex-toggle-c-r" style="display: flex; align-items: center;">
+        <div class="hero-logo">
+          <img src="assets/images/icon-removebg-preview.png" alt="" style="justify-content: center;">
+        </div>
+        <div class="hero-content">
+          <span class="overline">Premium Web Design Studio</span>
+          <h1 class="hero-title">
+            Modern Websites<br>
+            <span class="text-gold">Built The Right Way</span>
+          </h1>
+          <p class="hero-subtitle">
+            You run your business. We build and look after everything digital behind it, from your website and software to IT and branding. Quick to deliver, easy to deal with, all from a UK based team.
+          </p>
+          
+          <div class="btn-group">
+            <a href="contact.html" class="btn btn-primary btn-lg">Get Started</a>
+            <a href="#pricing" class="btn btn-secondary btn-lg">Try Demo</a>
+          </div>
+          
+          <!-- Trust Badges -->
+          <div class="trust-badges">
+            <div class="trust-badge">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10"></circle>
+                <polyline points="12 6 12 12 16 14"></polyline>
+              </svg>
+              <span>Websites</span>
+            </div>
+            <div class="trust-badge">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M12 2L2 7l10 5 10-5-10-5z"></path>
+                <path d="M2 17l10 5 10-5"></path>
+                <path d="M2 12l10 5 10-5"></path>
+              </svg>
+              <span>Software Solutions</span>
+            </div>
+            <div class="trust-badge">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                <circle cx="9" cy="7" r="4"></circle>
+                <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+              </svg>
+              <span>IT Services</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================
+         FULL-SERVICE STUDIO
+         ============================================ -->
+    <section class="section section-white">
+      <div class="container container-2xl">
+        <div class="section-header reveal">
+          <span class="overline">More Than Websites</span>
+          <h2 style="color: var(--color-charcoal-black);">Everything Under <span class="text-gold">One Roof</span></h2>
+          <p style="color: var(--text-secondary2);">Websites are just the start. We also build the software, systems and brand that grow your business, all handled by one team under one roof.</p>
+        </div>
+
+        <div class="grid grid-cols-2 gap-6 studio-cards" data-stagger>
+          <a href="software-solutions.html" class="card service-card reveal" style="text-decoration: none;">
+            <div class="icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="3" width="20" height="14" rx="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>
+            </div>
+            <h4 class="card-title">Software Solutions</h4>
+            <p>Custom CRM, CMS &amp; bespoke platforms built around your workflow.</p>
+            <span class="text-gold text-sm">Explore →</span>
+          </a>
+
+          <a href="it-services.html" class="card service-card reveal" style="text-decoration: none;">
+            <div class="icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 17H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2h-4"></path><polyline points="9 17 9 21 15 21 15 17"></polyline><path d="M12 13v4"></path></svg>
+            </div>
+            <h4 class="card-title">IT Services</h4>
+            <p>Helpdesk, support, email &amp; employee onboarding that keep you running.</p>
+            <span class="text-gold text-sm">Explore →</span>
+          </a>
+
+          <a href="brand-kit.html" class="card service-card reveal" style="text-decoration: none;">
+            <div class="icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="13.5" cy="6.5" r="2.5"></circle><path d="M17 3a2.83 2.83 0 0 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg>
+            </div>
+            <h4 class="card-title">Brand Kit</h4>
+            <p>Logo design, brand identity &amp; guidelines that make you memorable.</p>
+            <span class="text-gold text-sm">Explore →</span>
+          </a>
+
+          <a href="social-media-marketing.html" class="card service-card reveal" style="text-decoration: none;">
+            <div class="icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+            </div>
+            <h4 class="card-title">Social Media Marketing</h4>
+            <p>Content, management &amp; paid ads that turn followers into customers.</p>
+            <span class="text-gold text-sm">Explore →</span>
+          </a>
+        </div>
+
+        <div class="text-center reveal" style="margin-top: var(--space-12);">
+          <a href="contact.html" class="btn btn-primary btn-lg">Book a Free Consultation</a>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================
+         CASE STUDY SPOTLIGHT  (ported from platform site)
+         ============================================ -->
+    <section class="section section-dark case-study">
+      <div class="container container-2xl">
+        <div class="grid grid-cols-2 gap-16 items-center" style="gap: var(--space-20);">
+          <div class="reveal">
+            <span class="overline">One Platform</span>
+            <h2 style="color: var(--color-white);">Six systems, <span class="text-gold">one home</span></h2>
+            <blockquote class="case-study-quote">Your CRM, HR, task board, recruitment, support and operations shouldn't live in six disconnected tools. We bring them together into a single platform, built around the way you actually work.</blockquote>
+            <div class="case-study-chips">
+              <span>CRM</span>
+              <span>HR</span>
+              <span>Task Board</span>
+              <span>Recruitment</span>
+              <span>Support</span>
+              <span>Operations</span>
+            </div>
+            <a href="../platform/index.html" class="btn btn-primary btn-lg">Try a Demo</a>
+          </div>
+          <div class="reveal" style="animation-delay: 150ms;">
+            <div class="case-study-device">
+              <div class="case-study-bar"><i></i><i></i><i></i><span class="url"></span></div>
+              <img class="case-study-screen" src="../platform/assets/screens/dashboard.jpg" alt="Compliance Dashboard" loading="lazy">
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================
+         STICKY VIDEO + SCROLL-OVER SECTIONS
+         ============================================ -->
+    <div class="scroll-stack" style="position: relative;">
+      <!-- Sticky video background -->
+      <div style="position: sticky; top: 0; height: 100vh; overflow: hidden; z-index: 0; background: var(--color-black-pure);">
+        <video autoplay muted loop playsinline preload="auto" style="position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover;">
+          <source data-src="assets/video/software.mp4" type="video/mp4">
+        </video>
+      </div>
+
+      <!-- Sections that scroll over the video (pulled up to overlap it) -->
+      <div style="position: relative; z-index: 1; margin-top: -100vh;">
+
+      <!-- Cascade group: these stack while scrolling, then release/slide up together -->
+      <div class="cascade-group" style="position: relative;">
+
+      <!-- Intro slide — just the video (no overlay, no text) -->
+      <section style="position: sticky; top: 0; z-index: 1; min-height: 100vh; background: transparent;"></section>
+
+    <!-- ============================================
+         CUSTOM CRM SYSTEMS
+         ============================================ -->
+    <section id="crm" class="section section-dark" style="position: sticky; top: 0; z-index: 2; background: rgba(10, 10, 10, 0.9); padding-top: var(--space-10);">
+      <div class="container">
+        <div class="section-header reveal">
+            <h2 style="color: var(--color-white);">Custom <span class="text-gold">CRM Systems</span></h2>
+            <p class="lead" style="font-size: var(--text-base);">
+              Off the shelf CRMs make you work their way. We build one around yours instead.
+            </p>
+        </div>
+        <div class="grid grid-cols-2 gap-16 items-center" style="gap: var(--space-20); align-items: self-start;">
+          <!-- Content -->
+          <div class="reveal">
+            <p style="font-size: var(--text-sm);">
+              Track leads, manage clients and never miss an opportunity, with a CRM built around your workflow. Just the fields, stages and automations that matter, and nothing you'll never use.
+            </p>
+
+            <div class="feature-list" style="margin-top: var(--space-5);">
+              <div class="feature-item">
+                <svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+                <span class="feature-text">Custom pipeline &amp; deal stages</span>
+              </div>
+              <div class="feature-item">
+                <svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+                <span class="feature-text">Contact &amp; company records</span>
+              </div>
+              <div class="feature-item">
+                <svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+                <span class="feature-text">Task reminders &amp; follow ups</span>
+              </div>
+              <div class="feature-item">
+                <svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+                <span class="feature-text">Role based user permissions</span>
+              </div>
+              <div class="feature-item">
+                <svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+                <span class="feature-text">Reporting &amp; export tools</span>
+              </div>
+            </div>
+
+            <div class="btn-group" style="margin-top: var(--space-8);">
+              <a href="contact.html" class="btn btn-primary">Get started</a>
+            </div>
+          </div>
+
+          <!-- Visual / Info Card -->
+          <div class="reveal" style="animation-delay: 200ms;">
+            <div class="card card-gold" style="padding: var(--space-10);">
+              <div class="text-center" style="margin-bottom: var(--space-5);">
+                <div style="font-size: var(--text-2xl); font-weight: var(--font-bold); color: var(--color-soft-gold); line-height: 1;">2 – 4 wks</div>
+                <div class="text-muted">Typical Delivery</div>
+              </div>
+
+              <div class="divider-gold"></div>
+
+              <div style="margin-top: var(--space-5);">
+                <h5 style="margin-bottom: var(--space-4);">Ideal For:</h5>
+                <ul style="display: flex; flex-direction: column; gap: var(--space-3);">
+                  <li style="display: flex; align-items: center; gap: var(--space-3);">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--color-soft-gold)" stroke-width="2">
+                      <polyline points="20 6 9 17 4 12"></polyline>
+                    </svg>
+                    <span class="text-secondary">Businesses that run on sales</span>
+                  </li>
+                  <li style="display: flex; align-items: center; gap: var(--space-3);">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--color-soft-gold)" stroke-width="2">
+                      <polyline points="20 6 9 17 4 12"></polyline>
+                    </svg>
+                    <span class="text-secondary">Agencies &amp; consultancies</span>
+                  </li>
+                  <li style="display: flex; align-items: center; gap: var(--space-3);">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--color-soft-gold)" stroke-width="2">
+                      <polyline points="20 6 9 17 4 12"></polyline>
+                    </svg>
+                    <span class="text-secondary">Service providers</span>
+                  </li>
+                  <li style="display: flex; align-items: center; gap: var(--space-3);">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--color-soft-gold)" stroke-width="2">
+                      <polyline points="20 6 9 17 4 12"></polyline>
+                    </svg>
+                    <span class="text-secondary">Growing teams</span>
+                  </li>
+                  <li style="display: flex; align-items: center; gap: var(--space-3);">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--color-soft-gold)" stroke-width="2">
+                      <polyline points="20 6 9 17 4 12"></polyline>
+                    </svg>
+                    <span class="text-secondary">Recruitment &amp; lettings</span>
+                  </li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================
+         SOFTWARE SERVICES OVERVIEW GRID
+         ============================================ -->
+    <section class="section section-white" style="position: sticky; top: 0; z-index: 3;">
+      <div class="container">
+        <!-- Quick Navigation -->
+        <div class="reveal" style="margin-bottom: var(--space-12);">
+          <div class="card quick-nav" style="display: flex; flex-wrap: wrap; justify-content: center; gap: var(--space-5);">
+            <a href="software-solutions.html#crm" class="btn btn-ghost">Custom CRM</a>
+            <a href="software-solutions.html" class="btn btn-ghost">Content Management</a>
+            <a href="software-solutions.html#apps" class="btn btn-ghost">Bespoke Web Apps</a>
+            <a href="software-solutions.html" class="btn btn-ghost">Business Automation</a>
+            <a href="software-solutions.html" class="btn btn-ghost">Internal Dashboards</a>
+            <a href="software-solutions.html" class="btn btn-ghost">Integrations &amp; APIs</a>
+          </div>
+        </div>
+
+        <!-- Services Grid Overview -->
+        <div class="grid grid-cols-3 gap-8 solution-cards" data-stagger>
+          <!-- Custom CRM -->
+          <a href="software-solutions.html#crm" class="card service-card reveal" style="text-decoration: none;">
+            <div class="icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                <circle cx="9" cy="7" r="4"></circle>
+                <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+              </svg>
+            </div>
+            <h4 class="card-title">Custom CRM Systems</h4>
+            <p>Manage leads, clients and pipelines your way.</p>
+            <span class="text-gold text-sm">Get a quote</span>
+          </a>
+
+          <!-- CMS -->
+          <a href="software-solutions.html" class="card service-card reveal" style="text-decoration: none;">
+            <div class="icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                <polyline points="14 2 14 8 20 8"></polyline>
+                <line x1="16" y1="13" x2="8" y2="13"></line>
+                <line x1="16" y1="17" x2="8" y2="17"></line>
+              </svg>
+            </div>
+            <h4 class="card-title">Content Management / CMS</h4>
+            <p>Update your own content without touching code.</p>
+            <span class="text-gold text-sm">Get a quote</span>
+          </a>
+
+          <!-- Bespoke Web Apps -->
+          <a href="software-solutions.html#apps" class="card service-card reveal" style="text-decoration: none;">
+            <div class="icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <polyline points="16 18 22 12 16 6"></polyline>
+                <polyline points="8 6 2 12 8 18"></polyline>
+              </svg>
+            </div>
+            <h4 class="card-title">Bespoke Web Apps</h4>
+            <p>Custom tools built around how you work.</p>
+            <span class="text-gold text-sm">Custom quote</span>
+          </a>
+
+          <!-- Business Automation -->
+          <a href="software-solutions.html" class="card service-card reveal" style="text-decoration: none;">
+            <div class="icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <circle cx="12" cy="12" r="3"></circle>
+                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+              </svg>
+            </div>
+            <h4 class="card-title">Business Automation</h4>
+            <p>Replace repetitive manual work with smart workflows.</p>
+            <span class="text-gold text-sm">Get a quote</span>
+          </a>
+
+          <!-- Internal Dashboards -->
+          <a href="software-solutions.html" class="card service-card reveal" style="text-decoration: none;">
+            <div class="icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <line x1="18" y1="20" x2="18" y2="10"></line>
+                <line x1="12" y1="20" x2="12" y2="4"></line>
+                <line x1="6" y1="20" x2="6" y2="14"></line>
+              </svg>
+            </div>
+            <h4 class="card-title">Internal Dashboards</h4>
+            <p>See your business metrics in one clear place.</p>
+            <span class="text-gold text-sm">Get a quote</span>
+          </a>
+
+          <!-- Integrations & APIs -->
+          <a href="software-solutions.html" class="card service-card reveal" style="text-decoration: none;">
+            <div class="icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path>
+                <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path>
+              </svg>
+            </div>
+            <h4 class="card-title">Integrations &amp; APIs</h4>
+            <p>Connect the tools your business already relies on.</p>
+            <span class="text-gold text-sm">Get a quote</span>
+          </a>
+        </div>
+      </div>
+    </section>
+
+      </div>
+      <!-- /cascade group (CRM + grid slide up and release here) -->
+
+      <!-- FULL-PAGE STATEMENT (dark, semi-transparent — reveals the video) -->
+      <section style="min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: var(--space-16) 0; background: rgba(0, 0, 0, 0.78);">
+        <div class="container reveal" style="text-align: center; max-width: 900px;">
+          <p style="font-family: var(--font-heading); font-size: var(--text-xl); line-height: 1.45; color: var(--color-white); margin: 0;">
+            Every business is different, so your software should be too. We design platforms around the way <span class="text-gold">you</span> actually work, then build them fast, secure and ready to grow. No bloat, no compromise, just tools that fit.
+          </p>
+          <div class="btn-group" style="justify-content: center; margin-top: var(--space-10);">
+            <a href="software-solutions.html" class="btn btn-outline btn-lg">Explore Software Solutions</a>
+          </div>
+        </div>
+      </section>
+
+      </div>
+    </div>
+    <!-- /sticky video scroll-stack -->
+
+    <!-- ============================================================
+         CASCADE BLOCKS (blank scaffolds — duplicate / add panels)
+
+         Each block = one sticky full-screen video + panels that scroll
+         over it. Inside the panels wrapper, add as many <section> panels
+         as you want. Give a panel  position: sticky; top: 0;  to pin it so
+         the NEXT panel slides over it; leave that off and it just scrolls.
+         Keep panel backgrounds transparent / semi-transparent so the video
+         shows through. Swap the <source src> for a different clip per block.
+         ============================================================ -->
+
+    <!-- ============================================================
+         CASCADE BLOCK 2 — WEBSITE DEVELOPMENT  (horizontal / sideways)
+         Panels slide sideways as you scroll. Set data-direction to
+         "ltr" (left→right) or "rtl" (right→left) to flip the travel.
+         ============================================================ -->
+    <section class="cascade-h" data-direction="ltr" style="height: 500vh;">
+      <div class="cascade-h-pin">
+        <!-- Video background (behind every panel) -->
+        <div class="cascade-h-bg">
+          <video autoplay muted loop playsinline preload="auto">
+            <source data-src="assets/video/website.mp4" type="video/mp4">
+          </video>
+        </div>
+        <!-- Horizontal track (JS translates this on scroll) -->
+        <div class="cascade-h-track">
+
+        <!-- Panel 1: Template Library (intro slide — title overlay + CTA) -->
+        <div class="cascade-h-panel">
+        <section id="cascade-templates" class="section section-white">
+          <!-- Left overlay: title + CTA -->
+          <div class="templates-overlay">
+            <span class="overline">Built for Success</span>
+            <h2 style="color: var(--color-white); margin: 0;">Website <span class="text-gold">Development</span></h2>
+            <div class="btn-group" style="justify-content: flex-start; margin-top: var(--space-6);">
+              <a href="websites.html" class="btn btn-primary btn-lg">Learn More</a>
+            </div>
+          </div>
+          <div class="container">
+            <div class="section-header reveal">
+              <h2 class="text-dark">Template <span class="text-gold">Library</span></h2>
+            </div>
+            <div class="grid grid-cols-3 gap-6" data-stagger>
+              <div class="card reveal" style="padding: 0; overflow: hidden;">
+                <div style="height: 150px; background: url('assets/Screenshots/1.png') bottom / contain no-repeat; position: relative;"><div style="position: absolute; left: 0; right: 0; text-align: center;"><span class="badge badge-gold">Agency</span></div></div>
+                <div style="padding: var(--space-4);"><div style="display: flex; justify-content: space-between; align-items: center;"><span class="text-gold font-semibold">Get a quote</span><a href="contact.html" class="btn btn-outline btn-sm">Use Template</a></div></div>
+              </div>
+              <div class="card reveal" style="padding: 0; overflow: hidden;">
+                <div style="height: 150px; background: url('assets/Screenshots/5.png') bottom / contain no-repeat; position: relative;"><div style="position: absolute; left: 0; right: 0; text-align: center;"><span class="badge badge-gold">Fitness</span></div></div>
+                <div style="padding: var(--space-4);"><div style="display: flex; justify-content: space-between; align-items: center;"><span class="text-gold font-semibold">Get a quote</span><a href="contact.html" class="btn btn-outline btn-sm">Use Template</a></div></div>
+              </div>
+              <div class="card reveal" style="padding: 0; overflow: hidden;">
+                <div style="height: 150px; background: url('assets/Screenshots/4.png') bottom / contain no-repeat; position: relative;"><div style="position: absolute; left: 0; right: 0; text-align: center;"><span class="badge badge-gold">Property</span></div></div>
+                <div style="padding: var(--space-4);"><div style="display: flex; justify-content: space-between; align-items: center;"><span class="text-gold font-semibold">Get a quote</span><a href="contact.html" class="btn btn-outline btn-sm">Use Template</a></div></div>
+              </div>
+              <div class="card reveal" style="padding: 0; overflow: hidden;">
+                <div style="height: 150px; background: url('assets/Screenshots/2.png') bottom / contain no-repeat; position: relative;"><div style="position: absolute; left: 0; right: 0; text-align: center;"><span class="badge badge-gold">Coach</span></div></div>
+                <div style="padding: var(--space-4);"><div style="display: flex; justify-content: space-between; align-items: center;"><span class="text-gold font-semibold">Get a quote</span><a href="contact.html" class="btn btn-outline btn-sm">Use Template</a></div></div>
+              </div>
+              <div class="card reveal" style="padding: 0; overflow: hidden;">
+                <div style="height: 150px; background: url('assets/Screenshots/0.png') bottom / contain no-repeat; position: relative;"><div style="position: absolute; left: 0; right: 0; text-align: center;"><span class="badge badge-gold">Restaurant</span></div></div>
+                <div style="padding: var(--space-4);"><div style="display: flex; justify-content: space-between; align-items: center;"><span class="text-gold font-semibold">Get a quote</span><a href="contact.html" class="btn btn-outline btn-sm">Use Template</a></div></div>
+              </div>
+              <div class="card reveal" style="padding: 0; overflow: hidden;">
+                <div style="height: 150px; background: url('assets/Screenshots/3.png') bottom / contain no-repeat; position: relative;"><div style="position: absolute; left: 0; right: 0; text-align: center;"><span class="badge badge-gold">Online store</span></div></div>
+                <div style="padding: var(--space-4);"><div style="display: flex; justify-content: space-between; align-items: center;"><span class="text-gold font-semibold">Get a quote</span><a href="contact.html" class="btn btn-outline btn-sm">Use Template</a></div></div>
+              </div>
+            </div>
+          </div>
+        </section>
+        </div><!-- /panel: templates -->
+
+        <!-- Panel: What We Offer -->
+        <div class="cascade-h-panel">
+        <section id="services" class="section section-dark">
+          <div class="container container-2xl">
+            <div class="section-header reveal">
+              <h2>Services Built for <span class="text-gold">Speed & Quality</span></h2>
+            </div>
+            <div class="grid grid-cols-3 gap-8" data-stagger>
+              <div class="card service-card reveal">
+                <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg></div>
+                <h4 class="card-title">Quick Launch Websites</h4>
+                <p>3–5 page websites built in 24–72 hours. Perfect for small businesses and startups ready to go live fast.</p>
+              </div>
+              <div class="card service-card reveal">
+                <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"></path></svg></div>
+                <h4 class="card-title">Website Refresh</h4>
+                <p>Modernise your existing site with updated design, improved performance, and mobile optimisation.</p>
+              </div>
+              <div class="card service-card reveal">
+                <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg></div>
+                <h4 class="card-title">Brand + Website Bundle</h4>
+                <p>Logo, colour palette, fonts and a full website in one package. Everything you need to launch your brand.</p>
+              </div>
+              <div class="card service-card reveal">
+                <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg></div>
+                <h4 class="card-title">Niche Templates</h4>
+                <p>Designs built for your industry for law firms, fitness coaches, agencies, real estate, and more.</p>
+              </div>
+              <div class="card service-card reveal">
+                <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect><line x1="12" y1="18" x2="12.01" y2="18"></line></svg></div>
+                <h4 class="card-title">Mobile Optimisation</h4>
+                <p>Your site looks right and works properly on every screen, from phones to big monitors.</p>
+              </div>
+              <div class="card service-card reveal">
+                <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="13.5" cy="6.5" r="2.5"></circle><path d="M17 3a2.83 2.83 0 0 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg></div>
+                <h4 class="card-title">Creative Branding</h4>
+                <p>Logo design, colour palettes, font pairing, and social media kits to establish your visual identity.</p>
+              </div>
+            </div>
+            <div class="text-center reveal" style="margin-top: var(--space-12);">
+              <a href="websites.html" class="btn btn-outline btn-lg">View All Services</a>
+            </div>
+          </div>
+        </section>
+        </div><!-- /panel: what we offer -->
+
+        <!-- Panel 3: Our Process -->
+        <div class="cascade-h-panel">
+        <section id="process" class="section section-white">
+          <div class="container container-2xl">
+            <div class="section-header reveal">
+              <h2 class="text-dark">Fast Delivery <span class="text-gold">System</span></h2>
+              <p class="text-dark-gray2">A tight, six step process that takes you from first call to live site in days.</p>
+            </div>
+            <div class="grid grid-cols-2 gap-16 items-center" style="gap: var(--space-12);">
+              <div>
+                <div class="timeline reveal">
+                  <div class="timeline-item"><div class="timeline-marker">1</div><div class="timeline-content"><h4 class="text-taupe" style="color: var(--text-secondary2);">Quick Consultation</h4><p class="text-dark-gray2">15 minute call to understand your business, goals, and design preferences.</p></div></div>
+                  <div class="timeline-item"><div class="timeline-marker">2</div><div class="timeline-content"><h4 class="text-taupe" style="color: var(--text-secondary2);">Deposit & Kickoff</h4><p class="text-dark-gray2">Secure your spot with a deposit. We start immediately.</p></div></div>
+                  <div class="timeline-item"><div class="timeline-marker">3</div><div class="timeline-content"><h4 class="text-taupe" style="color: var(--text-secondary2);">Wireframe & Direction</h4><p class="text-dark-gray2">Sean creates the wireframe and branding direction for approval.</p></div></div>
+                  <div class="timeline-item"><div class="timeline-marker">4</div><div class="timeline-content"><h4 class="text-taupe" style="color: var(--text-secondary2);">Full Build</h4><p class="text-dark-gray2">Bobby builds your complete website in 24–48 hours.</p></div></div>
+                  <div class="timeline-item"><div class="timeline-marker">5</div><div class="timeline-content"><h4 class="text-taupe" style="color: var(--text-secondary2);">Review & Launch</h4><p class="text-dark-gray2">Final review, your feedback incorporated, and we go live!</p></div></div>
+                  <div class="timeline-item"><div class="timeline-marker">6</div><div class="timeline-content"><h4 class="text-taupe" style="color: var(--text-secondary2);">Support & Extras</h4><p class="text-dark-gray2">Ongoing maintenance and optional extras to grow your site.</p></div></div>
+                </div>
+              </div>
+              <div class="reveal" style="animation-delay: 300ms;">
+                <div class="card card-gold">
+                  <div class="stats-grid" style="grid-template-columns: repeat(2, 1fr);">
+                    <div class="stat-item"><div class="stat-number" data-counter="24" data-suffix="h">0h</div><div class="stat-label">Fastest Delivery</div></div>
+                    <div class="stat-item"><div class="stat-number" data-counter="72" data-suffix="h">0h</div><div class="stat-label">Standard Delivery</div></div>
+                    <div class="stat-item"><div class="stat-number" data-counter="50" data-suffix="+">0+</div><div class="stat-label">Sites Launched</div></div>
+                    <div class="stat-item"><div class="stat-number" data-counter="100" data-suffix="%">0%</div><div class="stat-label">Client Satisfaction</div></div>
+                  </div>
+                  <div class="divider-gold" style="margin: var(--space-5) 0;"></div>
+                  <div class="text-center">
+                    <p class="lead text-white" style="margin-bottom: var(--space-6);">Ready to launch your website?</p>
+                    <a href="contact.html" class="btn btn-primary">Start Your Fast Build</a>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+        </div><!-- /panel 3 -->
+
+        <!-- Panel 4: Our Work -->
+        <div class="cascade-h-panel">
+        <section id="gallery" class="section section-dark">
+          <div class="container container-2xl">
+            <div class="section-header reveal">
+              <span class="overline">Our Work</span>
+              <h2>Before & After <span class="text-gold">Transformations</span></h2>
+              <p>See the difference a proper website makes. These are real projects we've delivered.</p>
+            </div>
+            <div class="grid grid-cols-2 gap-8" data-stagger>
+              <div class="card card-image reveal">
+                <div style="position: relative; overflow: hidden; border-radius: var(--radius-lg) var(--radius-lg) 0 0;"><div style="display: flex;"><div style="flex: 1; position: relative;"><div style="background: url(assets/images/b1.png) center / cover no-repeat; height: 190px; display: flex; align-items: center; justify-content: center; color: var(--text-muted);"><span style="font-size: var(--text-sm); text-transform: uppercase; letter-spacing: 0.1em;">Before</span></div></div><div style="flex: 1; position: relative;"><div style="background: url(assets/images/ba1.png) center / cover no-repeat; height: 190px; display: flex; align-items: center; justify-content: center; border-left: 2px solid var(--color-soft-gold);"><span style="font-size: var(--text-sm); text-transform: uppercase; letter-spacing: 0.1em; color: var(--color-soft-gold);">After</span></div></div></div></div>
+                <div class="card-content"><span class="badge badge-gold" style="margin-bottom: var(--space-3);">Law Firm</span><h4 class="card-title">Mitchell & Associates</h4><p class="text-sm">Complete rebrand and website overhaul. Delivered in 48 hours.</p></div>
+              </div>
+              <div class="card card-image reveal">
+                <div style="position: relative; overflow: hidden; border-radius: var(--radius-lg) var(--radius-lg) 0 0;"><div style="display: flex;"><div style="flex: 1; position: relative;"><div style="background: url(assets/images/b2.png) center / cover no-repeat; height: 190px; display: flex; align-items: center; justify-content: center; color: var(--text-muted);"><span style="font-size: var(--text-sm); text-transform: uppercase; letter-spacing: 0.1em;">Before</span></div></div><div style="flex: 1; position: relative;"><div style="background: url(assets/images/ba2.png) center / cover no-repeat; height: 190px; display: flex; align-items: center; justify-content: center; border-left: 2px solid var(--color-soft-gold);"><span style="font-size: var(--text-sm); text-transform: uppercase; letter-spacing: 0.1em; color: var(--color-soft-gold);">After</span></div></div></div></div>
+                <div class="card-content"><span class="badge badge-gold" style="margin-bottom: var(--space-3);">Fitness</span><h4 class="card-title">Peak Performance Gym</h4><p class="text-sm">Modern fitness website with booking integration. Delivered in 36 hours.</p></div>
+              </div>
+            </div>
+            <div class="text-center reveal" style="margin-top: var(--space-4);">
+              <a href="portfolio.html" class="btn btn-outline btn-lg">View Full Portfolio</a>
+            </div>
+          </div>
+        </section>
+        </div><!-- /panel 4 -->
+
+        <!-- Panel 5: Statement -->
+        <div class="cascade-h-panel">
+        <section style="min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: var(--space-16) 0; background: rgba(0, 0, 0, 0.78);">
+          <div class="container reveal" style="text-align: center; max-width: 900px;">
+            <p style="font-family: var(--font-heading); font-size: var(--text-xl); line-height: 1.45; color: var(--color-white); margin: 0;">
+              Your website is the first thing customers see, so we make it count. Quick to launch, sharp on every device, and built to turn visitors into <span class="text-gold">customers</span>.
+            </p>
+            <div class="btn-group" style="justify-content: center; margin-top: var(--space-10);">
+              <a href="websites.html" class="btn btn-primary btn-lg">Explore Web Development</a>
+            </div>
+          </div>
+        </section>
+        </div><!-- /panel 5 -->
+
+        </div><!-- /track -->
+      </div><!-- /pin -->
+    </section>
+
+        <!-- ============================================================
+         INTERLUDE — white breaker between cascades
+         ============================================================ -->
+    <section class="section section-white">
+      <div class="container" style="text-align: center; max-width: 820px;">
+        <span class="overline" style="justify-content: center;">One Studio, Every Layer</span>
+        <h2 class="text-dark">Everything your business runs on, <span class="text-gold">under one roof</span></h2>
+        <p style="color: var(--text-secondary2); font-size: var(--text-lg);">
+          Websites, software, branding and the systems behind the scenes, all designed to work together and looked after by one team that actually answers the phone. No agencies passing the buck, no five separate logins. Just one partner who builds it right and keeps it running.
+        </p>
+      </div>
+    </section>
+
+<!-- ============================================================
+         CASCADE BLOCK 3 — IT SERVICES & EMAIL SUPPORT
+         ============================================================ -->
+    <div class="scroll-stack" style="position: relative;">
+      <div style="position: sticky; top: 0; height: 100vh; overflow: hidden; z-index: 0; background: var(--color-black-pure);">
+        <video autoplay muted loop playsinline preload="auto" style="position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover;">
+          <source data-src="assets/video/it-services.mp4" type="video/mp4">
+        </video>
+      </div>
+      <div style="position: relative; z-index: 1; margin-top: -100vh;">
+
+        <!-- Title slide (sticky; fades out as the next slide covers it) -->
+        <section class="cascade-title-fade" style="position: sticky; top: 0; min-height: 100vh; display: flex; align-items: center; padding: var(--space-16) 0; background: linear-gradient(90deg, rgba(0,0,0,0.8) 0%, rgba(0,0,0,0.5) 50%, rgba(0,0,0,0.25) 100%), url('assets/images/pexels-mikhail-nilov-9242278.jpg') center / cover no-repeat;">
+          <div class="container reveal" style="text-align: left;">
+            <div style="max-width: 620px;">
+              <span style="display: inline-block; font-size: var(--text-sm); font-weight: var(--font-medium); letter-spacing: var(--tracking-wider); text-transform: uppercase; color: var(--color-soft-gold); margin-bottom: var(--space-2);">Built for Success</span>
+              <h2 class="display-2" style="color: var(--color-white); margin-bottom: var(--space-8);">IT Services &amp; <span class="text-gold">Email Support</span></h2>
+              <div class="btn-group" style="justify-content: flex-start;">
+                <a href="it-services.html" class="btn btn-primary btn-lg">Learn More</a>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Support On Tap (sticky) -->
+        <!-- ============================================
+         IT HELPDESK & SUPPORT
+         ============================================ -->
+    <section id="helpdesk" class="section section-dark cascade-title-fade" style="position: sticky; top: 0;">
+      <div class="container">
+        <div class="section-header reveal">
+            <span class="overline">Support On Tap</span>
+            <h2 style="color: var(--color-white);">IT Helpdesk <span class="text-gold">& Support</span></h2>
+            <p class="lead" style="font-size: var(--text-base);">
+              When something stops working, you want a real person who can fix it, not a queue and a reference number. Our helpdesk gets your team back up quickly and keeps downtime to a minimum.
+            </p>
+        </div>
+        <div class="grid grid-cols-2 gap-16 items-center" style="gap: var(--space-20); align-items: self-start;">
+          <!-- Content -->
+          <div class="reveal">
+            <p style="font-size: var(--text-sm);">
+              Proper IT support without the enterprise price tag. One message and our UK based team is on it, whether it's a frozen laptop, a locked account or a printer having a bad day.
+            </p>
+
+            <div class="feature-list" style="margin-top: var(--space-5);">
+              <div class="feature-item">
+                <svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+                <span class="feature-text">Remote & email support</span>
+              </div>
+              <div class="feature-item">
+                <svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+                <span class="feature-text">Response in under an hour, on average</span>
+              </div>
+              <div class="feature-item">
+                <svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+                <span class="feature-text">Software & account troubleshooting</span>
+              </div>
+              <div class="feature-item">
+                <svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+                <span class="feature-text">Proactive monitoring & updates</span>
+              </div>
+              <div class="feature-item">
+                <svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+                <span class="feature-text">Flexible monthly plans</span>
+              </div>
+            </div>
+
+            <div class="btn-group" style="margin-top: var(--space-8);">
+              <a href="contact.html" class="btn btn-primary">Get support</a>
+            </div>
+          </div>
+
+          <!-- Visual / Info Card -->
+          <div class="reveal" style="animation-delay: 200ms;">
+            <div class="card card-gold" style="padding: var(--space-10);">
+              <div class="text-center" style="margin-bottom: var(--space-5);">
+                <div style="font-size: var(--text-2xl); font-weight: var(--font-bold); color: var(--color-soft-gold); line-height: 1;">&lt; 1h</div>
+                <div class="text-muted">Average Response Time</div>
+              </div>
+
+              <div class="divider-gold"></div>
+
+              <div style="margin-top: var(--space-5);">
+                <h5 style="margin-bottom: var(--space-4);">Ideal For:</h5>
+                <ul style="display: flex; flex-direction: column; gap: var(--space-3);">
+                  <li style="display: flex; align-items: center; gap: var(--space-3);">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--color-soft-gold)" stroke-width="2">
+                      <polyline points="20 6 9 17 4 12"></polyline>
+                    </svg>
+                    <span class="text-secondary">Small & growing businesses</span>
+                  </li>
+                  <li style="display: flex; align-items: center; gap: var(--space-3);">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--color-soft-gold)" stroke-width="2">
+                      <polyline points="20 6 9 17 4 12"></polyline>
+                    </svg>
+                    <span class="text-secondary">Teams without in house IT</span>
+                  </li>
+                  <li style="display: flex; align-items: center; gap: var(--space-3);">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--color-soft-gold)" stroke-width="2">
+                      <polyline points="20 6 9 17 4 12"></polyline>
+                    </svg>
+                    <span class="text-secondary">Remote & hybrid workforces</span>
+                  </li>
+                  <li style="display: flex; align-items: center; gap: var(--space-3);">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--color-soft-gold)" stroke-width="2">
+                      <polyline points="20 6 9 17 4 12"></polyline>
+                    </svg>
+                    <span class="text-secondary">Agencies & studios</span>
+                  </li>
+                  <li style="display: flex; align-items: center; gap: var(--space-3);">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--color-soft-gold)" stroke-width="2">
+                      <polyline points="20 6 9 17 4 12"></polyline>
+                    </svg>
+                    <span class="text-secondary">Anyone tired of IT headaches</span>
+                  </li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+        <!-- New Starters (slides over Support On Tap) -->
+        <!-- ============================================
+         EMPLOYEE IT ONBOARDING
+         ============================================ -->
+    <section id="onboarding" class="section section-white">
+      <div class="container">
+        <div class="section-header reveal">
+          <span class="overline">New Starters</span>
+          <h2 style="color: var(--color-charcoal-black);">Employee IT <span class="text-gold">Onboarding</span></h2>
+          <p class="lead" style="color: var(--text-secondary2); font-size: var(--text-base);">
+            Give every new hire a first day that actually works. Their accounts, devices and access are ready before they sit down.
+          </p>
+        </div>
+        <div class="grid grid-cols-2 gap-16 items-center" style="gap: var(--space-20); align-items: self-start;">
+          <!-- Content -->
+          <div class="reveal">
+            <p style="color: var(--text-secondary2);">
+              A new team member shouldn't spend their first week chasing logins. We handle the full IT setup ahead of time: email, software, devices and secure access, so they're productive from day one and everything's built to your company's rules.
+            </p>
+
+            <div class="feature-list" style="margin-top: var(--space-8);">
+              <div class="feature-item">
+                <svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+                <span class="feature-text text-dark-gray2">Email & account creation</span>
+              </div>
+              <div class="feature-item">
+                <svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+                <span class="feature-text text-dark-gray2">Device setup & configuration</span>
+              </div>
+              <div class="feature-item">
+                <svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+                <span class="feature-text text-dark-gray2">Software & app access</span>
+              </div>
+              <div class="feature-item">
+                <svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+                <span class="feature-text text-dark-gray2">Secure permissions & policies</span>
+              </div>
+              <div class="feature-item">
+                <svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+                <span class="feature-text text-dark-gray2">Welcome guide & quick training</span>
+              </div>
+            </div>
+
+            <div class="btn-group" style="margin-top: var(--space-8);">
+              <a href="contact.html" class="btn btn-primary">Onboard a hire</a>
+            </div>
+          </div>
+
+          <!-- Visual / Info Card -->
+          <div class="reveal" style="animation-delay: 200ms;">
+            <div class="card" style="padding: var(--space-10); text-align: center;">
+              <div class="stats-grid" style="grid-template-columns: repeat(3, 1fr);">
+                <div class="stat-item" style="padding: var(--space-4);">
+                  <div class="stat-number" style="font-size: var(--text-3xl);" data-counter="1" data-suffix=" day">0 day</div>
+                  <div class="stat-label" style="font-size: var(--text-xs);">Ready To Work</div>
+                </div>
+                <div class="stat-item" style="padding: var(--space-4);">
+                  <div class="stat-number" style="font-size: var(--text-3xl);" data-counter="100" data-suffix="%">0%</div>
+                  <div class="stat-label" style="font-size: var(--text-xs);">Accounts Set</div>
+                </div>
+                <div class="stat-item" style="padding: var(--space-4);">
+                  <div class="stat-number" style="font-size: var(--text-3xl);" data-counter="0" data-suffix="">0</div>
+                  <div class="stat-label" style="font-size: var(--text-xs);">Login Headaches</div>
+                </div>
+              </div>
+
+              <div class="divider" style="margin: var(--space-8) 0;"></div>
+
+              <div style="text-align: left;">
+                <h5 style="margin-bottom: var(--space-4); color: var(--text-muted);">Every Starter Gets:</h5>
+                <ul style="display: flex; flex-direction: column; gap: var(--space-3);">
+                  <li style="display: flex; align-items: center; gap: var(--space-3);">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--color-soft-gold)" stroke-width="2">
+                      <polyline points="20 6 9 17 4 12"></polyline>
+                    </svg>
+                    <span class="text-secondary">A device that's set up and ready to go</span>
+                  </li>
+                  <li style="display: flex; align-items: center; gap: var(--space-3);">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--color-soft-gold)" stroke-width="2">
+                      <polyline points="20 6 9 17 4 12"></polyline>
+                    </svg>
+                    <span class="text-secondary">All accounts & access in place</span>
+                  </li>
+                  <li style="display: flex; align-items: center; gap: var(--space-3);">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--color-soft-gold)" stroke-width="2">
+                      <polyline points="20 6 9 17 4 12"></polyline>
+                    </svg>
+                    <span class="text-secondary">A simple welcome guide</span>
+                  </li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+        <!-- Statement (transparent — reveals the video) -->
+        <section style="min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: var(--space-16) 0; background: rgba(0, 0, 0, 0.78);">
+          <div class="container reveal" style="text-align: center; max-width: 900px;">
+            <p style="font-family: var(--font-heading); font-size: var(--text-xl); line-height: 1.45; color: var(--color-white); margin: 0;">
+              When your tech just works, your team gets on with their jobs. We keep your systems running so you never have to think about <span class="text-gold">IT</span> again.
+            </p>
+            <div class="btn-group" style="justify-content: center; margin-top: var(--space-10);">
+              <a href="it-services.html" class="btn btn-primary btn-lg">Explore IT Services</a>
+            </div>
+          </div>
+        </section>
+
+      </div>
+    </div>
+
+    <!-- ============================================================
+         INTERLUDE — brand anatomy (palette + type + mark)
+         ============================================================ -->
+    <section class="section section-white brand-interlude">
+      <div class="container container-2xl">
+        <div class="section-header reveal">
+          <span class="overline">The Anatomy of a Brand</span>
+          <h2 class="text-dark">More than a mark. A whole <span class="text-gold">system</span></h2>
+        </div>
+        <div class="type-specimen reveal">
+          <div><span class="ts-label">Display · Playfair</span><span class="ts-serif">Aa</span></div>
+          <div><span class="ts-label">Body · Poppins</span><span class="ts-sans">Aa</span></div>
+          <div><span class="ts-label">The Mark</span><span class="ts-mono">BR</span></div>
+        </div>
+        <div class="brand-swatches reveal">
+          <div class="swatch" style="background: #1a1a1a; color: #f3efe6;"><span>Charcoal</span><span>#1A1A1A</span></div>
+          <div class="swatch" style="background: #af8a0f; color: #1a1a1a;"><span>Gold</span><span>#AF8A0F</span></div>
+          <div class="swatch" style="background: #c9a96a; color: #1a1a1a;"><span>Champagne</span><span>#C9A96A</span></div>
+          <div class="swatch" style="background: #8a8178; color: #f3efe6;"><span>Stone</span><span>#8A8178</span></div>
+          <div class="swatch" style="background: #f3efe6; color: #1a1a1a;"><span>Ivory</span><span>#F3EFE6</span></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- CASCADE BLOCK 4 -->
+    <div class="scroll-stack" style="position: relative;">
+      <div style="position: sticky; top: 0; height: 100vh; overflow: hidden; z-index: 0; background: var(--color-black-pure);">
+        <video autoplay muted loop playsinline preload="auto" style="position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover;">
+          <source data-src="assets/video/7598766-hd_1920_1080_30fps.mp4" type="video/mp4">
+        </video>
+      </div>
+      <div style="position: relative; z-index: 1; margin-top: -100vh;">
+        <!-- Slide 1: Title (fades as the next slide covers it) -->
+        <section class="cascade-title-fade" style="position: sticky; top: 0; min-height: 100vh; display: flex; align-items: center; padding: var(--space-16) 0; background: transparent;">
+          <div class="container reveal" style="text-align: left;">
+            <div style="max-width: 620px;">
+              <span style="display: inline-block; font-size: var(--text-sm); font-weight: var(--font-medium); letter-spacing: var(--tracking-wider); text-transform: uppercase; color: var(--color-soft-gold); margin-bottom: var(--space-2);">Built for Success</span>
+              <h2 class="display-2" style="color: var(--color-white); margin-bottom: var(--space-8);">Brand Identity &amp; <span class="text-gold">Logo Design</span></h2>
+              <div class="btn-group" style="justify-content: flex-start;">
+                <a href="brand-kit.html" class="btn btn-primary btn-lg">Learn More</a>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Slides 2-4 cascade: Logo Design pins, then the brand images slide over it -->
+        <div class="cascade-group" style="position: relative;">
+        <!-- Slide 2: Logo Design (sticky) -->
+        <section id="logo-design" class="section section-dark" style="position: sticky; top: 0; z-index: 1;">
+          <div class="container">
+            <div class="section-header reveal">
+              <span class="overline">Make Your Mark</span>
+              <h2 style="color: var(--color-white);">Logos That <span class="text-gold">Stick</span></h2>
+              <p class="lead" style="font-size: var(--text-base);">A logo is the first thing people remember, so we design marks that are distinctive, flexible and built to last.</p>
+            </div>
+            <div class="grid grid-cols-2 gap-16 items-center" style="gap: var(--space-20); align-items: self-start;">
+              <div class="reveal">
+                <p style="font-size: var(--text-sm);">From first sketch to final files, we shape your mark around your story, then hand over everything you need to use it anywhere, at any size, looking sharp.</p>
+                <div class="feature-list" style="margin-top: var(--space-5);">
+                  <div class="feature-item"><svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg><span class="feature-text">Custom logo concepts</span></div>
+                  <div class="feature-item"><svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg><span class="feature-text">Colour &amp; monochrome variations</span></div>
+                  <div class="feature-item"><svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg><span class="feature-text">Full file pack (SVG, PNG, PDF)</span></div>
+                  <div class="feature-item"><svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg><span class="feature-text">Favicon &amp; social avatars</span></div>
+                  <div class="feature-item"><svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg><span class="feature-text">Simple usage guide</span></div>
+                </div>
+                <div class="btn-group" style="margin-top: var(--space-8);">
+                  <a href="contact.html" class="btn btn-primary">Start Your Brand</a>
+                </div>
+              </div>
+              <div class="reveal" style="animation-delay: 200ms;">
+                <div class="card card-gold" style="padding: var(--space-10);">
+                  <div class="text-center" style="margin-bottom: var(--space-5);">
+                    <div style="font-size: var(--text-2xl); font-weight: var(--font-bold); color: var(--color-soft-gold); line-height: 1;">3+</div>
+                    <div class="text-muted">Concepts Per Project</div>
+                  </div>
+                  <div class="divider-gold"></div>
+                  <div style="margin-top: var(--space-5);">
+                    <h5 style="margin-bottom: var(--space-4);">Ideal For:</h5>
+                    <ul style="display: flex; flex-direction: column; gap: var(--space-3);">
+                      <li style="display: flex; align-items: center; gap: var(--space-3);"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--color-soft-gold)" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg><span class="text-secondary">New businesses &amp; startups</span></li>
+                      <li style="display: flex; align-items: center; gap: var(--space-3);"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--color-soft-gold)" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg><span class="text-secondary">Rebrands &amp; refreshes</span></li>
+                      <li style="display: flex; align-items: center; gap: var(--space-3);"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--color-soft-gold)" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg><span class="text-secondary">Personal &amp; founder brands</span></li>
+                      <li style="display: flex; align-items: center; gap: var(--space-3);"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--color-soft-gold)" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg><span class="text-secondary">Anyone outgrowing a DIY logo</span></li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+          <!-- Slide 3: bk1 (sticky) on a cream backdrop -->
+          <section style="position: sticky; top: 0; z-index: 2; height: 100vh; background: #f5f0e6;">
+            <img src="assets/images/bk1.png" alt="Brand guidelines showcase" style="width: 100%; height: 100vh; object-fit: contain; display: block;">
+          </section>
+          <!-- Slide 4: bk3 (slides over bk1) -->
+          <section style="position: sticky; top: 0; z-index: 3; height: 100vh; background: #0a0a0a;">
+            <img src="assets/images/bk3.png" alt="Brand guidelines showcase" style="width: 100%; height: 100vh; object-fit: contain; display: block;">
+          </section>
+          <!-- Slide 5: bk2 (slides over bk3) -->
+          <section style="position: sticky; top: 0; z-index: 4; height: 100vh; background: #2a1f16;">
+            <img src="assets/images/bk2.png" alt="Brand guidelines showcase" style="width: 100%; height: 100vh; object-fit: contain; display: block;">
+          </section>
+
+        <!-- Slide 6: Brand Kit (slides over the pinned bk2) -->
+        <section id="brand-kit" class="section section-white" style="position: relative; z-index: 5;">
+          <div class="container container-2xl">
+            <div class="section-header reveal">
+              <span class="overline">The Full Picture</span>
+              <h2 class="text-dark">A Complete <span class="text-gold">Brand Kit</span></h2>
+              <p style="color: var(--text-secondary2);">Beyond the logo, everything you need to look consistent everywhere you show up.</p>
+            </div>
+            <div class="grid grid-cols-3 gap-8" data-stagger>
+              <div class="card service-card reveal">
+                <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="4 7 4 4 20 4 20 7"></polyline><line x1="9" y1="20" x2="15" y2="20"></line><line x1="12" y1="4" x2="12" y2="20"></line></svg></div>
+                <h4 class="card-title">Colour &amp; Type System</h4>
+                <p>A defined palette and font pairings so everything you make looks part of the same family.</p>
+              </div>
+              <div class="card service-card reveal">
+                <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg></div>
+                <h4 class="card-title">Logo Usage Guide</h4>
+                <p>Clear rules for spacing, sizing and backgrounds, so your brand stays consistent everywhere.</p>
+              </div>
+              <div class="card service-card reveal">
+                <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg></div>
+                <h4 class="card-title">Social &amp; Stationery</h4>
+                <p>Profile images, post templates, business cards and signatures, ready to launch with.</p>
+              </div>
+            </div>
+            <div class="text-center reveal" style="margin-top: var(--space-12);">
+              <a href="brand-kit.html" class="btn btn-outline btn-lg">View Brand Services</a>
+            </div>
+          </div>
+        </section>
+        </div><!-- /cascade-group: logo-design + brand images + brand kit -->
+
+        <!-- Slide 7: Statement (transparent — reveals the video) -->
+        <section style="min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: var(--space-16) 0; background: rgba(0, 0, 0, 0.78);">
+          <div class="container reveal" style="text-align: center; max-width: 900px;">
+            <p style="font-family: var(--font-heading); font-size: var(--text-xl); line-height: 1.45; color: var(--color-white); margin: 0;">
+              Your brand is how the world remembers you, so we make it clear, consistent and unmistakably <span class="text-gold">yours</span>.
+            </p>
+            <div class="btn-group" style="justify-content: center; margin-top: var(--space-10);">
+              <a href="brand-kit.html" class="btn btn-primary btn-lg">Explore Brand Kit</a>
+            </div>
+          </div>
+        </section>
+      </div>
+    </div>
+
+
+    
+
+    
+
+    
+
+    <!-- ============================================
+         PRICING SECTION
+         ============================================ -->
+    <section id="pricing" class="section section-dark">
+      <div class="container container-2xl">
+        <!-- Section Header -->
+        <div class="section-header reveal">
+          <span class="overline">Transparent Pricing</span>
+          <h2>Simple Plans, <span class="text-gold">Clear Value</span></h2>
+          <p>No hidden fees, no surprises. Pick the package that fits, and pay a 50% deposit to get started.</p>
+        </div>
+        
+        <!-- Pricing Grid -->
+        <div class="grid grid-cols-3 gap-8" data-stagger>
+          <!-- Basic -->
+          <div class="card pricing-card reveal">
+            <span class="label">Starter</span>
+            <h3 style="margin-top: var(--space-2);">Basic Website Bundle</h3>
+            <div class="price is-quote">Get a quote</div>
+            <p class="text-sm text-muted">For small businesses that just need a sharp, professional site.</p>
+            
+            <ul class="features-list">
+              <li>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--color-soft-gold)" stroke-width="2" style="display: inline; vertical-align: middle; margin-right: 8px;">
+                  <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+                3–5 Page Website
+              </li>
+              <li>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--color-soft-gold)" stroke-width="2" style="display: inline; vertical-align: middle; margin-right: 8px;">
+                  <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+                Mobile Responsive
+              </li>
+              <li>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--color-soft-gold)" stroke-width="2" style="display: inline; vertical-align: middle; margin-right: 8px;">
+                  <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+                Contact Form
+              </li>
+              <li>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--color-soft-gold)" stroke-width="2" style="display: inline; vertical-align: middle; margin-right: 8px;">
+                  <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+                2 Revisions
+              </li>
+              <li>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--color-soft-gold)" stroke-width="2" style="display: inline; vertical-align: middle; margin-right: 8px;">
+                  <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+                48–72 Hour Delivery
+              </li>
+            </ul>
+            
+            <a href="contact.html" class="btn btn-outline w-full">Get Started</a>
+          </div>
+          
+          <!-- Bundle - Featured -->
+          <div class="card pricing-card featured reveal">
+            <span class="badge badge-gold" style="margin-bottom: var(--space-6);">Most Popular</span>
+            <span class="label">Complete</span>
+            <h3 style="margin-top: var(--space-2);">Brand + Website Bundle</h3>
+            <div class="price is-quote">Get a quote</div>
+            <p class="text-sm text-muted">Brand and website together, so everything matches from day one.</p>
+            
+            <ul class="features-list">
+              <li>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--color-soft-gold)" stroke-width="2" style="display: inline; vertical-align: middle; margin-right: 8px;">
+                  <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+                5–7 Page Website
+              </li>
+              <li>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--color-soft-gold)" stroke-width="2" style="display: inline; vertical-align: middle; margin-right: 8px;">
+                  <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+                Logo Design
+              </li>
+              <li>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--color-soft-gold)" stroke-width="2" style="display: inline; vertical-align: middle; margin-right: 8px;">
+                  <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+                Colour Palette & Fonts
+              </li>
+              <li>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--color-soft-gold)" stroke-width="2" style="display: inline; vertical-align: middle; margin-right: 8px;">
+                  <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+                Social Media Kit
+              </li>
+              <li>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--color-soft-gold)" stroke-width="2" style="display: inline; vertical-align: middle; margin-right: 8px;">
+                  <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+                3 Revisions
+              </li>
+              <li>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--color-soft-gold)" stroke-width="2" style="display: inline; vertical-align: middle; margin-right: 8px;">
+                  <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+                48–72 Hour Delivery
+              </li>
+            </ul>
+            
+            <a href="contact.html" class="btn btn-primary w-full">Get Started</a>
+          </div>
+          
+          <!-- Full Launch -->
+          <div class="card pricing-card reveal">
+            <span class="label">Premium</span>
+            <h3 style="margin-top: var(--space-2);">Full Launch Bundle</h3>
+            <div class="price is-quote">Get a quote</div>
+            <p class="text-sm text-muted">The full works for businesses that want to go all in.</p>
+            
+            <ul class="features-list">
+              <li>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--color-soft-gold)" stroke-width="2" style="display: inline; vertical-align: middle; margin-right: 8px;">
+                  <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+                10+ Page Website
+              </li>
+              <li>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--color-soft-gold)" stroke-width="2" style="display: inline; vertical-align: middle; margin-right: 8px;">
+                  <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+                Full Branding Package
+              </li>
+              <li>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--color-soft-gold)" stroke-width="2" style="display: inline; vertical-align: middle; margin-right: 8px;">
+                  <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+                SEO Optimisation
+              </li>
+              <li>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--color-soft-gold)" stroke-width="2" style="display: inline; vertical-align: middle; margin-right: 8px;">
+                  <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+                Analytics Setup
+              </li>
+              <li>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--color-soft-gold)" stroke-width="2" style="display: inline; vertical-align: middle; margin-right: 8px;">
+                  <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+                5 Revisions
+              </li>
+              <li>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--color-soft-gold)" stroke-width="2" style="display: inline; vertical-align: middle; margin-right: 8px;">
+                  <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+                Priority Support
+              </li>
+            </ul>
+            
+            <a href="contact.html" class="btn btn-outline w-full">Get Started</a>
+          </div>
+        </div>
+        
+      </div>
+    </section>
+
+    <!-- ============================================
+         UPSELLS / RECURRING SERVICES
+         ============================================ -->
+    <section id="maintenance" class="section section-white">
+      <div class="container container-2xl">
+        <div class="section-header reveal">
+          <span class="overline">Ongoing Support</span>
+          <h2 class="text-dark">Keep Your Site <span class="text-gold">Running Smoothly</span></h2>
+        </div>
+        <div class="grid grid-cols-2 gap-16 items-center" style="gap: var(--space-20);">
+          <!-- Content -->
+          <div class="reveal">
+            <p class="lead" style="color: var(--text-secondary2);">
+              A website isn't built once and forgotten. Our care plans keep yours secure, quick and up to date, so it keeps earning its keep.
+            </p>
+            <div class="feature-list" style="margin-top: var(--space-8);">
+              <div class="feature-item">
+                <svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+                <span class="feature-text text-dark-gray">Regular security updates and backups</span>
+              </div>
+              <div class="feature-item">
+                <svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+                <span class="feature-text text-dark-gray">Performance monitoring and optimisation</span>
+              </div>
+              <div class="feature-item">
+                <svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+                <span class="feature-text text-dark-gray">Content updates and minor changes</span>
+              </div>
+              <div class="feature-item">
+                <svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+                <span class="feature-text text-dark-gray">Priority support and quick response</span>
+              </div>
+              <div class="feature-item text-dark-gray">
+                <svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+                <span class="feature-text text-dark-gray">Monthly performance reports</span>
+              </div>
+            </div>
+            
+          </div>
+          
+          <!-- Maintenance Cards -->
+          <div class="reveal" style="animation-delay: 200ms;">
+            <div class="grid grid-cols-1 gap-6">
+              <!-- Basic Maintenance -->
+              <div class="card" style="display: flex; align-items: center; justify-content: space-between; padding: var(--space-6);">
+                <div>
+                  <h4 style="margin-bottom: var(--space-1);">Essential Care</h4>
+                  <p class="text-sm text-muted" style="margin: 0;">Security, backups, minor updates</p>
+                </div>
+                <div class="text-right">
+                  <div class="text-gold" style="font-size: var(--text-2xl); font-weight: var(--font-bold);">Get a quote</div>
+                </div>
+              </div>
+              
+              <!-- Standard Maintenance -->
+              <div class="card card-gold" style="display: flex; align-items: center; justify-content: space-between; padding: var(--space-6);">
+                <div>
+                  <h4 style="margin-bottom: var(--space-1);">Growth Plan</h4>
+                  <p class="text-sm text-muted" style="margin: 0;">Everything + content updates, SEO</p>
+                </div>
+                <div class="text-right">
+                  <div class="text-gold" style="font-size: var(--text-2xl); font-weight: var(--font-bold);">Get a quote</div>
+                </div>
+              </div>
+              
+              <!-- Premium Maintenance -->
+              <div class="card" style="display: flex; align-items: center; justify-content: space-between; padding: var(--space-6);">
+                <div>
+                  <h4 style="margin-bottom: var(--space-1);">Premium Support</h4>
+                  <p class="text-sm text-muted" style="margin: 0;">Full service + priority support</p>
+                </div>
+                <div class="text-right">
+                  <div class="text-gold" style="font-size: var(--text-2xl); font-weight: var(--font-bold);">Get a quote</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================
+         TESTIMONIALS
+         ============================================ -->
+    <section id="testimonials" class="section section-dark">
+      <div class="container container-2xl">
+        <!-- Section Header -->
+        <div class="section-header reveal">
+          <span class="overline">Client Love</span>
+          <h2>What Our Clients <span class="text-gold">Say</span></h2>
+          <p>Here's what a few business owners have said about working with us.</p>
+        </div>
+        
+        <!-- Testimonials Grid -->
+        <div class="grid grid-cols-3 gap-8" data-stagger>
+          <!-- Testimonial 1 -->
+          <div class="card testimonial-card reveal">
+            <p class="quote">"Genuinely blown away by the speed. Sean and Bobby turned our new website around in 36 hours and it looks brilliant. One of the best decisions we've made."</p>
+            <div class="author">
+              <div style="width: 56px; height: 56px; background: var(--color-soft-gold); border-radius: var(--radius-full); display: flex; align-items: center; justify-content: center; color: var(--color-charcoal-black); font-weight: var(--font-bold);">JM</div>
+              <div>
+                <div class="author-name">James Mitchell</div>
+                <div class="author-title">Mitchell & Associates Law</div>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Testimonial 2 -->
+          <div class="card testimonial-card reveal">
+            <p class="quote">"The branding bundle was exactly what we needed. Logo, colours, website, all cohesive and professional. Our bookings have doubled since launch."</p>
+            <div class="author">
+              <div style="width: 56px; height: 56px; background: var(--color-soft-gold); border-radius: var(--radius-full); display: flex; align-items: center; justify-content: center; color: var(--color-charcoal-black); font-weight: var(--font-bold);">ST</div>
+              <div>
+                <div class="author-name">Sarah Thompson</div>
+                <div class="author-title">Peak Performance Gym</div>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Testimonial 3 -->
+          <div class="card testimonial-card reveal">
+            <p class="quote">"As a startup we needed to move fast. They got what we were going for and delivered a site that's actually turning visitors into customers."</p>
+            <div class="author">
+              <div style="width: 56px; height: 56px; background: var(--color-soft-gold); border-radius: var(--radius-full); display: flex; align-items: center; justify-content: center; color: var(--color-charcoal-black); font-weight: var(--font-bold);">DP</div>
+              <div>
+                <div class="author-name">David Park</div>
+                <div class="author-title">TechFlow Solutions</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Rating Summary -->
+        <div class="reveal" style="margin-top: var(--space-12);">
+          <div class="card" style="text-align: center; padding: var(--space-8); background: var(--color-deep-slate);">
+            <div style="display: flex; justify-content: center; gap: var(--space-1); margin-bottom: var(--space-4);">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="var(--color-soft-gold)" stroke="var(--color-soft-gold)" stroke-width="2">
+                <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
+              </svg>
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="var(--color-soft-gold)" stroke="var(--color-soft-gold)" stroke-width="2">
+                <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
+              </svg>
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="var(--color-soft-gold)" stroke="var(--color-soft-gold)" stroke-width="2">
+                <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
+              </svg>
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="var(--color-soft-gold)" stroke="var(--color-soft-gold)" stroke-width="2">
+                <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
+              </svg>
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="var(--color-soft-gold)" stroke="var(--color-soft-gold)" stroke-width="2">
+                <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
+              </svg>
+            </div>
+            <p class="text-lg text-white" style="margin-bottom: var(--space-2);">5.0 Average Rating</p>
+            <p class="text-sm text-muted" style="margin: 0;">Based on 50+ client projects</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================
+         FAQ (answer engines + objection handling)
+         ============================================ -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "FAQPage",
+      "mainEntity": [
+        { "@type": "Question", "name": "What does Built Right Studio do?", "acceptedAnswer": { "@type": "Answer", "text": "We are a small UK studio building websites, custom software and CRM systems, brand kits, IT support and social media for small businesses. One team handles the lot." } },
+        { "@type": "Question", "name": "How fast can you build a website?", "acceptedAnswer": { "@type": "Answer", "text": "Most websites go live in 24 to 72 hours once we have had our first call and you have approved the direction." } },
+        { "@type": "Question", "name": "How much does a website cost?", "acceptedAnswer": { "@type": "Answer", "text": "Websites start at 350 pounds for a quick launch and run to around 1,200 pounds for a full build with branding and online store. You get a fixed quote up front, and pay a 50 percent deposit to book your slot." } },
+        { "@type": "Question", "name": "Where are you based?", "acceptedAnswer": { "@type": "Answer", "text": "We are UK based. You deal directly with Sean and Bobby, not a call centre or a chain of account managers." } },
+        { "@type": "Question", "name": "Do you only build websites?", "acceptedAnswer": { "@type": "Answer", "text": "No. Websites are where we started, but we also build custom software and CRMs, run IT support, design brand kits and manage social media." } },
+        { "@type": "Question", "name": "Do you offer ongoing support?", "acceptedAnswer": { "@type": "Answer", "text": "Yes. We offer monthly care plans for websites and monthly IT support, so once you are live you are not on your own." } }
+      ]
+    }
+    </script>
+    <section id="faq" class="section section-slate">
+      <div class="container">
+        <div class="section-header reveal">
+          <span class="overline">Good To Know</span>
+          <h2>Questions, answered</h2>
+          <p>The things people usually ask before they get in touch.</p>
+        </div>
+        <div class="reveal" style="max-width: 760px; margin: 0 auto; display: flex; flex-direction: column; gap: var(--space-8);">
+          <div>
+            <h3 style="font-size: var(--text-lg); margin-bottom: var(--space-2);">What does Built Right Studio do?</h3>
+            <p class="text-secondary">We're a small UK studio building websites, custom software and CRM systems, brand kits, IT support and social media for small businesses. One team handles the lot.</p>
+          </div>
+          <div>
+            <h3 style="font-size: var(--text-lg); margin-bottom: var(--space-2);">How fast can you build a website?</h3>
+            <p class="text-secondary">Most websites go live in 24 to 72 hours, once we've had our first call and you've approved the direction.</p>
+          </div>
+          <div>
+            <h3 style="font-size: var(--text-lg); margin-bottom: var(--space-2);">How much does a website cost?</h3>
+            <p class="text-secondary">Every website is quoted up front based on what you need. You get a fixed quote up front, and pay a 50% deposit to book your slot.</p>
+          </div>
+          <div>
+            <h3 style="font-size: var(--text-lg); margin-bottom: var(--space-2);">Where are you based?</h3>
+            <p class="text-secondary">We're UK based. You deal directly with Sean and Bobby, not a call centre or a chain of account managers.</p>
+          </div>
+          <div>
+            <h3 style="font-size: var(--text-lg); margin-bottom: var(--space-2);">Do you only build websites?</h3>
+            <p class="text-secondary">No. Websites are where we started, but we also build custom software and CRMs, run IT support, design brand kits and manage social media.</p>
+          </div>
+          <div>
+            <h3 style="font-size: var(--text-lg); margin-bottom: var(--space-2);">Do you offer ongoing support?</h3>
+            <p class="text-secondary">Yes. We offer monthly care plans for websites and monthly IT support, so once you're live you're not on your own.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================
+         CONTACT / LEAD CAPTURE
+         ============================================ -->
+    <section id="contact" class="section section-white">
+      <div class="container container-2xl">
+          <!-- Content -->
+          <div class="section-header reveal">
+            <span class="overline">Get Started</span>
+            <h2 class="text-dark">Ready to get <span class="text-gold">started?</span></h2>
+            <p class="lead" style="color: var(--text-secondary2);">
+              Tell us about your project using the form below. We'll get back to you within 24 hours, and usually much sooner.
+            </p>
+          </div>
+          <div class="flex-toggle-c-r" style="justify-content: space-around; gap: var(--space-6);">
+            <div style="display: flex; align-items: center; gap: var(--space-4);">
+              <div style="width: 48px; height: 48px; background: rgba(212, 175, 55, 0.1); border-radius: var(--radius-full); display: flex; align-items: center; justify-content: center;">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--color-soft-gold)" stroke-width="2">
+                  <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path>
+                </svg>
+              </div>
+              <div>
+                <div class="text-sm text-dark-gray2">Book a Call</div>
+                <div class="text-white link">15-min free consultation</div>
+              </div>
+            </div>
+            
+            <div style="display: flex; align-items: center; gap: var(--space-4);">
+              <div style="width: 48px; height: 48px; background: rgba(212, 175, 55, 0.1); border-radius: var(--radius-full); display: flex; align-items: center; justify-content: center;">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--color-soft-gold)" stroke-width="2">
+                  <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
+                  <polyline points="22,6 12,13 2,6"></polyline>
+                </svg>
+              </div>
+              <div>
+                <div class="text-sm text-dark-gray2">Email Us</div>
+                <a href="mailto:info@builtrightstudio.com" class="text-white link">Info@builtrightstudio.com</a>
+              </div>
+            </div>
+            
+            <div style="display: flex; align-items: center; gap: var(--space-4);">
+              <div style="width: 48px; height: 48px; background: rgba(212, 175, 55, 0.1); border-radius: var(--radius-full); display: flex; align-items: center; justify-content: center;">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--color-soft-gold)" stroke-width="2">
+                  <circle cx="12" cy="12" r="10"></circle>
+                  <polyline points="12 6 12 12 16 14"></polyline>
+                </svg>
+              </div>
+              <div>
+                <div class="text-sm text-dark-gray2">Response Time</div>
+                <div class="text-white link">Usually within 2 hours</div>
+              </div>
+            </div>
+          </div>
+          <div class="divider" style="margin: var(--space-8) 0;"></div>
+        <div class="grid grid-cols-1 gap-16 items-center" style="justify-content: center;">
+          
+          <!-- Contact Form -->
+          <div class="reveal" style="animation-delay: 200ms;">
+            <div class="card" style="padding: var(--space-10); max-width: 800px; width: 100%; justify-self: center;">
+              <form data-validate method="post" action="http://builtrightstudios.com/forms/contact.php">
+                <div class="form-group">
+                  <label class="form-label" for="name">Your Name *</label>
+                  <input type="text" id="name" name="Name" class="form-input" placeholder="John Smith" required>
+                </div>
+                
+                <div class="form-group">
+                  <label class="form-label" for="email">Email Address *</label>
+                  <input type="email" id="email" name="Email" class="form-input" placeholder="john@example.com" required>
+                </div>
+                
+                <div class="form-group">
+                  <label class="form-label" for="number">Phone Number *</label>
+                  <input type="number" id="number" name="Number" class="form-input" placeholder="4479xxxxxxxx" required>
+                </div>
+                
+                <div class="form-group">
+                  <label class="form-label" for="business">Business Name</label>
+                  <input type="text" id="business" name="Company" class="form-input" placeholder="Your Company Ltd">
+                </div>
+                
+                <div class="form-group">
+                  <label class="form-label" for="website">Current Website (if any)</label>
+                  <input type="url" id="website" name="Site" class="form-input" placeholder="https://yoursite.com">
+                </div>
+                
+                <div class="form-group">
+                  <label class="form-label" for="service">Service Interested In</label>
+                  <select id="service" name="Interest" class="form-select">
+                    <option value="">Select a service...</option>
+                    <option value="basic">Basic Website</option>
+                    <option value="bundle">Brand + Website Bundle</option>
+                    <option value="full">Full Launch Package</option>
+                    <option value="refresh">Website Refresh</option>
+                    <option value="branding">Branding Only</option>
+                    <option value="template">Niche Template</option>
+                    <option value="maintenance">Maintenance Plan</option>
+                    <option value="other">Other / Custom</option>
+                  </select>
+                </div>
+                
+                <div class="form-group">
+                  <label class="form-label" for="budget">Approximate Budget</label>
+                  <select id="budget" name="Budget" class="form-select">
+                    <option value="">Select your budget...</option>
+                    <option value="Under £500">Under £500</option>
+                    <option value="£500 - £800">£500 - £800</option>
+                    <option value="£800 - £1,200">£800 - £1,200</option>
+                    <option value="Over £1,200">Over £1,200</option>
+                    <option value="Not sure yet">Not sure yet</option>
+                  </select>
+                </div>
+                
+                <div class="form-group">
+                  <label class="form-label" for="timeline">Project Timeline</label>
+                  <select id="timeline" name="Timeline" class="form-select">
+                    <option value="">When do you need this?</option>
+                    <option value="ASAP / This week">ASAP / This week</option>
+                    <option value="Within 2 weeks">Within 2 weeks</option>
+                    <option value="Within 1 month">Within 1 month</option>
+                    <option value="Flexible / No rush">Flexible / No rush</option>
+                  </select>
+                </div>
+                
+                <div class="form-group">
+                  <label class="form-label" for="message">Tell Us About Your Project</label>
+                  <textarea id="message" name="About" class="form-textarea" placeholder="What's your business about? What are your goals for the website?" rows="4"></textarea>
+                </div>
+                
+                <div class="form-group">
+                  <label class="form-label" for="introduction">How did you hear about us?</label>
+                  <select id="introduction" name="Introduction" class="form-select">
+                    <option value="">Select an option...</option>
+                    <option value="Google Search">Google Search</option>
+                    <option value="Instagram">Instagram</option>
+                    <option value="TikTok">TikTok</option>
+                    <option value="LinkedIn">LinkedIn</option>
+                    <option value="Friend / Referal">Friend / Referal</option>
+                    <option value="Other">Other</option>
+                  </select>
+                </div>
+                
+                <button type="submit" class="btn btn-primary btn-lg w-full">
+                  Start Your Project
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="5" y1="12" x2="19" y2="12"></line>
+                    <polyline points="12 5 19 12 12 19"></polyline>
+                  </svg>
+                </button>
+              </form>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ============================================
+       FOOTER
+       ============================================ -->
+  <footer class="footer">
+    <div class="container container-2xl">
+      <div class="footer-grid">
+        <!-- Brand -->
+        <div class="footer-brand">
+          <a href="index.html" class="logo">
+            <img src="assets/images/icon-removebg-preview.png" alt="Built Right Studio" style="height: 100px;">
+          </a>
+          <p>Modern websites built in 24–72 hours. Fast delivery, clean design, affordable pricing.</p>
+          
+          <!-- Social Links -->
+          <div class="social-links">
+            <a href="#" class="social-link" aria-label="Instagram">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="2" y="2" width="20" height="20" rx="5" ry="5"></rect>
+                <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"></path>
+                <line x1="17.5" y1="6.5" x2="17.51" y2="6.5"></line>
+              </svg>
+            </a>
+            <a href="#" class="social-link" aria-label="TikTok">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M9 12a4 4 0 1 0 4 4V4a5 5 0 0 0 5 5"></path>
+              </svg>
+            </a>
+            <a href="#" class="social-link" aria-label="LinkedIn">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6z"></path>
+                <rect x="2" y="9" width="4" height="12"></rect>
+                <circle cx="4" cy="4" r="2"></circle>
+              </svg>
+            </a>
+          </div>
+        </div>
+        
+        <!-- Quick Links -->
+        <div>
+          <h6 class="footer-heading">Quick Links</h6>
+          <ul class="footer-links">
+            <li><a href="index.html">Home</a></li>
+            <li><a href="websites.html">Services</a></li>
+            <li><a href="portfolio.html">Portfolio</a></li>
+            <li><a href="about.html">About Us</a></li>
+            <li>
+        </li>
+            <li><a href="contact.html">Contact</a></li>
+          </ul>
+        </div>
+        
+        <!-- Services -->
+        <div>
+          <h6 class="footer-heading">Services</h6>
+          <ul class="footer-links">
+            <li><a href="websites.html">Websites</a></li>
+            <li><a href="software-solutions.html">Software Solutions</a></li>
+            <li><a href="it-services.html">IT Services</a></li>
+            <li><a href="brand-kit.html">Brand Kit</a></li>
+            <li><a href="social-media-marketing.html">Social Media Marketing</a></li>
+          </ul>
+        </div>
+        
+        <!-- Contact -->
+        <div>
+          <h6 class="footer-heading">Contact</h6>
+          <ul class="footer-links">
+            <li><a href="mailto:hello@builtrightstudio.com">hello@builtrightstudio.com</a></li>
+            <li><a href="contact.html">Book a Consultation</a></li>
+            <li>UK based Team</li>
+          </ul>
+        </div>
+      </div>
+      
+      <!-- Footer Bottom -->
+      <div class="footer-bottom">
+        <p class="footer-copyright">© 2025 Built Right Studio. All rights reserved.</p>
+        <div class="footer-legal">
+          <a href="#">Privacy Policy</a>
+          <a href="#">Terms of Service</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+  <!-- ============================================
+       FLOATING CTA
+       ============================================ -->
+  <div class="floating-cta">
+    <a href="contact.html" class="btn btn-primary">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+      </svg>
+      Get Started
+    </a>
+  </div>
+
+  <!-- JavaScript -->
+  <script src="js/main.js?v=3"></script>
+
+  <!-- Lazy-load background videos: fetch just before they scroll into view -->
+  <script>
+    (function () {
+      var vids = [].filter.call(document.querySelectorAll('video'), function (v) {
+        return v.querySelector('source[data-src]');
+      });
+      if (!vids.length) return;
+      function load(v) {
+        v.querySelectorAll('source[data-src]').forEach(function (s) {
+          s.src = s.getAttribute('data-src'); s.removeAttribute('data-src');
+        });
+        v.load();
+        var pr = v.play(); if (pr && pr.catch) pr.catch(function () {});
+      }
+      if (!('IntersectionObserver' in window)) { vids.forEach(load); return; }
+      var io = new IntersectionObserver(function (entries) {
+        entries.forEach(function (e) { if (e.isIntersecting) { load(e.target); io.unobserve(e.target); } });
+      }, { rootMargin: '400px 0px' });
+      vids.forEach(function (v) { io.observe(v); });
+    })();
+  </script>
+
+</body>
+</html>

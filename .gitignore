@@ -38,3 +38,13 @@ Thumbs.db
 .vscode/
 .idea/
 Moving your domain to a new registrar do.md
+
+# Local screenshot / asset dumps and Playwright artefacts at repo root.
+# Never ship — 100+ MB of test intermediates and originals.
+/_screenshots/
+/_screenshots-local/
+/_screenshots-mobile/
+/_screenshots-system/
+/_asset_originals/
+/test-results/
+/cms/scraper/log/

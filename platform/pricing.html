@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Built Right pricing — buy a bespoke platform, subscribe to a ready-made one, or tailor an existing solution to your business.">
+  <link rel="icon" type="image/png" sizes="32x32" href="assets/images/favicon32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="assets/images/favicon16.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Poppins:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/platform.css">
+  <title>Pricing | Built Right</title>
+</head>
+<body>
+
+  <!-- ============================ NAV ============================ -->
+  <nav class="nav solid" id="nav">
+    <div class="container nav-inner">
+      <a href="index.html" class="brand" aria-label="Built Right home">
+        <img src="assets/images/logo.png" alt="Built Right">
+        <span class="brand-word"><b>Built Right</b><span>Studio</span></span>
+      </a>
+      <input type="checkbox" id="navCheck" class="nav-check" aria-label="Open menu">
+      <div class="nav-links" id="navLinks">
+        <a href="about.html">About</a>
+
+        <a href="solutions.html">Solutions</a>
+        <a href="pricing.html" class="active">Pricing</a>
+        <a href="showcase.html">Showcase</a>
+      </div>
+      <a href="contact.html" class="btn btn-primary nav-cta">Book a Demo</a>
+      <label class="nav-toggle" for="navCheck" aria-label="Open menu"><span></span><span></span><span></span></label>
+    </div>
+  </nav>
+
+  <!-- ============================ HERO ============================ -->
+  <header class="page-hero">
+    <div class="container">
+      <span class="eyebrow">Pricing</span>
+      <h1>Pricing that fits the <span class="hl">route you take</span></h1>
+      <p class="lead">Buy bespoke and own it, subscribe to a ready-made platform, or tailor ours to you. Move between them as you grow.</p>
+    </div>
+  </header>
+
+  <!-- ============================ THREE MODELS ============================ -->
+  <section class="pricing">
+    <div class="container">
+      <div style="text-align:center" class="reveal">
+        <div class="bill-toggle" data-bill>
+          <button class="active" data-mode="monthly">Monthly</button>
+          <button data-mode="annual">Annual · save 2 months</button>
+        </div>
+      </div>
+
+      <div class="price-grid" style="margin-top:36px">
+        <!-- Bespoke -->
+        <div class="price-card reveal d1">
+          <h3>Bespoke</h3>
+          <div class="who">For established orgs wanting full custom</div>
+          <div class="amt">From £X</div>
+          <div class="per">project-priced</div>
+          <ul class="plist">
+            <li>A platform built around your business</li>
+            <li>You own the code and the data</li>
+            <li>Unlimited modules &amp; users</li>
+            <li>Dedicated build team</li>
+            <li>Priority support &amp; SLA</li>
+          </ul>
+          <a href="contact.html" class="btn btn-ghost">Talk to us</a>
+        </div>
+
+        <!-- Subscription (featured) -->
+        <div class="price-card featured reveal d2" style="position:relative">
+          <div class="ribbon">Most popular</div>
+          <h3>Subscription</h3>
+          <div class="who">For smaller &amp; scaling teams</div>
+          <div class="amt">From £<span data-monthly="X" data-annual="X">X</span><small>/mo</small></div>
+          <div class="per" data-per>/month</div>
+          <ul class="plist">
+            <li>Ready-made platform, live in days</li>
+            <li>Starter / Growth / Scale tiers</li>
+            <li>Cancel anytime</li>
+            <li>Standard support included</li>
+            <li>Upgrade to tailored or bespoke later</li>
+          </ul>
+          <a href="contact.html" class="btn btn-primary">Start free demo</a>
+        </div>
+
+        <!-- Tailored -->
+        <div class="price-card reveal d3">
+          <h3>Tailored</h3>
+          <div class="who">For mid-market wanting bespoke value</div>
+          <div class="amt">From £X</div>
+          <div class="per">one-off + monthly support</div>
+          <ul class="plist">
+            <li>We adapt our platform to your workflows</li>
+            <li>Bespoke feel, lower price point</li>
+            <li>Faster than a full custom build</li>
+            <li>Your branding &amp; configuration</li>
+            <li>Ongoing support &amp; updates</li>
+          </ul>
+          <a href="contact.html" class="btn btn-ghost">Talk to us</a>
+        </div>
+      </div>
+
+      <!-- ============================ COMPARISON TABLE ============================ -->
+      <div class="section-head left reveal" style="margin-top:80px;max-width:none">
+        <h2 class="section-title" style="font-size:clamp(1.6rem,1.3rem+1.2vw,2.2rem)">Compare the routes</h2>
+      </div>
+      <div class="compare reveal">
+        <table>
+          <thead>
+            <tr><th>Feature</th><th>Bespoke</th><th>Subscription</th><th>Tailored</th></tr>
+          </thead>
+          <tbody>
+            <tr><td class="feat">Time to launch</td><td>Weeks</td><td>Days</td><td>1–2 weeks</td></tr>
+            <tr><td class="feat">Built around your workflows</td><td><span class="yes">✓ Fully</span></td><td>Configurable</td><td><span class="yes">✓ Adapted</span></td></tr>
+            <tr><td class="feat">Modules</td><td>Unlimited</td><td>By tier</td><td>Selected</td></tr>
+            <tr><td class="feat">Users</td><td>Unlimited</td><td>By tier</td><td>Unlimited</td></tr>
+            <tr><td class="feat">You own the platform</td><td><span class="yes">✓</span></td><td><span class="no">–</span></td><td>Licensed</td></tr>
+            <tr><td class="feat">Custom integrations</td><td><span class="yes">✓</span></td><td>Add-on</td><td><span class="yes">✓</span></td></tr>
+            <tr><td class="feat">Support &amp; SLA</td><td>Priority</td><td>Standard</td><td>Standard+</td></tr>
+            <tr><td class="feat">Upgrade path</td><td>—</td><td><span class="yes">✓ to Tailored / Bespoke</span></td><td><span class="yes">✓ to Bespoke</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- ============================ FAQ ============================ -->
+      <div class="section-head reveal" style="margin-top:80px">
+        <span class="eyebrow">Questions</span>
+        <h2 class="section-title">Good to <span class="hl">know</span></h2>
+      </div>
+      <div class="faq reveal">
+        <div class="faq-item">
+          <button class="faq-q">Can I move from subscription to bespoke later? <span class="car">▾</span></button>
+          <div class="faq-a"><p>Yes — that's the point. Start on a subscription plan to move fast, then graduate to a tailored or fully bespoke build as you scale. Same team, same data, no migration headache.</p></div>
+        </div>
+        <div class="faq-item">
+          <button class="faq-q">Do I own the code? <span class="car">▾</span></button>
+          <div class="faq-a"><p>With a bespoke build, yes — the platform is yours. Subscription is a hosted service you rent monthly. Tailored sits in between: a licensed platform configured to you, with the option to take it bespoke.</p></div>
+        </div>
+        <div class="faq-item">
+          <button class="faq-q">How long does it take to launch? <span class="car">▾</span></button>
+          <div class="faq-a"><p>Subscription clients can be live in days. Tailored builds typically take one to two weeks. Full bespoke is measured in weeks, not the months you may have been quoted elsewhere.</p></div>
+        </div>
+        <div class="faq-item">
+          <button class="faq-q">What industries do you work with? <span class="car">▾</span></button>
+          <div class="faq-a"><p>We have live case studies in healthcare, recruitment and education — but the same engine adapts to most operations. If you don't see your sector, that's our favourite kind of project.</p></div>
+        </div>
+        <div class="faq-item">
+          <button class="faq-q">Not sure which route fits? <span class="car">▾</span></button>
+          <div class="faq-a"><p>Book a demo and we'll help you choose. There's no hard sell — just a 30-minute walkthrough tailored to how you work today.</p></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================ FINAL CTA ============================ -->
+  <section class="final-cta">
+    <div class="container reveal">
+      <span class="eyebrow" style="color:var(--gold-light)">Built Right Studio</span>
+      <h2>Not sure which fits? We'll help you <span class="hl">choose</span></h2>
+      <p>Tell us about your business and we'll recommend the route that gets you the most for your budget.</p>
+      <div class="btn-group">
+        <a href="contact.html" class="btn btn-primary btn-lg">Book a Demo</a>
+        <a href="solutions.html" class="btn btn-outline-light btn-lg">See the Platform</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================ FOOTER ============================ -->
+  <footer class="footer">
+    <div class="container">
+      <div class="footer-top">
+        <div>
+          <a href="index.html" class="brand"><img src="assets/images/logo.png" alt="Built Right" style="height:36px;filter:brightness(0) invert(1)"><span class="brand-word"><b>Built Right</b><span>Studio</span></span></a>
+          <p class="blurb">Bespoke CRM &amp; CMS platforms — built custom, subscription-ready, or tailored to you. For any industry.</p>
+        </div>
+        <div class="footer-col"><h5>Platform</h5><a href="solutions.html">Modules</a><a href="solutions.html">Features</a><a href="showcase.html">Showcase</a><a href="pricing.html">Pricing</a></div>
+        <div class="footer-col"><h5>Solutions</h5><a href="solutions.html">Healthcare</a><a href="solutions.html">Recruitment</a><a href="solutions.html">Education</a><a href="solutions.html">Your industry</a></div>
+        <div class="footer-col"><h5>Company</h5><a href="about.html">About</a><a href="contact.html">Book a Demo</a><a href="contact.html">Contact</a></div>
+      </div>
+      <div class="footer-bottom"><span>© <span id="year"></span> Built Right Studio. Business platforms, built right.</span><span>Bespoke · Subscription · Tailored</span></div>
+    </div>
+  </footer>
+
+  <script src="js/platform.js"></script>
+</body>
+</html>

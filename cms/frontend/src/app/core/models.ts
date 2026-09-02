@@ -311,9 +311,173 @@ export interface Lead {
   added_by_system?: 0 | 1 | boolean;
   /** Joined display name of the adding admin, or null for system rows. */
   added_by_name?: string | null;
+  /** Companies House registration number for pipeline leads (source =
+   *  'companies-house'). NULL for every other lead. Unique per tenant. */
+  company_number?: string | null;
+  /** Companies House enrichment stage 1..5, or NULL for non-pipeline leads.
+   *  1 company data · 2 officers · 3 profiles · 4 business contact ·
+   *  5 individual contacts. See migration 149. */
+  stage?: number | null;
+  stage_updated_at?: string | null;
   created_at?: string;
   updated_at?: string;
 }
+
+/** Result of Stage 1 — Companies House company fetch. */
+export interface ChFetchResult {
+  inserted: number;
+  skipped: number;
+  fetched: number;
+}
+
+/** Result of one Stage 2 chunk — Companies House officer enrichment.
+ *  The UI re-calls until `done` is true. */
+export interface ChOfficersResult {
+  processed: number;
+  remaining: number;
+  done: boolean;
+}
+
+/** Result of one Stage 3 chunk — Google Business profile lookup.
+ *  `found` = how many of the processed leads had a Google listing. */
+export interface ChProfilesResult extends ChOfficersResult {
+  found: number;
+}
+
+/** Result of one Stage 5 chunk — LinkedIn company + staff lookup.
+ *  `found` = companies with a LinkedIn URL; `staff` = total staff profiles. */
+export interface ChStaffResult extends ChOfficersResult {
+  found: number;
+  staff: number;
+  /** True when the search engine throttled the run — leads weren't advanced,
+   *  so the UI should stop and let the user retry shortly. */
+  ratelimited?: boolean;
+}
+
+/** A Companies House pipeline record — lives in `company_leads`, isolated from
+ *  the real Leads funnel until promoted. */
+export interface CompanyLead {
+  id: number;
+  name: string;
+  company?: string | null;
+  company_number?: string | null;
+  address?: string | null;
+  industry?: string | null;
+  phone?: string | null;
+  email?: string | null;
+  url?: string | null;
+  url_status?: string | null; // live|parked|for_sale|unconfigured|dead|unknown — dead-set flags the website icon red
+  notes?: string | null;
+  stage?: number | null;
+  stage_updated_at?: string | null;
+  source?: string | null;
+  created_at?: string;
+  updated_at?: string;
+  // Presence flags for the list icon grid (0/1), computed by the list endpoint.
+  // Company address/website/email/phone are read from the columns above.
+  c_li?: number;     // company LinkedIn page found
+  p_addr?: number;   // a director has a correspondence address
+  p_li?: number;     // a person (director/staff) has a LinkedIn URL
+  p_email?: number;  // a person has an email
+  p_phone?: number;  // a person has a phone
+  // Presence-of-info flags (0/1) for the list filter checkboxes.
+  f_address?: number;
+  f_directors?: number;
+  f_industry?: number;
+  f_website?: number;
+  f_phone?: number;
+  f_email?: number;
+  f_linkedin?: number;
+  f_staff?: number;
+}
+/** Pipeline milestone counts — how many records have each piece of info.
+ *  Drives the simplified Companies House dashboard. */
+export interface ChMilestones {
+  total: number;
+  address: number;
+  directors: number;
+  industry: number;
+  website: number;
+  phone: number;
+  email: number;
+  linkedin: number;
+  staff: number;
+}
+
+/** Per-type counts of records that gained each info kind in a qualify chunk. */
+export interface ChFoundCounts {
+  directors: number;
+  industry: number;
+  address: number;
+  website: number;
+  phone: number;
+  email: number;
+  linkedin: number;
+  staff: number;
+}
+
+/** One chunk of the bundled Qualify pass. Cursor-based via `last_id`; the UI
+ *  loops from after_id=0 until `done`. `enriched` = records that gained data. */
+export interface ChQualifyResult {
+  processed: number;
+  last_id: number;
+  remaining: number;
+  done: boolean;
+  enriched: number;
+  found: ChFoundCounts;
+}
+
+/** Rolling summary of the current/most-recent Qualify run, for the dashboard's
+ *  "last run" module. `running` = the pass is still in progress. */
+export interface ChLastRun {
+  checked: number;
+  enriched: number;
+  found: ChFoundCounts;
+  running: boolean;
+  at?: string;
+}
+
+export interface CompanyLeadInfoEntry { id: number; name: string; value: string | null; sort_order: number; }
+export interface CompanyLeadContact {
+  id: number; first_name: string; last_name?: string | null;
+  position?: string | null; email?: string | null; phone?: string | null; linkedin_url?: string | null; is_primary?: 0 | 1;
+}
+export interface CompanyLeadDetail {
+  company_lead: CompanyLead;
+  info: CompanyLeadInfoEntry[];
+  contacts: CompanyLeadContact[];
+}
+
+/** One row of the amalgamated "Lead Gen" landing page — a lead from EITHER
+ *  the company_leads pipeline (Companies House / LinkedIn) or the funnel
+ *  `leads` table (AI prompt / imported / manual), normalised to a single
+ *  shape. `origin` says which table it came from; `source_label` classifies
+ *  the acquisition method. State-icon flags mirror the pipeline list. */
+export interface UnifiedLead {
+  key: string;                 // stable row key: 'cl-<id>' | 'ld-<id>'
+  id: number;
+  origin: 'company_lead' | 'lead';
+  source_key: string;
+  source_label: string;
+  name: string;
+  company?: string | null;
+  company_number?: string | null;
+  address?: string | null;
+  industry?: string | null;
+  phone?: string | null;
+  email?: string | null;
+  url?: string | null;
+  url_status?: string | null;
+  notes?: string | null;
+  created_at?: string;
+  c_li?: number;
+  p_addr?: number;
+  p_li?: number;
+  p_email?: number;
+  p_phone?: number;
+}
+/** Source-method summary for the Lead Gen filter (grouped by friendly label). */
+export interface UnifiedLeadSource { label: string; count: number; }
 
 /** Distinct industry value with its lead count. Returned by
  *  GET /api/leads/industries. Powers the sidenav sub-menu + the industry
@@ -565,6 +729,11 @@ export interface ClientContact {
   last_name?: string | null;
   position?: string | null;
   email?: string | null;
+  /** Per-contact LinkedIn profile URL (migration 150). Nullable —
+   *  optional field on both client + lead contact forms. Reused by
+   *  lead_contacts too since the frontend shares the ClientContact
+   *  interface for both tables. */
+  linkedin_url?: string | null;
   verified?: 0 | 1 | boolean;
   /** Exactly one contact per client carries is_primary=1. The basic-info
    *  card on the client view pulls Name/Email/Phone from the primary
@@ -1969,12 +2138,16 @@ export interface AdminUser {
   id: number;
   email: string;
   display_name: string;
-  role?: 'admin' | 'member' | 'viewer';
+  role?: 'admin' | 'member' | 'viewer' | 'contractor';
   /** Per-user override for `tenants.color_theme`. NULL/undefined means
    *  the user inherits the tenant default; set to one of the six theme
    *  slugs to opt out of org branding for personal viewing only. */
   color_theme?: string | null;
   super?: boolean;
+  /** Set by any temp-password path (admin created account, admin reset,
+   *  contractor enable-login). Login response includes it; a `true` value
+   *  forces the /login page to prompt for a new password before routing. */
+  must_change_password?: boolean;
   created_at?: string;
 }
 
@@ -2358,8 +2531,81 @@ export interface Contractor {
   notes?: string | null;
   project_manager_id?: number | null;
   manager_email?: string | null;
+  admin_user_id?: number | null;
+  account_email?: string | null;
+  account_active?: 0 | 1 | null;
+  account_display_name?: string | null;
+  onboarding_token?: string | null;
+  perm_view_clients?: 0 | 1;
+  perm_view_tasks?: 0 | 1;
+  perm_view_invoices?: 0 | 1;
+  perm_upload_documents?: 0 | 1;
+  perm_edit_profile?: 0 | 1;
   created_at?: string;
   updated_at?: string;
+}
+
+// ───── Assignments (migration 157) ────────────────────────────────
+// One row per person <-> client|lead <-> role. Reassignment appends a
+// new row and stamps ended_at on the previous — so history + current
+// live in the same table and every UI shape ("who's on this now?",
+// "who's ever been the account manager?", "who reassigned it?") is a
+// SELECT with an ORDER BY / WHERE ended_at IS NULL filter.
+export type AssignmentRole = 'onboarding' | 'services' | 'service_tasks' | 'account_tasks';
+export type AssigneeType   = 'employee' | 'contractor' | 'partner';
+
+export interface Assignment {
+  id: number;
+  entity_type: 'client' | 'lead';
+  entity_id: number;
+  role: AssignmentRole;
+  assignee_type: AssigneeType;
+  assignee_id: number;
+  assignee_name: string;
+  assignee_position: string | null;
+  assigned_by_user_id: number | null;
+  assigned_by_name: string | null;
+  assigned_at: string;
+  ended_by_user_id: number | null;
+  ended_by_name: string | null;
+  ended_at: string | null;
+  notes: string | null;
+}
+
+export interface AssignmentGroup {
+  role: AssignmentRole;
+  current: Assignment[];
+  history: Assignment[];
+}
+
+export interface AssigneeOption {
+  type: AssigneeType;
+  id: number;
+  name: string;
+  subtitle: string | null;
+}
+
+export interface ContractorPermissions {
+  view_clients: boolean;
+  view_tasks: boolean;
+  view_invoices: boolean;
+  upload_documents: boolean;
+  edit_profile: boolean;
+}
+
+export interface ClientContractorLink {
+  link_id: number;
+  role: string | null;
+  added_at: string;
+  contractor_id: number;
+  contractor_name: string;
+  discipline: string | null;
+  contractor_status: ContractorStatus;
+  primary_email: string | null;
+  admin_user_id: number | null;
+  rate: number | string | null;
+  currency: string;
+  engagement_type: EngagementType;
 }
 
 export interface ContractorNote {

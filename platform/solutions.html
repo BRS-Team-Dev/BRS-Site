@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="The Built Right platform — CRM, CMS, HR, Tasks, Recruitment, Operations and Accounting, modular and connected under one login.">
+  <link rel="icon" type="image/png" sizes="32x32" href="assets/images/favicon32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="assets/images/favicon16.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Poppins:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/platform.css">
+  <title>Solutions | Built Right</title>
+</head>
+<body>
+
+  <!-- ============================ NAV ============================ -->
+  <nav class="nav" id="nav">
+    <div class="container nav-inner">
+      <a href="index.html" class="brand" aria-label="Built Right home">
+        <img src="assets/images/logo.png" alt="Built Right">
+        <span class="brand-word"><b>Built Right</b><span>Studio</span></span>
+      </a>
+      <input type="checkbox" id="navCheck" class="nav-check" aria-label="Open menu">
+      <div class="nav-links" id="navLinks">
+        <a href="about.html">About</a>
+
+        <a href="solutions.html" class="active">Solutions</a>
+        <a href="pricing.html">Pricing</a>
+        <a href="showcase.html">Showcase</a>
+      </div>
+      <a href="contact.html" class="btn btn-primary nav-cta">Book a Demo</a>
+      <label class="nav-toggle" for="navCheck" aria-label="Open menu"><span></span><span></span><span></span></label>
+    </div>
+  </nav>
+
+  <!-- ============================ HERO ============================ -->
+  <header class="video-hero short" id="home">
+    <video class="vh-video" autoplay muted loop playsinline preload="auto">
+      <source src="assets/video/hero.mp4" type="video/mp4">
+    </video>
+    <div class="vh-overlay"></div>
+    <div class="vh-content">
+      <span class="eyebrow">The Platform</span>
+      <h1>One system. <span class="hl">Every</span> moving part.</h1>
+      <p>CRM, CMS, HR, Tasks, Recruitment, Operations and Accounting — modular, connected, and built to fit how your business runs.</p>
+      <div class="vh-cta">
+        <a href="contact.html" class="btn btn-primary btn-lg">Book a Demo</a>
+        <a href="pricing.html" class="btn btn-outline-light btn-lg">See Pricing</a>
+      </div>
+    </div>
+  </header>
+
+  <!-- ============================ FEATURE DEEP-DIVES ============================ -->
+  <section>
+    <div class="container">
+      <div class="section-head reveal">
+        <span class="eyebrow">Capabilities</span>
+        <h2 class="section-title">The details that make it <span class="hl">feel bespoke</span></h2>
+      </div>
+
+      <div class="feature-row reveal">
+        <div class="feature-text">
+          <h3>Automated onboarding</h3>
+          <p>Qualify a client and the platform spins up the project, assigns the team and starts the contract roll-out — no copy-paste between tools.</p>
+          <ul class="tick-list"><li><span class="tick">✓</span> Onboarding forms that price and scope the work</li><li><span class="tick">✓</span> Auto-created delivery projects</li><li><span class="tick">✓</span> One handoff, zero re-keying</li></ul>
+        </div>
+        <div class="device"><div class="bar"><i></i><i></i><i></i><span class="url"></span></div><img class="screen" src="assets/screens/onboarding.jpg" alt="Onboarding" loading="lazy"></div>
+      </div>
+
+      <div class="feature-row flip reveal">
+        <div class="feature-text">
+          <h3>Contracts &amp; e-sign per audience</h3>
+          <p>Author a contract template once and roll it out to the right people — employees, clients, candidates, contractors and more — with required-document gates that actually enforce.</p>
+          <ul class="tick-list"><li><span class="tick">✓</span> Ten audience types, one template engine</li><li><span class="tick">✓</span> "N of M required signed" gates per entity</li><li><span class="tick">✓</span> Outstanding counts on every record</li></ul>
+        </div>
+        <div class="device"><div class="bar"><i></i><i></i><i></i><span class="url"></span></div><img class="screen" src="assets/screens/roles.jpg" alt="Contracts" loading="lazy"></div>
+      </div>
+
+      <div class="feature-row reveal">
+        <div class="feature-text">
+          <h3>Role-based dashboards</h3>
+          <p>Everyone sees what matters to them. The same platform shows an operations lead their pipeline and a new starter their onboarding checklist.</p>
+          <ul class="tick-list"><li><span class="tick">✓</span> Per-system sidenavs and access</li><li><span class="tick">✓</span> Self-serve portals for clients and staff</li><li><span class="tick">✓</span> One login, the right view</li></ul>
+        </div>
+        <div class="device"><div class="bar"><i></i><i></i><i></i><span class="url"></span></div><img class="screen" src="assets/screens/dashboard.jpg" alt="Dashboards" loading="lazy"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================ TABBED MODULE SHOWCASE ============================ -->
+  <section class="showcase" style="background:var(--ink-950)">
+    <div class="container">
+      <div class="section-head reveal">
+        <span class="eyebrow">Modules</span>
+        <h2 class="section-title">Pick the parts you need — <span class="hl">they all talk</span></h2>
+        <p class="lead">Every module shares one database, one login and one design. Start with two, add the rest as you grow.</p>
+      </div>
+
+      <div data-tabs class="reveal">
+        <div class="tabs">
+          <button class="tab active">CRM</button>
+          <button class="tab">CMS</button>
+          <button class="tab">HR</button>
+          <button class="tab">Tasks</button>
+          <button class="tab">Recruitment</button>
+          <button class="tab">Operations</button>
+          <button class="tab">Accounting</button>
+        </div>
+
+        <div class="tab-pane active">
+          <div class="tab-copy">
+            <h3>CRM</h3>
+            <p>Clients, contacts, services and contracts in one record. Track value, automate onboarding, never lose a lead.</p>
+            <ul class="tick-list"><li><span class="tick">✓</span> Leads, lead-gen and pipeline in one place</li><li><span class="tick">✓</span> Per-client services, contracts and value tracking</li><li><span class="tick">✓</span> Automated onboarding straight into delivery</li></ul>
+          </div>
+          <div class="device"><div class="bar"><i></i><i></i><i></i><span class="url"></span></div><img class="screen" src="assets/screens/clients.jpg" alt="CRM" loading="lazy"></div>
+        </div>
+
+        <div class="tab-pane">
+          <div class="tab-copy">
+            <h3>CMS</h3>
+            <p>Publish and manage content without touching code — pages, media and structured sections your team controls.</p>
+            <ul class="tick-list"><li><span class="tick">✓</span> Structured content, not a wall of HTML</li><li><span class="tick">✓</span> Media library with role-based access</li><li><span class="tick">✓</span> Drives your public site and portals</li></ul>
+          </div>
+          <div class="device"><div class="bar"><i></i><i></i><i></i><span class="url"></span></div><img class="screen" src="assets/screens/jobs.jpg" alt="CMS" loading="lazy"></div>
+        </div>
+
+        <div class="tab-pane">
+          <div class="tab-copy">
+            <h3>HR &amp; Onboarding</h3>
+            <p>People, documents and contracts in one place — with onboarding that runs itself and a portal for new starters.</p>
+            <ul class="tick-list"><li><span class="tick">✓</span> Employee records and document vaults</li><li><span class="tick">✓</span> Contract roll-out and e-sign per audience</li><li><span class="tick">✓</span> Self-serve onboarding portal</li></ul>
+          </div>
+          <div class="device"><div class="bar"><i></i><i></i><i></i><span class="url"></span></div><img class="screen" src="assets/screens/onboarding.jpg" alt="HR" loading="lazy"></div>
+        </div>
+
+        <div class="tab-pane">
+          <div class="tab-copy">
+            <h3>Tasks</h3>
+            <p>Projects, teams and boards that pick up where the CRM leaves off — qualified work flows straight into delivery.</p>
+            <ul class="tick-list"><li><span class="tick">✓</span> Boards, iterations and team rosters</li><li><span class="tick">✓</span> Auto-created projects from onboarding</li><li><span class="tick">✓</span> Status, priority and ownership at a glance</li></ul>
+          </div>
+          <div class="device"><div class="bar"><i></i><i></i><i></i><span class="url"></span></div><img class="screen" src="assets/screens/tasks.jpg" alt="Tasks" loading="lazy"></div>
+        </div>
+
+        <div class="tab-pane">
+          <div class="tab-copy">
+            <h3>Recruitment</h3>
+            <p>Candidates, clients, placements and commission — with public application portals that feed straight into your pipeline.</p>
+            <ul class="tick-list"><li><span class="tick">✓</span> Candidate compliance and onboarding checklists</li><li><span class="tick">✓</span> Roles synced to client services and commission</li><li><span class="tick">✓</span> Public apply &amp; request-candidate forms</li></ul>
+          </div>
+          <div class="device"><div class="bar"><i></i><i></i><i></i><span class="url"></span></div><img class="screen" src="assets/screens/candidates.jpg" alt="Recruitment" loading="lazy"></div>
+        </div>
+
+        <div class="tab-pane">
+          <div class="tab-copy">
+            <h3>Operations</h3>
+            <p>Tenders, bids and the day-to-day — track every RFP through the pipeline with documents, deadlines and a taskboard.</p>
+            <ul class="tick-list"><li><span class="tick">✓</span> Tender pipeline with deadline tracking</li><li><span class="tick">✓</span> Document sections and completion gates</li><li><span class="tick">✓</span> Reminder buckets and a unified taskboard</li></ul>
+          </div>
+          <div class="device"><div class="bar"><i></i><i></i><i></i><span class="url"></span></div><img class="screen" src="assets/screens/support.jpg" alt="Operations" loading="lazy"></div>
+        </div>
+
+        <div class="tab-pane">
+          <div class="tab-copy">
+            <h3>Accounting</h3>
+            <p>The money side, connected to everything else — so contract value, services and delivery line up with the numbers.</p>
+            <ul class="tick-list"><li><span class="tick">✓</span> Linked to CRM contract value and services</li><li><span class="tick">✓</span> One source of truth across the business</li><li><span class="tick">✓</span> Reporting that reflects live operations</li></ul>
+          </div>
+          <div class="device"><div class="bar"><i></i><i></i><i></i><span class="url"></span></div><img class="screen" src="assets/screens/dashboard.jpg" alt="Accounting" loading="lazy"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================ INDUSTRY BLOCKS ============================ -->
+  <section>
+    <div class="container">
+      <div class="section-head reveal">
+        <span class="eyebrow">By Industry</span>
+        <h2 class="section-title">Built for <span class="hl">your sector</span></h2>
+      </div>
+      <div class="feature-row reveal" id="healthcare">
+        <div class="feature-text">
+          <span class="eyebrow">Healthcare</span>
+          <h3>Compliance-first, audit-ready</h3>
+          <p>Systems for care providers where compliance can't slip: candidate vetting, contracts, onboarding and CQC-ready records, all in one place.</p>
+          <ul class="tick-list"><li><span class="tick">✓</span> Document vaults with expiry tracking</li><li><span class="tick">✓</span> Contract roll-out &amp; e-sign per role</li><li><span class="tick">✓</span> Audits that take an afternoon, not a week</li></ul>
+          <div class="spot-chips" style="margin-top:18px"><span style="background:var(--ink-900);border-color:rgba(212,169,58,.4);color:var(--gold-light)">Bespoke build</span><span style="background:var(--ink-900);border-color:rgba(212,169,58,.4);color:var(--gold-light)">5 tools → 1</span></div>
+        </div>
+        <div class="device"><div class="bar"><i></i><i></i><i></i><span class="url"></span></div><img class="screen" src="assets/screens/onboarding.jpg" alt="Healthcare" loading="lazy"></div>
+      </div>
+
+      <div class="feature-row flip reveal" id="recruitment">
+        <div class="feature-text">
+          <span class="eyebrow">Recruitment</span>
+          <h3>Agency platforms that place faster</h3>
+          <p>Candidates, clients, placements and commission tracking — with public application portals that feed straight into your pipeline.</p>
+          <ul class="tick-list"><li><span class="tick">✓</span> Candidate compliance &amp; onboarding checklists</li><li><span class="tick">✓</span> Roles synced to client services &amp; commission</li><li><span class="tick">✓</span> Public apply &amp; request-candidate forms</li></ul>
+          <div class="spot-chips" style="margin-top:18px"><span style="background:var(--ink-900);border-color:rgba(212,169,58,.4);color:var(--gold-light)">Tailored</span><span style="background:var(--ink-900);border-color:rgba(212,169,58,.4);color:var(--gold-light)">Public portals</span></div>
+        </div>
+        <div class="device"><div class="bar"><i></i><i></i><i></i><span class="url"></span></div><img class="screen" src="assets/screens/candidates.jpg" alt="Recruitment" loading="lazy"></div>
+      </div>
+
+      <div class="feature-row reveal" id="education">
+        <div class="feature-text">
+          <span class="eyebrow">Education</span>
+          <h3>Students, staff and programmes, connected</h3>
+          <p>Manage learners, staff and programmes with role-based access — the right view for administrators, tutors and students.</p>
+          <ul class="tick-list"><li><span class="tick">✓</span> Programme &amp; cohort management</li><li><span class="tick">✓</span> Role-based dashboards and portals</li><li><span class="tick">✓</span> Documents, onboarding and records in one system</li></ul>
+          <div class="spot-chips" style="margin-top:18px"><span style="background:var(--ink-900);border-color:rgba(212,169,58,.4);color:var(--gold-light)">Subscription</span><span style="background:var(--ink-900);border-color:rgba(212,169,58,.4);color:var(--gold-light)">Role-based</span></div>
+        </div>
+        <div class="device"><div class="bar"><i></i><i></i><i></i><span class="url"></span></div><img class="screen" src="assets/screens/clients.jpg" alt="Education" loading="lazy"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================ YOUR INDUSTRY ============================ -->
+  <section class="spotlight">
+    <div class="container reveal" style="text-align:center;max-width:760px;margin-inline:auto">
+      <span class="eyebrow" style="color:var(--gold-light)">Your Industry</span>
+      <h2 class="section-title" style="color:#fff">Don't see <span class="hl" style="color:var(--gold-light)">yours?</span></h2>
+      <p class="lead" style="color:var(--on-dark-mut)">That's our favourite kind of project. The same engine that runs healthcare, recruitment and education adapts to most operations — tell us how you work and we'll map it.</p>
+      <div style="margin-top:30px"><a href="contact.html" class="btn btn-primary btn-lg">Map my workflow</a></div>
+    </div>
+  </section>
+
+  <!-- ============================ ONE ENGINE STATS ============================ -->
+  <section class="stat-band">
+    <div class="container">
+      <div class="section-head reveal">
+        <span class="eyebrow" style="color:var(--gold-light)">One Engine</span>
+        <h2 class="section-title" style="color:#fff">Shaped per sector, built on the <span class="hl" style="color:var(--gold-light)">same core</span></h2>
+      </div>
+      <div class="stat-grid">
+        <div class="stat-card reveal d1"><div class="num"><span data-count="3">3</span></div><div class="lbl">Industries live today</div></div>
+        <div class="stat-card reveal d2"><div class="num"><span data-count="7" data-suffix="+">7</span></div><div class="lbl">Shared modules</div></div>
+        <div class="stat-card reveal d3"><div class="num"><span data-count="10">10</span></div><div class="lbl">Contract audiences</div></div>
+        <div class="stat-card reveal d4"><div class="num"><span data-count="1">1</span></div><div class="lbl">Login for the whole org</div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================ GALLERY ============================ -->
+  <section class="why" style="background:#fff">
+    <div class="container">
+      <div class="section-head reveal">
+        <span class="eyebrow">See It In Action</span>
+        <h2 class="section-title">Real screens, real <span class="hl">work</span></h2>
+      </div>
+      <div class="gallery reveal">
+        <div class="shot" data-tags="crm" data-cap="CRM — client services tab"><img class="screen" src="assets/screens/clients.jpg" alt="CRM" loading="lazy"></div>
+        <div class="shot" data-tags="hr" data-cap="HR — onboarding portal"><img class="screen" src="assets/screens/onboarding.jpg" alt="HR" loading="lazy"></div>
+        <div class="shot" data-tags="tasks" data-cap="Tasks — project board"><img class="screen" src="assets/screens/tasks.jpg" alt="Tasks" loading="lazy"></div>
+        <div class="shot" data-tags="recruitment" data-cap="Recruitment — candidate compliance"><img class="screen" src="assets/screens/candidates.jpg" alt="Recruitment" loading="lazy"></div>
+        <div class="shot" data-tags="operations" data-cap="Operations — tender pipeline"><img class="screen" src="assets/screens/support.jpg" alt="Operations" loading="lazy"></div>
+        <div class="shot" data-tags="crm" data-cap="CRM — contract roll-out"><img class="screen" src="assets/screens/roles.jpg" alt="Contracts" loading="lazy"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================ FINAL CTA ============================ -->
+  <section class="final-cta">
+    <div class="container reveal">
+      <span class="eyebrow" style="color:var(--gold-light)">The Platform</span>
+      <h2>Want a tour on <span class="hl">your</span> data?</h2>
+      <p>We'll walk you through the modules that fit your business — and show you what a tailored or bespoke build would look like.</p>
+      <div class="btn-group">
+        <a href="contact.html" class="btn btn-primary btn-lg">Book a Demo</a>
+        <a href="pricing.html" class="btn btn-outline-light btn-lg">See Pricing</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================ FOOTER ============================ -->
+  <footer class="footer">
+    <div class="container">
+      <div class="footer-top">
+        <div>
+          <a href="index.html" class="brand"><img src="assets/images/logo.png" alt="Built Right" style="height:36px;filter:brightness(0) invert(1)"><span class="brand-word"><b>Built Right</b><span>Studio</span></span></a>
+          <p class="blurb">Bespoke CRM &amp; CMS platforms — built custom, subscription-ready, or tailored to you. For any industry.</p>
+        </div>
+        <div class="footer-col"><h5>Platform</h5><a href="solutions.html">Modules</a><a href="solutions.html">Features</a><a href="showcase.html">Showcase</a><a href="pricing.html">Pricing</a></div>
+        <div class="footer-col"><h5>Solutions</h5><a href="solutions.html">Healthcare</a><a href="solutions.html">Recruitment</a><a href="solutions.html">Education</a><a href="solutions.html">Your industry</a></div>
+        <div class="footer-col"><h5>Company</h5><a href="about.html">About</a><a href="contact.html">Book a Demo</a><a href="contact.html">Contact</a></div>
+      </div>
+      <div class="footer-bottom"><span>© <span id="year"></span> Built Right Studio. Business platforms, built right.</span><span>Bespoke · Subscription · Tailored</span></div>
+    </div>
+  </footer>
+
+  <!-- Lightbox -->
+  <div class="lightbox" id="lightbox">
+    <button class="lb-close" aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+    <button class="lb-nav prev" aria-label="Previous"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m15 18-6-6 6-6"/></svg></button>
+    <img src="" alt="">
+    <button class="lb-nav next" aria-label="Next"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m9 18 6-6-6-6"/></svg></button>
+    <div class="lb-cap"></div>
+  </div>
+
+  <script src="js/platform.js"></script>
+</body>
+</html>

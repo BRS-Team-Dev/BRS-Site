@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 60" width="200" height="60">
+  <defs>
+    <style>
+      .logo-text { font-family: 'Playfair Display', Georgia, serif; }
+      .logo-accent { font-family: 'Playfair Display', Georgia, serif; font-style: italic; }
+    </style>
+  </defs>
+  
+  <!-- BR Monogram -->
+  <g transform="translate(10, 8)">
+    <!-- Decorative B with script styling -->
+    <path d="M5 45 Q5 5 20 5 Q35 5 35 18 Q35 28 22 30 Q38 32 38 42 Q38 52 20 52 Q5 52 5 45 M12 28 Q25 28 25 18 Q25 10 18 10 Q12 10 12 20 L12 28 M12 48 Q12 35 12 32 Q28 32 28 40 Q28 48 18 48 Q12 48 12 45" 
+          fill="none" stroke="#C9B8A7" stroke-width="1.5"/>
+    
+    <!-- Decorative R with flowing script -->
+    <path d="M25 52 L25 8 Q25 5 30 5 Q50 5 50 18 Q50 28 35 30 L52 52" 
+          fill="none" stroke="#C9B8A7" stroke-width="1.5"/>
+  </g>
+  
+  <!-- STUDIO text -->
+  <text x="68" y="38" class="logo-text" fill="#F2F2F2" font-size="11" font-weight="400" letter-spacing="3">STUDIO</text>
+  
+  <!-- Decorative line -->
+  <line x1="68" y1="44" x2="118" y2="44" stroke="#D4AF37" stroke-width="0.5"/>
+</svg>

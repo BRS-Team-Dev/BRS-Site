@@ -27,6 +27,28 @@ $segs   = $path === '' ? [] : explode('/', $path);
 $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
 $first  = $segs[0] ?? '';
 
+// Gate: contractors can only reach a small allowlist of routes. Everything
+// else (admin CRUD, HR, accounting, etc.) 403s. Route-file Auth::require()
+// still runs for admin auth checks — this is a coarse role gate on top.
+$contractorAllow = [
+    'auth', 'contractor', 'stripe-webhook', 'health',
+    'public-hr-onboarding', 'public-recruitment-onboarding',
+    'public-recruitment-apply', 'public-recruitment-client',
+    'public-recruitment-contact', 'public-survey', 'public-tenant-signup',
+    'public-site-preview', 'public-lead-booking',
+];
+if ($first !== '' && !in_array($first, $contractorAllow, true)) {
+    $hdr = $_SERVER['HTTP_AUTHORIZATION'] ?? '';
+    if (!$hdr && function_exists('apache_request_headers')) {
+        $h = apache_request_headers();
+        $hdr = $h['Authorization'] ?? $h['authorization'] ?? '';
+    }
+    if (preg_match('/^Bearer\s+(.+)$/i', $hdr, $m)) {
+        $claims = \BRS\Auth::verifyToken(trim($m[1]));
+        if ($claims) \BRS\Auth::requireNonContractor($claims);
+    }
+}
+
 try {
     switch ($first) {
         case 'auth':
@@ -62,6 +84,9 @@ try {
             break;
         case 'leads':
             (require __DIR__ . '/routes/leads.php')($method, $segs);
+            break;
+        case 'company-leads':
+            (require __DIR__ . '/routes/company_leads.php')($method, $segs);
             break;
         case 'leadgen':
             (require __DIR__ . '/routes/leadgen.php')($method, $segs);
@@ -109,8 +134,14 @@ try {
         case 'contractors':
             (require __DIR__ . '/routes/contractors.php')($method, $segs);
             break;
+        case 'contractor':
+            (require __DIR__ . '/routes/contractor_me.php')($method, $segs);
+            break;
         case 'affiliates':
             (require __DIR__ . '/routes/affiliates.php')($method, $segs);
+            break;
+        case 'assignees':
+            (require __DIR__ . '/routes/assignees.php')($method, $segs);
             break;
         case 'dashboard':
             (require __DIR__ . '/routes/dashboard.php')($method, $segs);
@@ -147,6 +178,18 @@ try {
             break;
         case 'public-tenant-signup':
             (require __DIR__ . '/routes/public_tenant_signup.php')($method, $segs);
+            break;
+        case 'public-site-preview':
+            (require __DIR__ . '/routes/public_site_preview.php')($method, $segs);
+            break;
+        case 'public-lead-booking':
+            (require __DIR__ . '/routes/public_lead_booking.php')($method, $segs);
+            break;
+        case 'site-previews':
+            (require __DIR__ . '/routes/site_previews.php')($method, $segs);
+            break;
+        case 'lead-bookings':
+            (require __DIR__ . '/routes/lead_bookings.php')($method, $segs);
             break;
         case 'super-admin':
             (require __DIR__ . '/routes/super_admin.php')($method, $segs);

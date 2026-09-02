@@ -1,0 +1,527 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Preview what Built Right Studio can build for you — websites, software, brand kits and more, delivered in days, not months.">
+  <meta name="author" content="Built Right Studio">
+
+  <!-- Open Graph / Social Media -->
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://builtrightstudio.com/preview">
+  <meta property="og:title" content="Preview | Built Right Studio">
+  <meta property="og:description" content="A quick preview of what we build. Fast delivery, clean design, transparent pricing.">
+
+  <!-- Favicon -->
+  <link rel="icon" type="image/png" sizes="32x32" href="assets/images/icon.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="assets/images/icon.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="assets/images/icon.png">
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+  <!-- Stylesheet -->
+  <link rel="stylesheet" href="css/styles.css?v=5">
+  <link rel="stylesheet" href="css/preview-v2.css?t=20260902">
+  <link rel="stylesheet" href="css/booking-modal.css?v=1">
+
+  <title>Preview | Built Right Studio</title>
+</head>
+<body>
+
+  <!-- ============================================
+       HEADER / NAVIGATION
+       ============================================ -->
+  <header class="header">
+    <div class="header-inner">
+      <!-- Logo -->
+      <a href="index.html" class="logo">
+        <img src="assets/images/icon-removebg-preview.png" alt="Built Right Studio">
+      </a>
+
+      <!-- Main Navigation -->
+      <nav class="nav-main" role="navigation" aria-label="Main navigation">
+        <a href="index.html" class="nav-link">Home</a>
+        <div class="nav-dropdown">
+          <span class="nav-link" style="cursor: default;">Services
+            <svg class="nav-dropdown-caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+          </span>
+          <div class="nav-dropdown-menu">
+            <a href="websites.html">Websites</a>
+            <a href="software-solutions.html">Software Solutions</a>
+            <a href="it-services.html">IT Services</a>
+            <a href="brand-kit.html">Brand Kit</a>
+            <a href="social-media-marketing.html">Social Media Marketing</a>
+          </div>
+        </div>
+        <a href="casestudy.html" class="nav-link">Case Studies</a>
+        <a href="about.html" class="nav-link">About</a>
+        <a href="contact.html" class="nav-link">Contact</a>
+      </nav>
+
+      <!-- Header CTA -->
+      <div class="header-cta">
+        <button type="button" class="btn btn-primary" data-book-call>Book a Call</button>
+
+        <!-- Mobile Toggle -->
+        <button class="mobile-toggle" aria-label="Toggle menu" aria-expanded="false">
+          <span></span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Mobile Navigation -->
+    <nav class="nav-mobile" role="navigation" aria-label="Mobile navigation">
+      <a href="index.html" class="nav-link">Home</a>
+      <div class="nav-mobile-dropdown">
+        <button class="nav-mobile-services-toggle" aria-expanded="false" aria-label="Toggle services menu">Services
+          <svg class="nav-dropdown-caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+        </button>
+        <div class="nav-mobile-submenu">
+          <a href="websites.html" class="nav-link">Websites</a>
+          <a href="software-solutions.html" class="nav-link">Software Solutions</a>
+          <a href="it-services.html" class="nav-link">IT Services</a>
+          <a href="brand-kit.html" class="nav-link">Brand Kit</a>
+          <a href="social-media-marketing.html" class="nav-link">Social Media Marketing</a>
+        </div>
+      </div>
+      <a href="casestudy.html" class="nav-link">Case Studies</a>
+      <a href="about.html" class="nav-link">About</a>
+        <a href="contact.html" class="nav-link">Contact</a>
+      <button type="button" class="btn btn-primary" style="margin-top: var(--space-6);" data-book-call>Book a Call</button>
+    </nav>
+  </header>
+
+  <!-- ============================================
+       MAIN CONTENT
+       ============================================ -->
+  <main>
+
+    <!-- ============================================
+         SHOWCASE
+         ============================================
+         Two independent flex columns so cells can have different
+         heights without breaking alignment. Intro block is 100vh,
+         every image is 150vh, gap between items is even everywhere.
+         Left column gets the intro (100vh + 150vh image = 250vh) plus
+         item 4 (150vh); right column gets items 2 and 3 (150vh each).
+         As you add more items later they naturally alternate columns
+         and the stagger stays consistent. -->
+    <section class="showcase" aria-label="Showcase">
+      <!-- LEFT COLUMN -->
+      <div class="showcase-col">
+        <!-- Item 1 — INTRO (no image; leaves 3 images across the section) -->
+        <article class="showcase-item reveal">
+          <div class="showcase-intro">
+            <img class="showcase-intro-logo" src="assets/images/icon-removebg-preview.png" alt="Built Right Studio">
+            <div class="showcase-intro-body">
+              <span class="overline">About us</span>
+              <h2 class="showcase-intro-title">Modern Websites <span class="text-gold">Built The Right Way</span></h2>
+              <p class="showcase-intro-text">
+                We're a small UK studio that ships modern websites, custom software and
+                running-cost IT for growing businesses. Fixed prices, tight timelines,
+                and work you'd actually want to show off.
+              </p>
+              <a href="about.html" class="btn btn-primary">Read more</a>
+            </div>
+          </div>
+        </article>
+
+        <!-- Item 4 — Treasure Box Jewellers. -->
+        <article class="showcase-item reveal">
+          <a class="showcase-link" href="site-view-1.html" data-site="treasure-box" aria-label="View Treasure Box Jewellers site preview">
+            <figure class="showcase-figure">
+              <img class="showcase-photo" src="assets/images/showcase/treasure-box.png" alt="Treasure Box Jewellers">
+              <figcaption class="showcase-name-card">
+                <span class="showcase-name-title">Treasure Box Jewellers</span>
+                <span class="showcase-name-category">Custom Made Jewellery</span>
+              </figcaption>
+            </figure>
+          </a>
+        </article>
+
+        <!-- Left-column closer — 50vh centred paragraph. Sized so the
+             left column ends flush with the right column (intro 100vh +
+             image 150vh + closer 50vh = 300vh = 2 × 150vh on the right). -->
+        <article class="showcase-item reveal">
+          <div class="showcase-textblock">
+            <p class="showcase-textblock-text">
+              Whatever stage you're at, we help you move faster and run smoother —
+              with the tools, systems and support your business actually needs,
+              built around the way you already work.
+            </p>
+          </div>
+        </article>
+      </div>
+
+      <!-- RIGHT COLUMN -->
+      <div class="showcase-col">
+        <!-- Item 2 — Bernards by Genasis. -->
+        <article class="showcase-item reveal">
+          <a class="showcase-link" href="site-view-2.html" data-site="bernards-by-genasis" aria-label="View Bernards by Genasis site preview">
+            <figure class="showcase-figure">
+              <img class="showcase-photo" src="assets/images/showcase/bernards-by-genasis.png" alt="Bernards by Genasis">
+              <figcaption class="showcase-name-card">
+                <span class="showcase-name-title">Bernards by Genasis</span>
+                <span class="showcase-name-category">Jewellery &middot; Website</span>
+              </figcaption>
+            </figure>
+          </a>
+        </article>
+
+        <!-- Item 3 — Saba Antiques. -->
+        <article class="showcase-item reveal">
+          <a class="showcase-link" href="site-view-3.html" data-site="saba-antiques" aria-label="View Saba Antiques site preview">
+            <figure class="showcase-figure">
+              <img class="showcase-photo" src="assets/images/showcase/saba-antiques.png" alt="Saba Antiques">
+              <figcaption class="showcase-name-card">
+                <span class="showcase-name-title">Saba Antiques</span>
+                <span class="showcase-name-category">Antiques Jewellery</span>
+              </figcaption>
+            </figure>
+          </a>
+        </article>
+      </div>
+    </section>
+
+<!-- ============================================
+            VIDEO GRID  (full-bleed, 4-up, hover-to-play, click-to-lightbox)
+            Standard white section header + full-bleed tile wall.
+            ============================================ -->
+    <section class="section section-white video-grid-section" aria-label="Design inspiration">
+      <div class="container">
+        <div class="section-header reveal">
+          <span class="overline">Need some inspiration</span>
+          <h2 style="color: var(--color-charcoal-black);">Pick from some amazing designs <span class="text-gold">we
+              like</span></h2>
+        </div>
+      </div>
+
+      <div class="video-grid">
+        <button type="button" class="vg-tile" data-src="assets/video/previews/jewellery/5776295490551291978.mp4"
+          data-user="@aurora.atelier" aria-label="Play jewellery reel by @aurora.atelier">
+          <img class="vg-poster" src="assets/images/posters/jewellery/5776295490551291978.jpg"
+            alt="Jewellery design preview" loading="lazy">
+          <video class="vg-video" muted loop playsinline preload="none"
+            poster="assets/images/posters/jewellery/5776295490551291978.jpg">
+            <source src="assets/video/previews/jewellery/5776295490551291978.mp4" type="video/mp4">
+          </video>
+          <span class="vg-overlay"><span class="vg-username">@docmo.agency</span></span>
+        </button>
+
+        <button type="button" class="vg-tile" data-src="assets/video/previews/jewellery/5776295490551291979.mp4"
+          data-user="@lumiere.jewels" aria-label="Play jewellery reel by @lumiere.jewels">
+          <img class="vg-poster" src="assets/images/posters/jewellery/5776295490551291979.jpg"
+            alt="Jewellery design preview" loading="lazy">
+          <video class="vg-video" muted loop playsinline preload="none"
+            poster="assets/images/posters/jewellery/5776295490551291979.jpg">
+            <source src="assets/video/previews/jewellery/5776295490551291979.mp4" type="video/mp4">
+          </video>
+          <span class="vg-overlay"><span class="vg-username">@appsero_</span></span>
+        </button>
+
+        <button type="button" class="vg-tile" data-src="assets/video/previews/jewellery/5776295490551291980.mp4"
+          data-user="@gildedform" aria-label="Play jewellery reel by @gildedform">
+          <img class="vg-poster" src="assets/images/posters/jewellery/5776295490551291980.jpg"
+            alt="Jewellery design preview" loading="lazy">
+          <video class="vg-video" muted loop playsinline preload="none"
+            poster="assets/images/posters/jewellery/5776295490551291980.jpg">
+            <source src="assets/video/previews/jewellery/5776295490551291980.mp4" type="video/mp4">
+          </video>
+          <span class="vg-overlay"><span class="vg-username">@gildedform</span></span>
+        </button>
+
+        <button type="button" class="vg-tile" data-src="assets/video/previews/jewellery/5776295490551291981.mp4"
+          data-user="@maison.or" aria-label="Play jewellery reel by @maison.or">
+          <img class="vg-poster" src="assets/images/posters/jewellery/5776295490551291981.jpg"
+            alt="Jewellery design preview" loading="lazy">
+          <video class="vg-video" muted loop playsinline preload="none"
+            poster="assets/images/posters/jewellery/5776295490551291981.jpg">
+            <source src="assets/video/previews/jewellery/5776295490551291981.mp4" type="video/mp4">
+          </video>
+          <span class="vg-overlay"><span class="vg-username">@web_love.ed</span></span>
+        </button>
+
+        <button type="button" class="vg-tile" data-src="assets/video/previews/jewellery/5776295490551291983.mp4"
+          data-user="@velvet.carat" aria-label="Play jewellery reel by @velvet.carat">
+          <img class="vg-poster" src="assets/images/posters/jewellery/5776295490551291983.jpg"
+            alt="Jewellery design preview" loading="lazy">
+          <video class="vg-video" muted loop playsinline preload="none"
+            poster="assets/images/posters/jewellery/5776295490551291983.jpg">
+            <source src="assets/video/previews/jewellery/5776295490551291983.mp4" type="video/mp4">
+          </video>
+          <span class="vg-overlay"><span class="vg-username">@theapdigital</span></span>
+        </button>
+
+        <button type="button" class="vg-tile" data-src="assets/video/previews/jewellery/5776295490551291984.mp4"
+          data-user="@studio.lustre" aria-label="Play jewellery reel by @studio.lustre">
+          <img class="vg-poster" src="assets/images/posters/jewellery/5776295490551291984.jpg"
+            alt="Jewellery design preview" loading="lazy">
+          <video class="vg-video" muted loop playsinline preload="none"
+            poster="assets/images/posters/jewellery/5776295490551291984.jpg">
+            <source src="assets/video/previews/jewellery/5776295490551291984.mp4" type="video/mp4">
+          </video>
+          <span class="vg-overlay"><span class="vg-username">@polanaeem.tech</span></span>
+        </button>
+
+        <button type="button" class="vg-tile" data-src="assets/video/previews/jewellery/5776295490551291990.mp4"
+          data-user="@noir.et.or" aria-label="Play jewellery reel by @noir.et.or">
+          <img class="vg-poster" src="assets/images/posters/jewellery/5776295490551291990.jpg"
+            alt="Jewellery design preview" loading="lazy">
+          <video class="vg-video" muted loop playsinline preload="none"
+            poster="assets/images/posters/jewellery/5776295490551291990.jpg">
+            <source src="assets/video/previews/jewellery/5776295490551291990.mp4" type="video/mp4">
+          </video>
+          <span class="vg-overlay"><span class="vg-username">@uiuxzaid</span></span>
+        </button>
+
+        <button type="button" class="vg-tile" data-src="assets/video/previews/jewellery/Video%20Project%205.mp4"
+          data-user="@atelier.brill" aria-label="Play jewellery reel by @atelier.brill">
+          <img class="vg-poster" src="assets/images/posters/jewellery/Video%20Project%205.jpg"
+            alt="Jewellery design preview" loading="lazy">
+          <video class="vg-video" muted loop playsinline preload="none"
+            poster="assets/images/posters/jewellery/Video%20Project%205.jpg">
+            <source src="assets/video/previews/jewellery/Video%20Project%205.mp4" type="video/mp4">
+          </video>
+          <span class="vg-overlay"><span class="vg-username">@techener_official</span></span>
+        </button>
+      </div>
+    </section>
+
+    <!-- Full-page video lightbox (shared by the grid) -->
+    <div class="vg-lightbox" id="vgLightbox" hidden>
+      <button type="button" class="vg-lightbox-close" aria-label="Close video">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+      </button>
+      <video class="vg-lightbox-video" controls playsinline preload="auto"></video>
+    </div>
+
+<!-- ============================================
+    FULL-VIDEO FEATURE  (black overlay right, two stacked cards)
+    ============================================ -->
+<section class="preview-video" aria-label="Interesting add-on" data-pv-section>
+  <!-- Background video (full-bleed) -->
+  <video class="preview-video-media" autoplay muted loop playsinline preload="auto"
+    poster="assets/images/posters/jewellery/addon-feature.jpg">
+    <source
+      src="assets/video/previews/jewellery/SnapInsta.to_AQNNo5CTBulACY-I6Q9ojpoozL8fAh3vW6OHSts0az_HUERtr_ifNhPZVCtqzs2OMJrbL_R4UyN4gdgT8pJxbw6P21t3Nee2oDZIcSU.mp4"
+      type="video/mp4">
+  </video>
+
+  <!-- Low-profile mute toggle — sits over the video's bottom-left corner. -->
+  <button type="button" class="pv-mute" aria-label="Unmute video" data-pv-mute>
+    <svg class="pv-mute-icon pv-mute-icon--muted"   viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="20" height="20"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>
+    <svg class="pv-mute-icon pv-mute-icon--unmuted" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="20" height="20"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg>
+  </button>
+
+  <!-- Black overlay on the right: single text panel -->
+  <div class="preview-video-overlay reveal">
+    <div class="preview-video-title">
+      <h2>Level Up <span class="text-gold">With AI</span></h2>
+    </div>
+    <p class="pv-text pv-lead" style="text-align: center;">
+      give your customers the ability to design bespoke pieces and generate profesional refrence images redy for production straight from your site
+    </p>
+    <article class="pv-card pv-single">
+      <ul class="pv-list">
+        <li>
+          <h3 class="pv-title">Implement Existing AI Platform</h3>
+          <span class="overline"></span>
+          <p class="pv-text">
+            We use the existing service demonstrated in the video: Jeweler Studio AI.
+            This would be the easiest option to implement, but it is also the most expensive in the long term, as you would be tied
+            into a monthly subscription with the provider. <a class="text-gold" href="https://jewelerstudio.ai/pricing">Learn More</a>
+          </p>
+        </li>
+        <li>
+          <h3 class="pv-title">Bespoke AI System</h3>
+          <span class="overline"></span>
+          <p class="pv-text">
+            Build a bespoke version of the system specifically for you.
+            This would involve a one-time development cost, and the system could then be used across all your existing websites as
+            well as any future websites you create.
+          </p>
+        </li>
+      </ul>
+    </article>
+  </div>
+</section>
+
+    <!-- ============================================
+         GALLERY STRIP
+         ============================================
+         Four cover tiles on a white background. Each tile is a
+         gallery — click opens a full-page lightbox with a thumbnail
+         picker so visitors can browse every picture in that gallery.
+         Add / remove galleries or images by editing the `GALLERIES`
+         array at the top of js/preview.js. -->
+    <section class="gallery-strip" aria-label="Preview galleries">
+      <div class="gallery-strip-row">
+        <button type="button" class="gallery-tile" data-gallery="0" aria-label="Open gallery 1">
+          <div class="gallery-tile-image" data-gallery-cover="0"></div>
+          <span class="gallery-tile-caption">Gallery 01</span>
+        </button>
+        <button type="button" class="gallery-tile" data-gallery="1" aria-label="Open gallery 2">
+          <div class="gallery-tile-image" data-gallery-cover="1"></div>
+          <span class="gallery-tile-caption">Gallery 02</span>
+        </button>
+        <button type="button" class="gallery-tile" data-gallery="2" aria-label="Open gallery 3">
+          <div class="gallery-tile-image" data-gallery-cover="2"></div>
+          <span class="gallery-tile-caption">Gallery 03</span>
+        </button>
+        <button type="button" class="gallery-tile" data-gallery="3" aria-label="Open gallery 4">
+          <div class="gallery-tile-image" data-gallery-cover="3"></div>
+          <span class="gallery-tile-caption">Gallery 04</span>
+        </button>
+      </div>
+    </section>
+
+
+    <!-- ============================================
+         CTA STRIP
+         ============================================ -->
+    <section class="section section-dark">
+      <div class="container">
+        <div class="section-header reveal" style="max-width: 720px;">
+          <h2>Ready to <span class="text-gold">get started</span> ?</h2>
+          <p>Book a free 15-minute call — we'll walk you through what we build, what it costs, and how fast we can turn it around.</p>
+          <div style="margin-top: var(--space-8); display: flex; gap: var(--space-4); justify-content: center; flex-wrap: wrap;">
+            <!-- Opens the booking overlay (js/booking-modal.js). Any
+                 element with [data-book-call] triggers it. -->
+            <button type="button" class="btn btn-secondary" data-book-call>Book a Call</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Lightbox — hidden by default; JS toggles [data-open] on it. -->
+    <div class="lightbox" data-lightbox hidden role="dialog" aria-modal="true" aria-label="Gallery">
+      <button type="button" class="lightbox-close" data-lightbox-close aria-label="Close">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+
+      <div class="lightbox-stage">
+        <button type="button" class="lightbox-nav lightbox-prev" data-lightbox-prev aria-label="Previous">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+        </button>
+        <img class="lightbox-image" data-lightbox-image alt="" />
+        <button type="button" class="lightbox-nav lightbox-next" data-lightbox-next aria-label="Next">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+        </button>
+        <div class="lightbox-footer">
+          <span class="lightbox-title" data-lightbox-title></span>
+          <span class="lightbox-counter" data-lightbox-counter></span>
+        </div>
+      </div>
+
+      <div class="lightbox-thumbs" data-lightbox-thumbs></div>
+    </div>
+
+  </main>
+
+  <!-- ============================================
+       FOOTER
+       ============================================ -->
+  <footer class="footer">
+    <div class="container">
+      <div class="footer-grid">
+        <!-- Brand -->
+        <div class="footer-brand">
+          <a href="index.html" class="logo">
+            <img src="assets/images/icon-removebg-preview.png" alt="Built Right Studio" style="height: 100px;">
+          </a>
+          <p>Modern websites built in 24–72 hours. Fast delivery, clean design, affordable pricing.</p>
+
+          <!-- Social Links -->
+          <div class="social-links">
+            <a href="#" class="social-link" aria-label="Instagram">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="2" y="2" width="20" height="20" rx="5" ry="5"></rect>
+                <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"></path>
+                <line x1="17.5" y1="6.5" x2="17.51" y2="6.5"></line>
+              </svg>
+            </a>
+            <a href="#" class="social-link" aria-label="TikTok">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M9 12a4 4 0 1 0 4 4V4a5 5 0 0 0 5 5"></path>
+              </svg>
+            </a>
+            <a href="#" class="social-link" aria-label="LinkedIn">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6z"></path>
+                <rect x="2" y="9" width="4" height="12"></rect>
+                <circle cx="4" cy="4" r="2"></circle>
+              </svg>
+            </a>
+          </div>
+        </div>
+
+        <!-- Quick Links -->
+        <div>
+          <h6 class="footer-heading">Quick Links</h6>
+          <ul class="footer-links">
+            <li><a href="index.html">Home</a></li>
+            <li><a href="websites.html">Services</a></li>
+            <li><a href="portfolio.html">Portfolio</a></li>
+            <li><a href="about.html">About Us</a></li>
+            <li>
+        </li>
+            <li><a href="contact.html">Contact</a></li>
+          </ul>
+        </div>
+
+        <!-- Services -->
+        <div>
+          <h6 class="footer-heading">Services</h6>
+          <ul class="footer-links">
+            <li><a href="websites.html">Websites</a></li>
+            <li><a href="software-solutions.html">Software Solutions</a></li>
+            <li><a href="it-services.html">IT Services</a></li>
+            <li><a href="brand-kit.html">Brand Kit</a></li>
+            <li><a href="social-media-marketing.html">Social Media Marketing</a></li>
+          </ul>
+        </div>
+
+        <!-- Contact -->
+        <div>
+          <h6 class="footer-heading">Contact</h6>
+          <ul class="footer-links">
+            <li><a href="mailto:hello@builtrightstudio.com">hello@builtrightstudio.com</a></li>
+            <li><a href="contact.html">Book a Consultation</a></li>
+            <li>UK based Team</li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- Footer Bottom -->
+      <div class="footer-bottom">
+        <p class="footer-copyright">© 2025 Built Right Studio. All rights reserved.</p>
+        <div class="footer-legal">
+          <a href="#">Privacy Policy</a>
+          <a href="#">Terms of Service</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+  <!-- ============================================
+       FLOATING CTA
+       ============================================ -->
+  <div class="floating-cta">
+    <button type="button" class="btn btn-primary" data-book-call>
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+      </svg>
+      Book a Call
+    </button>
+  </div>
+
+  <!-- JavaScript -->
+  <script src="js/main.js?v=3"></script>
+  <script src="js/preview.js?v=2"></script>
+  <script src="js/booking-modal.js?v=1"></script>
+
+</body>
+</html>

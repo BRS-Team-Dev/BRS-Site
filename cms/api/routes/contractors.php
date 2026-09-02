@@ -29,9 +29,11 @@ return function (string $method, array $segs): void {
     if (!isset($segs[1])) {
         if ($method === 'GET') {
             $rows = $pdo->query(
-                'SELECT c.*, u.email AS manager_email
+                'SELECT c.*, u.email AS manager_email,
+                        au.email AS account_email, au.is_active AS account_active
                  FROM contractors c
-                 LEFT JOIN admin_users u ON u.id = c.project_manager_id
+                 LEFT JOIN admin_users u  ON u.id = c.project_manager_id
+                 LEFT JOIN admin_users au ON au.id = c.admin_user_id
                  ORDER BY c.id DESC LIMIT 1000'
             )->fetchAll();
             Json::send(['contractors' => $rows]);
@@ -93,14 +95,134 @@ return function (string $method, array $segs): void {
     if ($id <= 0) Json::fail('Invalid id', 400);
 
     $stmt = $pdo->prepare(
-        'SELECT c.*, u.email AS manager_email
+        'SELECT c.*, u.email AS manager_email,
+                au.email AS account_email, au.is_active AS account_active,
+                au.display_name AS account_display_name
          FROM contractors c
-         LEFT JOIN admin_users u ON u.id = c.project_manager_id
+         LEFT JOIN admin_users u  ON u.id = c.project_manager_id
+         LEFT JOIN admin_users au ON au.id = c.admin_user_id
          WHERE c.id = ?'
     );
     $stmt->execute([$id]);
     $contractor = $stmt->fetch();
     if (!$contractor) Json::fail('Contractor not found', 404);
+
+    // ───── /api/contractors/:id/clients[/:linkId] ───────────────────
+    // Assigned clients for this contractor (read-only from the contractor's
+    // side — attach/detach is done from the client page).
+    if (($segs[2] ?? '') === 'clients') {
+        if ($method === 'GET') {
+            $rows = $pdo->prepare(
+                'SELECT cc.id AS link_id, cc.role, cc.added_at,
+                        c.id AS client_id, c.name AS client_name
+                 FROM client_contractors cc
+                 JOIN clients c ON c.id = cc.client_id
+                 WHERE cc.contractor_id = ?
+                 ORDER BY cc.added_at DESC'
+            );
+            $rows->execute([$id]);
+            Json::send(['clients' => $rows->fetchAll()]);
+        }
+        Json::fail('Method not allowed', 405);
+    }
+
+    // ───── /api/contractors/:id/security ────────────────────────────
+    if (($segs[2] ?? '') === 'security') {
+        if ($method === 'GET') {
+            Json::send(['permissions' => [
+                'view_clients'     => (bool)$contractor['perm_view_clients'],
+                'view_tasks'       => (bool)$contractor['perm_view_tasks'],
+                'view_invoices'    => (bool)$contractor['perm_view_invoices'],
+                'upload_documents' => (bool)$contractor['perm_upload_documents'],
+                'edit_profile'     => (bool)$contractor['perm_edit_profile'],
+            ]]);
+        }
+        if ($method === 'PUT') {
+            $b = Json::readBody();
+            $p = (array)($b['permissions'] ?? []);
+            $pdo->prepare(
+                'UPDATE contractors
+                 SET perm_view_clients     = ?,
+                     perm_view_tasks       = ?,
+                     perm_view_invoices    = ?,
+                     perm_upload_documents = ?,
+                     perm_edit_profile     = ?
+                 WHERE id = ?'
+            )->execute([
+                !empty($p['view_clients'])     ? 1 : 0,
+                !empty($p['view_tasks'])       ? 1 : 0,
+                !empty($p['view_invoices'])    ? 1 : 0,
+                !empty($p['upload_documents']) ? 1 : 0,
+                !empty($p['edit_profile'])     ? 1 : 0,
+                $id,
+            ]);
+            Json::send(['ok' => true]);
+        }
+        Json::fail('Method not allowed', 405);
+    }
+
+    // ───── /api/contractors/:id/account ─────────────────────────────
+    // Manage the contractor's login: enable (create admin_user + link),
+    // disable (deactivate the admin_user), or reset-password (issue a
+    // new temp password). Mirrors the hr_employees <-> admin_users flow.
+    if (($segs[2] ?? '') === 'account') {
+        $action = (string)($segs[3] ?? '');
+        $userId = (int)$contractor['admin_user_id'];
+
+        if ($action === 'enable' && $method === 'POST') {
+            $body  = Json::readBody();
+            $email = trim((string)($body['email'] ?? $contractor['primary_email'] ?? ''));
+            if (!filter_var($email, FILTER_VALIDATE_EMAIL)) Json::fail('Valid email required', 400);
+            if ($userId > 0) Json::fail('Login is already enabled for this contractor', 409);
+
+            $exists = $pdo->prepare('SELECT id FROM admin_users WHERE email = ?');
+            $exists->execute([$email]);
+            $existingId = (int)$exists->fetchColumn();
+            if ($existingId) Json::fail('That email is already used by another user', 409);
+
+            $tempPassword = bin2hex(random_bytes(6));
+            $hash         = password_hash($tempPassword, PASSWORD_DEFAULT);
+            $ins = $pdo->prepare('INSERT INTO admin_users (email, display_name, password_hash, role, is_active, must_change_password)
+                                  VALUES (?, ?, ?, "contractor", 1, 1)');
+            $ins->execute([$email, $contractor['name'], $hash]);
+            $newUserId = (int)$pdo->lastInsertId();
+
+            $onboardingToken = bin2hex(random_bytes(16));
+            $pdo->prepare('UPDATE contractors SET admin_user_id = ?, onboarding_token = ? WHERE id = ?')
+                ->execute([$newUserId, $onboardingToken, $id]);
+
+            Json::send([
+                'ok'             => true,
+                'admin_user_id'  => $newUserId,
+                'email'          => $email,
+                'temp_password'  => $tempPassword,
+                'onboarding_token' => $onboardingToken,
+            ]);
+        }
+
+        if ($action === 'disable' && $method === 'POST') {
+            if ($userId <= 0) Json::fail('No login to disable', 404);
+            $pdo->prepare('UPDATE admin_users SET is_active = 0 WHERE id = ?')->execute([$userId]);
+            Json::send(['ok' => true]);
+        }
+
+        if ($action === 'reactivate' && $method === 'POST') {
+            if ($userId <= 0) Json::fail('No login to reactivate', 404);
+            $pdo->prepare('UPDATE admin_users SET is_active = 1 WHERE id = ?')->execute([$userId]);
+            Json::send(['ok' => true]);
+        }
+
+        if ($action === 'reset-password' && $method === 'POST') {
+            if ($userId <= 0) Json::fail('No login to reset', 404);
+            $tempPassword = bin2hex(random_bytes(6));
+            $hash         = password_hash($tempPassword, PASSWORD_DEFAULT);
+            $pdo->prepare('UPDATE admin_users SET password_hash = ?, is_active = 1, must_change_password = 1 WHERE id = ?')
+                ->execute([$hash, $userId]);
+            Json::send(['ok' => true, 'temp_password' => $tempPassword]);
+        }
+
+        Json::fail('Unknown account action', 404);
+    }
 
     // ───── /api/contractors/:id/notes[/:nid] ────────────────────────
     if (($segs[2] ?? '') === 'notes') {

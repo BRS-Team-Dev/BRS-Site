@@ -7,6 +7,7 @@ import { ManagementSideNav } from './management-side-nav';
 import { OperationsSideNav } from './operations-side-nav';
 import { RecruitmentSideNav } from './recruitment-side-nav';
 import { MeSideNav } from './me-side-nav';
+import { ContractorMeSideNav } from './contractor-me-side-nav';
 import { TasksSideNav } from './tasks-side-nav';
 import { AccountingSideNav } from './accounting-side-nav';
 import { SidePanelHost } from './side-panel';
@@ -14,7 +15,7 @@ import { SystemService } from '../core/system.service';
 
 @Component({
   selector: 'app-shell',
-  imports: [RouterOutlet, TopNav, SideNav, HrSideNav, ManagementSideNav, OperationsSideNav, RecruitmentSideNav, MeSideNav, TasksSideNav, AccountingSideNav, SidePanelHost],
+  imports: [RouterOutlet, TopNav, SideNav, HrSideNav, ManagementSideNav, OperationsSideNav, RecruitmentSideNav, MeSideNav, ContractorMeSideNav, TasksSideNav, AccountingSideNav, SidePanelHost],
   template: `
     <div class="layout">
       @switch (system.current()) {
@@ -23,6 +24,7 @@ import { SystemService } from '../core/system.service';
         @case ('operations') { <app-operations-side-nav /> }
         @case ('recruitment') { <app-recruitment-side-nav /> }
         @case ('me')         { <app-me-side-nav /> }
+        @case ('contractor-me') { <app-contractor-me-side-nav /> }
         @case ('tasks')      { <app-tasks-side-nav /> }
         @case ('accounting') { <app-accounting-side-nav /> }
         @default             { <app-side-nav /> }

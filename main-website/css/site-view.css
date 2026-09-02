@@ -1,0 +1,479 @@
+/* site-view.css — page-specific styles for /site-view.html
+   Multi-device mockup: desktop + tablet + phone composed on a
+   dark stage. Each device is a CSS-drawn frame with a real
+   screen slot that accepts an <img>. */
+
+/* ============================================================
+   Page — dark-grey GRADIENT shows in the gaps around every
+   section: 100px between sections, 40px top/bottom, 24px
+   left/right. Each section gets a soft drop shadow so it
+   floats above the background.
+   ============================================================ */
+body { background: #141414; }
+main {
+  background: linear-gradient(180deg, #2a2a2a 0%, #141414 45%, #141414 55%, #2a2a2a 100%);
+  display: flex;
+  flex-direction: column;
+  gap: 100px;
+  padding: 40px 24px;
+}
+main > section {
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45), 0 2px 8px rgba(0, 0, 0, 0.35);
+}
+
+/* ============================================================
+   Brand strip — large centred logo, sits above the mockup
+   ============================================================ */
+.sv-logo-strip {
+  height: 65vh;                 /* 65% of the screen */
+  background: #0a0a0a;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: clamp(1.5rem, 4vw, 3rem);
+}
+.sv-logo-strip-img {
+  width: auto;
+  max-width: 40%;
+  height: clamp(140px, 32vh, 340px);
+  object-fit: contain;
+}
+
+/* ============================================================
+   Stage
+   ============================================================ */
+.site-view {
+  background: #0a0a0a;
+  padding: clamp(0.75rem, 2vw, 1.75rem);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100vh;                   /* hard cap: exactly one viewport */
+  overflow: hidden;
+}
+/* .sv-scene = the composition. Aspect-ratio keeps devices
+   proportional; max-height 100% forces the scene to shrink
+   width-wise if the aspect-derived height would blow past the
+   viewport. */
+.sv-scene {
+  position: relative;
+  width: 75%;
+  max-width: 1400px;
+  max-height: 100%;
+  aspect-ratio: 16 / 10;
+  display: grid;
+  grid-template-columns: 1fr;
+  grid-template-rows: 1fr;
+}
+
+/* ============================================================
+   Screen slot (shared) — the actual image area inside each device.
+   The <img> is object-fit: cover so screenshots fill the screen
+   even if their aspect isn't a perfect match. Placeholder
+   background pattern shows when the image is missing.
+   ============================================================ */
+.sv-screen {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: #101010;
+  background-image:
+    repeating-linear-gradient(
+      45deg,
+      rgba(255, 255, 255, 0.03) 0 10px,
+      rgba(255, 255, 255, 0.06) 10px 20px
+    );
+}
+.sv-screen,
+.sv-screen * { box-sizing: border-box; }
+/* Image renders at its NATURAL aspect ratio, aligned to the top
+   of the frame, filling the frame's width. Anything longer than
+   the frame's height overflows below and is clipped by the
+   bezel's overflow: hidden — so only the BOTTOM gets cropped,
+   never the top or sides. This preserves the site's true
+   proportions inside the mockup. */
+.sv-screen { align-items: flex-start; }
+.sv-screen img {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-width: 100%;
+  object-fit: fill;         /* no cropping / no letterbox — natural aspect */
+}
+.sv-screen img.sv-missing { display: none; }
+
+/* ============================================================
+   DESKTOP — iMac-style monitor + stand
+   ============================================================ */
+.sv-desktop {
+  position: absolute;
+  top: 0; left: 50%;
+  transform: translateX(-50%);
+  width: 78%;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.sv-desktop-bezel {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 10;
+  background: #1a1a1a;
+  border: 1px solid #2a2a2a;
+  border-radius: 14px;
+  padding: 22px 22px 40px;
+  overflow: hidden;                 /* hard-clip whatever's inside */
+  box-sizing: border-box;
+  box-shadow:
+    0 30px 60px rgba(0, 0, 0, 0.6),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.04);
+}
+.sv-desktop-bezel .sv-screen {
+  border-radius: 4px;
+}
+.sv-camera {
+  position: absolute;
+  top: 10px; left: 50%; transform: translateX(-50%);
+  width: 6px; height: 6px;
+  background: #333;
+  border-radius: 50%;
+}
+.sv-desktop-neck {
+  width: 22%;
+  height: 26px;
+  background: linear-gradient(180deg, #1a1a1a, #101010);
+  border-left: 1px solid #2a2a2a;
+  border-right: 1px solid #2a2a2a;
+  margin-top: -8px;
+}
+.sv-desktop-base {
+  width: 40%;
+  height: 8px;
+  background: #0e0e0e;
+  border: 1px solid #222;
+  border-radius: 8px 8px 4px 4px;
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.6);
+}
+
+/* ============================================================
+   TABLET — front-left, slight tilt
+   ============================================================ */
+.sv-tablet {
+  position: absolute;
+  bottom: 4%;
+  left: 4%;
+  width: 32%;
+  z-index: 2;
+  transform: rotate(-3deg);
+}
+.sv-tablet-bezel {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  background: #0d0d0d;
+  border: 1px solid #262626;
+  border-radius: 16px;
+  padding: 14px;
+  overflow: hidden;
+  box-sizing: border-box;
+  box-shadow:
+    0 24px 48px rgba(0, 0, 0, 0.55),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.03);
+}
+.sv-tablet-bezel .sv-screen {
+  border-radius: 6px;
+}
+
+/* ============================================================
+   PHONE — front-right
+   ============================================================ */
+.sv-phone {
+  position: absolute;
+  bottom: 2%;
+  right: 6%;
+  width: 12%;
+  z-index: 3;
+  transform: rotate(3deg);
+}
+.sv-phone-bezel {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 9 / 19;
+  background: #0d0d0d;
+  border: 1px solid #262626;
+  border-radius: 22px;
+  padding: 8px;
+  overflow: hidden;
+  box-sizing: border-box;
+  box-shadow:
+    0 22px 40px rgba(0, 0, 0, 0.55),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.03);
+}
+.sv-phone-bezel .sv-screen {
+  border-radius: 14px;
+}
+.sv-phone-notch {
+  position: absolute;
+  top: 12px; left: 50%; transform: translateX(-50%);
+  width: 34%;
+  height: 12px;
+  background: #000;
+  border-radius: 0 0 8px 8px;
+  z-index: 2;
+}
+
+/* ============================================================
+   Responsive — device mockup
+   ============================================================ */
+@media (max-width: 900px) {
+  .sv-scene    { aspect-ratio: 4 / 5; }
+  .sv-desktop  { width: 100%; }
+  .sv-tablet   { width: 44%; bottom: 8%; left: 2%; }
+  .sv-phone    { width: 18%; bottom: 4%; right: 4%; }
+}
+@media (max-width: 560px) {
+  .sv-scene   { aspect-ratio: 3 / 4; }
+  .sv-tablet  { width: 52%; }
+  .sv-phone   { width: 22%; }
+}
+
+/* ============================================================
+   FEATURE — full-page split: video (left) + text (right)
+   ============================================================ */
+/* Plain flexbox: two halves, each exactly 50% wide + 100vh tall.
+   Overflow hidden on the section clips anything longer than a
+   viewport so the section is guaranteed to be exactly full-page. */
+.sv-feature {
+  display: flex;
+  height: 100vh;
+  background: #0a0a0a;
+  color: #f5f5f5;
+  overflow: hidden;
+}
+.sv-feature-video,
+.sv-feature-text {
+  flex: 1 1 50%;
+  width: 50%;
+  height: 100%;
+}
+.sv-feature-video {
+  display: block;
+  object-fit: contain;
+  object-position: center;
+  background: #000;
+}
+.sv-feature-text {
+  display: flex;
+  align-items: center;      /* vertically centre the text block */
+  justify-content: flex-start;
+  padding: clamp(2rem, 5vw, 5rem);
+  background: #0a0a0a;
+}
+.sv-feature-text-inner { }
+.sv-feature-title {
+  font-family: 'Playfair Display', Georgia, serif;
+  font-size: clamp(1.5rem, 2.4vw, 2.25rem);
+  line-height: 1.2;
+  margin: 0.5rem 0 1rem;
+  color: #ffffff;
+}
+.sv-feature-body {
+  font-size: clamp(0.95rem, 1.05vw, 1.05rem);
+  line-height: 1.6;
+  color: #f5f5f5;
+  opacity: 0.85;
+  margin: 0;
+}
+
+/* Mobile: stack, video on top, text below. Drop the 100vh so a
+   phone doesn't force a full-viewport video AND a full-viewport
+   text side-by-side. */
+@media (max-width: 900px) {
+  .sv-feature {
+    flex-direction: column;
+    height: auto;
+  }
+  .sv-feature-video,
+  .sv-feature-text { width: 100%; flex: 0 0 auto; }
+  .sv-feature-video { height: 60vh; }
+  .sv-feature-text  { padding: 2.5rem 1.5rem; }
+}
+
+/* ============================================================
+   IMAGE SLIDER — big image + caption, dot navigation
+   ============================================================ */
+/* Dark stage; the image panel is centred both ways. */
+.sv-slider {
+  height: 100vh;
+  background: #0a0a0a;
+  display: flex;
+  align-items: center;          /* vertical align center */
+  justify-content: center;
+  overflow: hidden;
+}
+/* Panel = the image: 70% wide x 95% tall, centred. Dots overlay it. */
+.sv-slider-panel {
+  position: relative;
+  width: 70%;
+  height: 95%;
+}
+.sv-slider-viewport {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  cursor: grab;
+  touch-action: pan-y;   /* let vertical page scroll through, we handle horizontal */
+}
+.sv-slider-viewport.is-dragging { cursor: grabbing; }
+.sv-slides {
+  display: flex;
+  height: 100%;
+  transition: transform 0.55s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.sv-slide {
+  flex: 0 0 100%;
+  min-width: 0;
+  height: 100%;
+  background: #0a0a0a;
+}
+.sv-slide-img {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+.sv-slide-img img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  object-position: center;
+  display: block;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+/* Dots — no background container, sitting at the bottom of the image. */
+.sv-dots {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: clamp(0.75rem, 2vh, 1.5rem);
+  z-index: 3;
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  background: none;
+}
+.sv-dot {
+  width: 9px;
+  height: 9px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.6);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+  cursor: pointer;
+  transition: background 0.2s ease, transform 0.2s ease;
+}
+.sv-dot:hover { background: rgba(255, 255, 255, 0.9); }
+.sv-dot.is-active {
+  background: var(--color-soft-gold, #af8a0f);
+  transform: scale(1.15);
+}
+
+/* Mobile: widen the panel so the image isn't tiny on a phone. */
+@media (max-width: 640px) {
+  .sv-slider-panel { width: 90%; height: 92%; }
+}
+
+/* ============================================================
+   FULL-PAGE VIDEO — 100vh, low-profile custom controls
+   ============================================================ */
+.sv-fullvideo {
+  position: relative;
+  width: 100%;
+  height: 100vh;
+  background: #000;
+  overflow: hidden;
+  cursor: pointer;
+}
+.sv-fullvideo-media {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  object-position: center;
+  background: #000;
+}
+/* Centre play icon — only appears when the video is paused. */
+.sv-fullvideo-play {
+  position: absolute;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  width: 84px; height: 84px;
+  display: flex; align-items: center; justify-content: center;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 50%;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 220ms ease;
+}
+.sv-fullvideo.is-paused .sv-fullvideo-play { opacity: 1; }
+.sv-fullvideo-play svg { margin-left: 3px; }
+
+/* Corner mute toggle — small, always visible, dims until hover. */
+.sv-fullvideo-mute {
+  position: absolute;
+  bottom: 20px; right: 20px;
+  width: 40px; height: 40px;
+  display: flex; align-items: center; justify-content: center;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 50%;
+  cursor: pointer;
+  opacity: 0.7;
+  transition: opacity 200ms ease, background 200ms ease;
+  z-index: 3;
+}
+.sv-fullvideo-mute:hover { opacity: 1; background: rgba(0, 0, 0, 0.75); }
+/* Show muted icon by default; swap to unmuted icon when JS toggles. */
+.sv-mute-icon--unmuted { display: none; }
+.sv-fullvideo.is-unmuted .sv-mute-icon--muted   { display: none; }
+.sv-fullvideo.is-unmuted .sv-mute-icon--unmuted { display: inline-block; }
+
+/* ============================================================
+   FULL-PAGE IMAGE — long website preview (natural aspect)
+   ============================================================ */
+.sv-fullimage {
+  position: relative;
+  background: #0a0a0a;
+  justify-items: center;
+  overflow: hidden;
+}
+.sv-fullimage-img {
+  display: block;
+  height: auto;                    /* natural aspect — long images stay long */
+}
+/* Placeholder shows only when the real image is missing. */
+.sv-fullimage-img.is-missing { display: none; }
+.sv-fullimage-placeholder {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  min-height: 250vh;               /* long placeholder so the "long" feel is obvious */
+  color: rgba(255, 255, 255, 0.35);
+  font-family: 'Poppins', sans-serif;
+  font-size: 0.85rem;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  background:
+    repeating-linear-gradient(
+      45deg,
+      rgba(255, 255, 255, 0.02) 0 12px,
+      rgba(255, 255, 255, 0.05) 12px 24px
+    );
+}
+.sv-fullimage-img.is-missing + .sv-fullimage-placeholder { display: flex; }

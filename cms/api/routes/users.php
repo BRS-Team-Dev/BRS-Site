@@ -109,8 +109,8 @@ return function (string $method, array $segs): void {
 
             try {
                 $ins = $pdo->prepare(
-                    'INSERT INTO admin_users (email, password_hash, display_name, role, is_active)
-                     VALUES (?, ?, ?, ?, 1)'
+                    'INSERT INTO admin_users (email, password_hash, display_name, role, is_active, must_change_password)
+                     VALUES (?, ?, ?, ?, 1, 1)'
                 );
                 $ins->execute([$email, password_hash($pass, PASSWORD_BCRYPT), $name, $role]);
                 Json::send(['id' => (int)$pdo->lastInsertId()], 201);

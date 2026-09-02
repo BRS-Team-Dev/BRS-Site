@@ -6,11 +6,12 @@ import { Api } from '../../core/api';
 import { DialogService } from '../../core/dialog';
 import { environment } from '@env/environment';
 import { Client, ClientAccount, ClientContact, ClientInfo, ClientNote, ClientService, ClientServicesTotals, EntityContract, FeedbackForm, FeedbackQuestion, FeedbackResponse, FormDef, FormSubmissionLinkGroup, Invoice, InvoiceLine, InvoiceServiceLink, InvoiceStatus, ServiceOffering, TaskItem } from '../../core/models';
+import { AssignmentsPanel } from '../../shared/assignments-panel';
 import { EntityContracts } from '../../shared/entity-contracts';
 import { FormSubmissionsList } from '../../shared/form-submissions-list';
 import { InvoiceDetailModal } from '../accounting/invoice-detail-modal';
 
-type TabKey = 'info' | 'contacts' | 'services' | 'invoices' | 'accounts' | 'contracts' | 'onboarding' | 'feedback' | 'notes';
+type TabKey = 'info' | 'contacts' | 'services' | 'invoices' | 'accounts' | 'contracts' | 'assignments' | 'commissions' | 'onboarding' | 'feedback' | 'notes';
 
 /**
  * Standalone Clients section.
@@ -21,7 +22,7 @@ type TabKey = 'info' | 'contacts' | 'services' | 'invoices' | 'accounts' | 'cont
  */
 @Component({
   selector: 'app-clients-admin',
-  imports: [RouterLink, FormsModule, EntityContracts, FormSubmissionsList, InvoiceDetailModal],
+  imports: [RouterLink, FormsModule, AssignmentsPanel, EntityContracts, FormSubmissionsList, InvoiceDetailModal],
   template: `
     @if (mode() === 'list') {
       <div class="toolbar">
@@ -192,6 +193,10 @@ type TabKey = 'info' | 'contacts' | 'services' | 'invoices' | 'accounts' | 'cont
                       <input type="email" [(ngModel)]="contactDraft.email" name="cd_email" placeholder="jane@example.com"
  />
 
+                      <label>LinkedIn URL</label>
+                      <input type="url" [(ngModel)]="contactDraft.linkedin_url" name="cd_linkedin"
+                             placeholder="https://www.linkedin.com/in/jane-doe/" />
+
                       <label>Numbers</label>
                       @for (n of contactNumbers(); track $index; let i = $index) {
                         <div class="number-row">
@@ -253,6 +258,7 @@ type TabKey = 'info' | 'contacts' | 'services' | 'invoices' | 'accounts' | 'cont
                           @if (expandedContact() === ct.id) {
                             <div class="contact-body">
                               @if (ct.email) { <div class="muted small"><span class="ic">✉</span> <a [href]="'mailto:' + ct.email">{{ ct.email }}</a></div> }
+                              @if (ct.linkedin_url) { <div class="muted small"><span class="ic">in</span> <a [href]="ct.linkedin_url" target="_blank" rel="noopener">LinkedIn profile</a></div> }
                               @for (n of ct.numbers; track n.id) {
                                 <div class="muted small"><span class="ic">☏</span> <a [href]="'tel:' + n.number">{{ n.number }}</a> @if (n.label) { <span>— {{ n.label }}</span> }</div>
                               }
@@ -726,6 +732,170 @@ type TabKey = 'info' | 'contacts' | 'services' | 'invoices' | 'accounts' | 'cont
                   <div class="tab-head"><h3>Contracts</h3></div>
                   <app-entity-contracts audience="client" [entityId]="c.id!" [services]="catalogServices()"></app-entity-contracts>
                 }
+                @case ('assignments') {
+                  <div class="tab-head">
+                    <h3>Assignments</h3>
+                    <span class="spacer"></span>
+                  </div>
+                  <p class="muted small" style="margin: 0 0 12px 0;">
+                    Assign an employee, contractor, or partner to each work-area role.
+                    Reassignment keeps a full audit trail of who was assigned when, by whom.
+                  </p>
+                  <app-assignments-panel entity="client" [entityId]="c.id!"></app-assignments-panel>
+                }
+
+                @case ('commissions') {
+                  <div class="tab-head">
+                    <h3>Commissions</h3>
+                    <span class="spacer"></span>
+                    <button class="ghost" (click)="openRuleForm(c.id!)">+ Standing rule</button>
+                    <button class="primary" (click)="openCommForm(c.id!)">+ Log commission</button>
+                  </div>
+                  <p class="muted small" style="margin: 0 0 12px 0;">
+                    Log commission entries earned on this account by any employee or contractor.
+                    Standing rules are reference agreements (e.g. "5% of every recurring invoice") — they
+                    show up on the user's own "Accounts &amp; commissions" page.
+                  </p>
+
+                  <!-- Standing rules ─────────────────────────── -->
+                  <h4 class="sub-h">Standing rules</h4>
+                  @if (commissionRules().length === 0) {
+                    <p class="muted small" style="margin: 4px 0 16px 0;">No standing rules yet.</p>
+                  } @else {
+                    <table class="data" style="margin-bottom: 16px;">
+                      <thead><tr><th>Person</th><th>Rate</th><th>Applies to</th><th>Cadence</th><th>Status</th><th></th></tr></thead>
+                      <tbody>
+                        @for (r of commissionRules(); track r.id) {
+                          <tr>
+                            <td><strong>{{ r.user_name }}</strong><div class="muted small">{{ r.user_email }}</div></td>
+                            <td>@if (r.rate_type === 'percentage') { {{ r.rate }}% } @else { {{ r.currency }} {{ r.rate }} }</td>
+                            <td>{{ r.applies_to === 'all' ? 'All invoices' : r.applies_to === 'recurring' ? 'Recurring only' : 'One-off only' }}</td>
+                            <td>{{ r.cadence.replace('_', ' ') }}</td>
+                            <td><span class="status-pill" [attr.data-status]="r.status">{{ r.status }}</span></td>
+                            <td style="text-align: right;">
+                              <button class="ghost icon-btn danger" title="Delete rule" (click)="deleteCommRule(c.id!, r.id)">✕</button>
+                            </td>
+                          </tr>
+                        }
+                      </tbody>
+                    </table>
+                  }
+
+                  <!-- Ledger ─────────────────────────────────── -->
+                  <h4 class="sub-h">Ledger</h4>
+                  @if (commissionEntries().length === 0) {
+                    <p class="muted small" style="margin: 4px 0;">No commission entries yet.</p>
+                  } @else {
+                    <table class="data">
+                      <thead>
+                        <tr><th>Earned</th><th>Person</th><th>Kind</th><th>Description</th><th>Status</th><th>Paid</th><th style="text-align:right;">Amount</th><th></th></tr>
+                      </thead>
+                      <tbody>
+                        @for (e of commissionEntries(); track e.id) {
+                          <tr>
+                            <td>{{ e.earned_on }}</td>
+                            <td><strong>{{ e.user_name }}</strong></td>
+                            <td>{{ e.kind }}</td>
+                            <td>{{ e.description || '—' }}</td>
+                            <td><span class="status-pill" [attr.data-status]="e.status">{{ e.status }}</span></td>
+                            <td>{{ e.paid_on || '—' }}</td>
+                            <td style="text-align: right;">{{ e.currency }} {{ e.amount }}</td>
+                            <td style="text-align: right;">
+                              <button class="ghost icon-btn danger" title="Delete entry" (click)="deleteCommEntry(c.id!, e.id)">✕</button>
+                            </td>
+                          </tr>
+                        }
+                      </tbody>
+                    </table>
+                  }
+
+                  @if (commFormOpen()) {
+                    <div class="modal-backdrop" (click)="closeCommForm()"></div>
+                    <div class="modal">
+                      <div class="modal-head"><strong>{{ commFormMode() === 'rule' ? 'New standing rule' : 'Log commission entry' }}</strong>
+                        <span class="spacer"></span>
+                        <button class="ghost" (click)="closeCommForm()">✕</button></div>
+                      <div class="modal-body">
+                        <label>Person</label>
+                        <select [(ngModel)]="commDraft.admin_user_id" name="cd_uid">
+                          <option [ngValue]="null">— pick —</option>
+                          @for (u of assignableUsers(); track u.id) {
+                            <option [ngValue]="u.id">{{ u.display_name || u.email }} ({{ u.role }})</option>
+                          }
+                        </select>
+
+                        @if (commFormMode() === 'rule') {
+                          <div class="row two-col">
+                            <div><label>Rate type</label>
+                              <select [(ngModel)]="commDraft.rate_type" name="cd_rt">
+                                <option value="percentage">Percentage (%)</option>
+                                <option value="flat">Flat amount</option>
+                              </select>
+                            </div>
+                            <div><label>Rate</label>
+                              <input type="number" step="0.01" [(ngModel)]="commDraft.rate" name="cd_r" />
+                            </div>
+                          </div>
+                          <div class="row two-col">
+                            <div><label>Applies to</label>
+                              <select [(ngModel)]="commDraft.applies_to" name="cd_at">
+                                <option value="all">All invoices</option>
+                                <option value="recurring">Recurring only</option>
+                                <option value="one_off">One-off only</option>
+                              </select>
+                            </div>
+                            <div><label>Cadence</label>
+                              <select [(ngModel)]="commDraft.cadence" name="cd_cd">
+                                <option value="per_invoice">Per invoice</option>
+                                <option value="monthly">Monthly</option>
+                                <option value="one_time">One-time</option>
+                              </select>
+                            </div>
+                          </div>
+                          <label>Notes</label>
+                          <textarea rows="2" [(ngModel)]="commDraft.notes" name="cd_notes"></textarea>
+                        } @else {
+                          <div class="row two-col">
+                            <div><label>Kind</label>
+                              <select [(ngModel)]="commDraft.kind" name="cd_k">
+                                <option value="accrual">Accrual</option>
+                                <option value="bonus">Bonus</option>
+                                <option value="adjustment">Adjustment</option>
+                                <option value="payout">Payout</option>
+                              </select>
+                            </div>
+                            <div><label>Amount</label>
+                              <input type="number" step="0.01" [(ngModel)]="commDraft.amount" name="cd_amt" />
+                            </div>
+                          </div>
+                          <div class="row two-col">
+                            <div><label>Earned on</label>
+                              <input type="date" [(ngModel)]="commDraft.earned_on" name="cd_eo" />
+                            </div>
+                            <div><label>Status</label>
+                              <select [(ngModel)]="commDraft.status" name="cd_s">
+                                <option value="earned">Earned</option>
+                                <option value="pending">Pending</option>
+                                <option value="paid">Paid</option>
+                                <option value="cancelled">Cancelled</option>
+                              </select>
+                            </div>
+                          </div>
+                          <label>Description</label>
+                          <textarea rows="2" [(ngModel)]="commDraft.description" name="cd_desc" placeholder="e.g. July recurring invoice - 5% of £1500"></textarea>
+                        }
+
+                        @if (commFormError()) { <p class="error-msg">{{ commFormError() }}</p> }
+                        <div class="row" style="justify-content:flex-end; gap: 8px; margin-top: 12px;">
+                          <button class="ghost" (click)="closeCommForm()">Cancel</button>
+                          <button class="primary" (click)="saveCommForm(c.id!)" [disabled]="commFormSaving()">
+                            {{ commFormSaving() ? 'Saving…' : 'Save' }}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  }
+                }
                 @case ('onboarding') {
                   <div class="tab-head">
                     <h3>Onboarding</h3>
@@ -1138,6 +1308,7 @@ type TabKey = 'info' | 'contacts' | 'services' | 'invoices' | 'accounts' | 'cont
     .attach-row { display: flex; align-items: center; gap: 8px; margin-bottom: 16px; }
     .attach-row select { flex: 1; }
     .attach-row a { padding: 6px 10px; font-size: 12px; }
+    .sub-h { margin: 12px 0 8px 0; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--muted); font-weight: 600; }
 
     /* Feedback tab — card-list matching the response-viewer look:
        collapsed row shows date/time + title + kind tag + form id,
@@ -1571,11 +1742,23 @@ export class ClientsAdmin {
     { key: 'invoices',   label: 'Invoices' },
     { key: 'accounts',   label: 'Accounts' },
     { key: 'contracts',  label: 'Contracts' },
+    { key: 'assignments', label: 'Assignments' },
+    { key: 'commissions', label: 'Commissions' },
     { key: 'onboarding', label: 'Onboarding' },
     { key: 'feedback',   label: 'Feedback' },
     { key: 'notes',      label: 'Notes' },
   ];
   activeTab = signal<TabKey>('info');
+
+  // Commissions tab state — rules + ledger for the current client, admin CRUD.
+  commissionRules   = signal<any[]>([]);
+  commissionEntries = signal<any[]>([]);
+  assignableUsers   = signal<any[]>([]);
+  commFormOpen      = signal(false);
+  commFormMode      = signal<'rule' | 'entry'>('entry');
+  commFormSaving    = signal(false);
+  commFormError     = signal<string | null>(null);
+  commDraft: any = {};
 
   // Feedback tab state — forms with client_id = current client, loaded lazily
   // the first time the tab is opened per detail view.
@@ -1675,8 +1858,57 @@ export class ClientsAdmin {
 
   onTabClick(key: TabKey, clientId: number) {
     this.activeTab.set(key);
-    if (key === 'feedback') this.loadFeedback(clientId);
-    if (key === 'invoices') this.loadInvoices(clientId);
+    if (key === 'feedback')    this.loadFeedback(clientId);
+    if (key === 'invoices')    this.loadInvoices(clientId);
+    if (key === 'commissions') this.loadCommissions(clientId);
+  }
+
+  loadCommissions(clientId: number) {
+    this.api.listClientCommissions(clientId).subscribe(r => this.commissionEntries.set(r.commissions));
+    this.api.listClientCommissionRules(clientId).subscribe(r => this.commissionRules.set(r.rules));
+    if (this.assignableUsers().length === 0) {
+      this.api.listAdminUsers().subscribe(r => this.assignableUsers.set(r.users || []));
+    }
+  }
+  openCommForm(_clientId: number) {
+    this.commFormMode.set('entry');
+    this.commDraft = {
+      admin_user_id: null, kind: 'accrual', amount: null,
+      earned_on: new Date().toISOString().slice(0, 10),
+      status: 'earned', description: '',
+    };
+    this.commFormError.set(null);
+    this.commFormOpen.set(true);
+  }
+  openRuleForm(_clientId: number) {
+    this.commFormMode.set('rule');
+    this.commDraft = {
+      admin_user_id: null, rate_type: 'percentage', rate: null,
+      applies_to: 'all', cadence: 'per_invoice', notes: '',
+    };
+    this.commFormError.set(null);
+    this.commFormOpen.set(true);
+  }
+  closeCommForm() { this.commFormOpen.set(false); }
+  saveCommForm(clientId: number) {
+    if (!this.commDraft.admin_user_id) { this.commFormError.set('Pick a person.'); return; }
+    if (this.commFormMode() === 'entry' && !this.commDraft.amount) { this.commFormError.set('Enter an amount.'); return; }
+    if (this.commFormMode() === 'rule' && !this.commDraft.rate)     { this.commFormError.set('Enter a rate.'); return; }
+    this.commFormSaving.set(true);
+    const done = () => { this.commFormSaving.set(false); this.commFormOpen.set(false); this.loadCommissions(clientId); };
+    const fail = (e: any) => { this.commFormSaving.set(false); this.commFormError.set(e?.error?.error || 'Save failed.'); };
+    if (this.commFormMode() === 'entry') this.api.createClientCommission(clientId, this.commDraft).subscribe({ next: done, error: fail });
+    else                                  this.api.createClientCommissionRule(clientId, this.commDraft).subscribe({ next: done, error: fail });
+  }
+  async deleteCommEntry(clientId: number, id: number) {
+    const ok = await this.dialog.confirm('Delete this commission entry?', { title: 'Delete', confirmLabel: 'Delete', variant: 'danger' });
+    if (!ok) return;
+    this.api.deleteClientCommission(clientId, id).subscribe(() => this.loadCommissions(clientId));
+  }
+  async deleteCommRule(clientId: number, id: number) {
+    const ok = await this.dialog.confirm('Delete this standing rule?', { title: 'Delete', confirmLabel: 'Delete', variant: 'danger' });
+    if (!ok) return;
+    this.api.deleteClientCommissionRule(clientId, id).subscribe(() => this.loadCommissions(clientId));
   }
 
   loadFeedback(clientId: number) {

@@ -93,21 +93,47 @@ import { environment } from '@env/environment';
               }
             </div>
 
-            <!-- Lead Gen — AI-driven prospect generation. Moved here
-                 from a sibling top-level entry. Plain routerLinkActive
-                 — exact match so /admin/leads/import (which mounts
-                 the same component) doesn't light Lead Gen too. -->
-            <a routerLink="/admin/leadgen"
-               routerLinkActive="active"
-               [routerLinkActiveOptions]="{ exact: true }">
-              <span class="icon">⇪</span> Lead Gen
-            </a>
+            <!-- Lead Gen — nested group. The parent routes to the unified
+                 amalgamation page (every lead across all sources, with a
+                 Source column); the four capture methods sit beneath it.
+                 Parent uses exact-match highlight so drilling into a child
+                 doesn't also light the parent. -->
+            <div class="nav-group" [class.open]="isGroupOpen('leadgen', isLeadgenGroupActive())">
+              <a routerLink="/admin/leadgen" [class.active]="isLeadgenActive()">
+                <span class="icon">⇪</span> Lead Gen
+                <span class="caret" (click)="toggleCaret('leadgen', $event)">›</span>
+              </a>
+              <div class="children">
+                <!-- AI prompt — the AI-driven prospect generator (formerly
+                     the "Lead Gen" page itself). Now at /admin/leadgen/ai. -->
+                <a routerLink="/admin/leadgen/ai" routerLinkActive="active">
+                  <span class="icon">✦</span> AI prompt
+                </a>
 
-            <!-- Import Leads — separate route, separate URL. Same
-                 component as Lead Gen but routed in 'import' mode. -->
-            <a routerLink="/admin/leads/import" routerLinkActive="active">
-              <span class="icon">⤓</span> Import Leads
-            </a>
+                <!-- Import Leads — file/CSV upload. Same component in 'import' mode. -->
+                <a routerLink="/admin/leads/import" routerLinkActive="active">
+                  <span class="icon">⤓</span> Import Leads
+                </a>
+
+                <!-- Companies House — staged enrichment pipeline ('ch' mode). -->
+                <a routerLink="/admin/leadgen/companies-house" routerLinkActive="active">
+                  <span class="icon">🏛</span> Companies House
+                </a>
+
+                <!-- LinkedIn — same pipeline, source list captured from LinkedIn. -->
+                <a routerLink="/admin/leadgen/linkedin" routerLinkActive="active">
+                  <span class="icon">in</span> LinkedIn
+                </a>
+
+                <!-- Any user-defined main sections pinned under Lead Gen. -->
+                @for (c of childrenOfBuiltin('leadgen'); track c.id) {
+                  <a [routerLink]="childLinkPath(c)" [class.active]="isChildLinkActive(c)">
+                    <span class="icon">◌</span>
+                    <span class="label" [title]="c.main_section_label || c.title">{{ c.main_section_label || c.title }}</span>
+                  </a>
+                }
+              </div>
+            </div>
 
             <!-- Any user-defined main sections still pinned under Leads. -->
             @for (c of childrenOfBuiltin('leads'); track c.id) {
@@ -116,12 +142,25 @@ import { environment } from '@env/environment';
                 <span class="label" [title]="c.main_section_label || c.title">{{ c.main_section_label || c.title }}</span>
               </a>
             }
-            @for (c of childrenOfBuiltin('leadgen'); track c.id) {
-              <a [routerLink]="childLinkPath(c)" [class.active]="isChildLinkActive(c)">
-                <span class="icon">◌</span>
-                <span class="label" [title]="c.main_section_label || c.title">{{ c.main_section_label || c.title }}</span>
-              </a>
-            }
+          </div>
+        </div>
+
+        <!-- Bookings — consultation-call requests. Own top-level section
+             with two child views: the list and the month calendar. -->
+        <div class="nav-group" [class.open]="isGroupOpen('bookings', isBookingsGroupActive())">
+          <a routerLink="/admin/bookings" [class.active]="isBookingsGroupActive()">
+            <span class="icon">🗓</span> Bookings
+            <span class="caret" (click)="toggleCaret('bookings', $event)">›</span>
+          </a>
+          <div class="children">
+            <a routerLink="/admin/bookings" [class.active]="isBookingsListActive()">
+              <span class="icon">◌</span>
+              <span class="label">All bookings</span>
+            </a>
+            <a routerLink="/admin/bookings/calendar" [class.active]="isBookingsCalendarActive()">
+              <span class="icon">◌</span>
+              <span class="label">Calendar</span>
+            </a>
           </div>
         </div>
 
@@ -232,6 +271,12 @@ import { environment } from '@env/environment';
               }
             </div>
           }
+        </div>
+
+        <div class="nav-group">
+          <a routerLink="/admin/site-previews" routerLinkActive="active">
+            <span class="icon">◱</span> Site previews
+          </a>
         </div>
 
         <div class="nav-group">
@@ -496,6 +541,13 @@ export class SideNav {
     // Parent only highlights on the index page; child pages light their own row.
     return url === '/admin/leadgen' || url.startsWith('/admin/leadgen?');
   };
+  /** Auto-open hint for the nested Lead Gen group — true on the amalgamation
+   *  page and every capture-method child (AI prompt / Import / Companies
+   *  House / LinkedIn), so drilling into any of them keeps the group open. */
+  isLeadgenGroupActive = (): boolean => {
+    const url = this.currentUrl();
+    return url.startsWith('/admin/leadgen') || url.startsWith('/admin/leads/import');
+  };
   isNewsletterActive = (): boolean => {
     const url = this.currentUrl();
     return url === '/admin/newsletter' || url.startsWith('/admin/newsletter/') || url.startsWith('/admin/newsletter?');
@@ -507,6 +559,21 @@ export class SideNav {
   isServicesActive = (): boolean => {
     const url = this.currentUrl();
     return url === '/admin/services' || url.startsWith('/admin/services/') || url.startsWith('/admin/services?');
+  };
+  isBookingsGroupActive = (): boolean => {
+    const url = this.currentUrl();
+    return url === '/admin/bookings' || url.startsWith('/admin/bookings/') || url.startsWith('/admin/bookings?');
+  };
+  /** The "All bookings" list is active on /admin/bookings and on the edit/new
+   *  routes underneath it — but NOT while the sibling calendar view is open. */
+  isBookingsListActive = (): boolean => {
+    const url = this.currentUrl();
+    if (url === '/admin/bookings/calendar' || url.startsWith('/admin/bookings/calendar?')) return false;
+    return url === '/admin/bookings' || url.startsWith('/admin/bookings/') || url.startsWith('/admin/bookings?');
+  };
+  isBookingsCalendarActive = (): boolean => {
+    const url = this.currentUrl();
+    return url === '/admin/bookings/calendar' || url.startsWith('/admin/bookings/calendar?');
   };
   /** A specific catalogue service is "active" when its edit modal is deep-linked
    *  open via `/admin/services?service=<id>`. */

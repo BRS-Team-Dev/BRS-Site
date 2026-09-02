@@ -7,45 +7,58 @@ import { TenantSummary } from '../core/models';
 import { SettingsService } from '../core/settings.service';
 import { SystemService, SystemKey } from '../core/system.service';
 import { NotificationBell } from './notification-bell';
+import { Router } from '@angular/router';
 
 @Component({
   selector: 'app-top-nav',
   imports: [RouterLink, NotificationBell],
   template: `
     @if (auth.isImpersonating()) {
-      <!-- Banner pinned across the top whenever a super-admin is operating
-           inside someone else's tenant. The Switch back button instantly
-           swaps the JWT back to the home tenant via Auth.switchBack(). -->
+      <!-- Banner pinned across the top whenever the caller is inside
+           someone else's account. Two variants: tenant-level
+           impersonation (super-admin), and user-level impersonation
+           (admin signed in as a contractor). Both restore via
+           Auth.switchBack(). -->
       <div class="imp-banner">
         <span class="imp-dot"></span>
-        Impersonating
-        @if (currentTenantBrand(); as b) { <strong>{{ b }}</strong> }
-        — your changes are attributed as System within this tenant.
-        <button class="imp-back" (click)="switchBack()" title="Return to your home tenant">
+        @if (auth.isImpersonatingUser()) {
+          Signed in as
+          @if (auth.user(); as u) { <strong>{{ u.display_name || u.email }}</strong> }
+          — you are seeing what they see. Actions taken here are attributed to them.
+        } @else {
+          Impersonating
+          @if (currentTenantBrand(); as b) { <strong>{{ b }}</strong> }
+          — your changes are attributed as System within this tenant.
+        }
+        <button class="imp-back" (click)="switchBack()" title="Return to your own account">
           ↩ Switch back
         </button>
       </div>
     }
     <nav>
-      <div class="system-switcher" (click)="open.set(!open())">
+      @if (!isContractor()) {
+        <div class="system-switcher" (click)="open.set(!open())">
+          <span class="title">{{ system.currentDef().label }}</span>
+          <span class="caret">▾</span>
+          @if (open()) {
+            <div class="picker-backdrop" (click)="open.set(false); $event.stopPropagation()"></div>
+            <div class="picker-pop" (click)="$event.stopPropagation()">
+              @for (s of pickerSystems(); track s.key) {
+                <button class="picker-opt"
+                        [class.selected]="system.current() === s.key"
+                        [class.placeholder]="s.placeholder"
+                        (click)="switch(s.key)">
+                  <span class="sys-dot" [attr.data-sys]="s.key"></span>
+                  <span class="sys-label">{{ s.label }}</span>
+                  @if (s.placeholder) { <span class="muted small">soon</span> }
+                </button>
+              }
+            </div>
+          }
+        </div>
+      } @else {
         <span class="title">{{ system.currentDef().label }}</span>
-        <span class="caret">▾</span>
-        @if (open()) {
-          <div class="picker-backdrop" (click)="open.set(false); $event.stopPropagation()"></div>
-          <div class="picker-pop" (click)="$event.stopPropagation()">
-            @for (s of pickerSystems(); track s.key) {
-              <button class="picker-opt"
-                      [class.selected]="system.current() === s.key"
-                      [class.placeholder]="s.placeholder"
-                      (click)="switch(s.key)">
-                <span class="sys-dot" [attr.data-sys]="s.key"></span>
-                <span class="sys-label">{{ s.label }}</span>
-                @if (s.placeholder) { <span class="muted small">soon</span> }
-              </button>
-            }
-          </div>
-        }
-      </div>
+      }
       <span class="spacer"></span>
       @if (auth.isSuper()) {
         <!-- Super-admin only: cross-tenant switcher. Lists every tenant
@@ -114,10 +127,22 @@ import { NotificationBell } from './notification-bell';
                 @if (u.display_name) { <span class="muted small">{{ u.email }}</span> }
               </div>
               <div class="divider"></div>
-              <a class="user-opt" routerLink="/me" (click)="userOpen.set(false)">
-                <span class="opt-icon">⚙</span>
-                <span class="opt-label">My Account</span>
-              </a>
+              @for (link of myAccountLinks(); track link.href) {
+                <a class="user-opt" [routerLink]="link.href" (click)="userOpen.set(false)">
+                  <span class="opt-icon">{{ link.icon }}</span>
+                  <span class="opt-label">{{ link.label }}</span>
+                </a>
+              }
+              @if (auth.isImpersonating()) {
+                <div class="divider"></div>
+                <button class="user-opt switch-back-opt" (click)="userOpen.set(false); switchBack()">
+                  <span class="opt-icon">↩</span>
+                  <span class="opt-label">
+                    @if (auth.isImpersonatingUser()) { End impersonation }
+                    @else { Return to home tenant }
+                  </span>
+                </button>
+              }
               <div class="divider"></div>
               <button class="user-opt logout" (click)="userOpen.set(false); auth.logout()">
                 <span class="opt-icon">⎋</span>
@@ -235,6 +260,9 @@ import { NotificationBell } from './notification-bell';
     .user-opt.logout { color: #ef4444; }
     .user-opt.logout:hover { background: rgba(239,68,68,0.10); }
     .user-opt.logout .opt-icon { color: #ef4444; }
+    .user-opt.switch-back-opt { color: var(--primary); font-weight: 600; }
+    .user-opt.switch-back-opt:hover { background: color-mix(in srgb, var(--primary) 12%, transparent); }
+    .user-opt.switch-back-opt .opt-icon { color: var(--primary); }
 
     /* Impersonation banner — shown across the top whenever a super-
        admin is operating inside someone else's tenant. Vivid colour
@@ -323,6 +351,7 @@ export class TopNav {
   private dialog = inject(DialogService);
   auth = inject(Auth);
   system = inject(SystemService);
+  private router = inject(Router);
   brandName = this.svc.brandName;
   open = signal(false);
   userOpen = signal(false);
@@ -363,10 +392,63 @@ export class TopNav {
         error: () => { this.tenants.set([]); this.loadingTenants.set(false); },
       });
     });
+    // When the caller is a contractor (including via impersonation), fetch
+    // their permission flags so the dropdown only lists Clients / Tasks if
+    // those flags are on — same rule the sidebar uses.
+    effect(() => {
+      if (!this.isContractor() || this.contractorPerms() !== null) return;
+      this.api.getContractorMe().subscribe({
+        next: r => this.contractorPerms.set(r.permissions),
+        error: () => this.contractorPerms.set({}),
+      });
+    });
   }
 
   /** Systems shown in the picker — `hidden: true` ones (like 'me') are reached elsewhere. */
   pickerSystems = () => this.system.systems.filter(s => !s.hidden);
+
+  /** Contractor role = self-service portal only. Hides the system switcher
+   *  and the super-admin tenant switcher, and swaps My Account entries to
+   *  the /contractor/me/* portal. */
+  isContractor = computed(() => (this.auth.user() as { role?: string } | null)?.role === 'contractor');
+  myAccountLink = computed(() => this.isContractor() ? '/contractor/me' : '/me');
+
+  /** Permissions gate the Clients / Tasks entries in the dropdown for
+   *  contractors — same rule the sidebar uses. Lazy-loaded once when
+   *  the caller is a contractor; refetched if the role changes. */
+  contractorPerms = signal<{ view_clients?: boolean; view_tasks?: boolean } | null>(null);
+
+  /** Expanded My-Account menu — one entry per section so the dropdown
+   *  gives access to everything under it, matching the sidebar. */
+  myAccountLinks = computed<Array<{ href: string; label: string; icon: string }>>(() => {
+    if (this.isContractor()) {
+      const p = this.contractorPerms() ?? {};
+      const links: Array<{ href: string; label: string; icon: string }> = [
+        { href: '/contractor/me',           label: 'Overview',   icon: '▦' },
+      ];
+      if (p.view_tasks)   links.push({ href: '/contractor/me/tasks',   label: 'Tasks',   icon: '✅' });
+      if (p.view_clients) links.push({ href: '/contractor/me/clients', label: 'Clients', icon: '🏢' });
+      links.push(
+        { href: '/contractor/me/accounts',  label: 'Accounts & commissions', icon: '💰' },
+        { href: '/contractor/me/profile',   label: 'Profile',          icon: '👤' },
+        { href: '/contractor/me/contracts', label: 'Contracts',        icon: '📝' },
+        { href: '/contractor/me/documents', label: 'Documents',        icon: '📄' },
+        { href: '/contractor/me/account',   label: 'Account settings', icon: '⚙' },
+      );
+      return links;
+    }
+    // Employees / admins — mirrors the /me sidebar entries.
+    return [
+      { href: '/me',            label: 'Overview',         icon: '▦' },
+      { href: '/me/tasks',      label: 'Tasks',            icon: '✅' },
+      { href: '/me/accounts',   label: 'Accounts & commissions', icon: '💰' },
+      { href: '/me/profile',    label: 'Profile',          icon: '👤' },
+      { href: '/me/payslips',   label: 'Payslips',         icon: '💵' },
+      { href: '/me/time-off',   label: 'Time off',         icon: '⌛' },
+      { href: '/me/documents',  label: 'Documents',        icon: '📄' },
+      { href: '/me/account',    label: 'Account settings', icon: '⚙' },
+    ];
+  });
 
   switch(key: SystemKey) {
     this.open.set(false);
@@ -391,8 +473,13 @@ export class TopNav {
 
   switchBack() {
     this.tenantOpen.set(false);
+    const wasUserImpersonation = this.auth.isImpersonatingUser();
     this.auth.switchBack();
-    window.location.reload();
+    // After user-level impersonation the contractor URL is unreachable for
+    // the admin — send them back to the CRM home. Tenant-level impersonation
+    // typically stays on a matching route in the home tenant, so reload.
+    if (wasUserImpersonation) this.router.navigateByUrl('/admin/clients');
+    else window.location.reload();
   }
 
   initials(s: string | null | undefined): string {

@@ -6,10 +6,11 @@ import { Api } from '../../core/api';
 import { DialogService } from '../../core/dialog';
 import { environment } from '@env/environment';
 import { ClientContact, FeedbackForm, FeedbackQuestion, FeedbackResponse, Lead, LeadIndustrySummary, LeadInfo, LeadNote, LeadServiceLink, LeadStatus, ServiceOffering } from '../../core/models';
+import { AssignmentsPanel } from '../../shared/assignments-panel';
 import { FormSubmissionsList } from '../../shared/form-submissions-list';
 
 type Mode = 'list' | 'view' | 'edit';
-type LeadTabKey = 'info' | 'contacts' | 'services' | 'onboarding' | 'feedback' | 'notes';
+type LeadTabKey = 'info' | 'contacts' | 'services' | 'assignments' | 'onboarding' | 'feedback' | 'notes';
 
 const STATUS_LABELS: Record<LeadStatus, string> = {
   new:       'New',
@@ -35,7 +36,7 @@ type LeadSortKey =
  */
 @Component({
   selector: 'app-leads-admin',
-  imports: [RouterLink, FormsModule, DatePipe, FormSubmissionsList],
+  imports: [RouterLink, FormsModule, DatePipe, AssignmentsPanel, FormSubmissionsList],
   template: `
     @if (mode() === 'list') {
       <div class="toolbar">
@@ -107,7 +108,12 @@ type LeadSortKey =
             <tbody>
               @for (l of visible(); track l.id) {
                 <tr (click)="view(l)">
-                  <td><strong>{{ l.name }}</strong></td>
+                  <td>
+                    <strong>{{ l.name }}</strong>
+                    @if (l.stage) {
+                      <span class="stage-chip" [title]="'Companies House · stage ' + l.stage + ' of 5'">S{{ l.stage }}</span>
+                    }
+                  </td>
                   <td>{{ l.email || '—' }}</td>
                   <td>{{ l.phone || '—' }}</td>
                   <td>{{ l.company || '—' }}</td>
@@ -323,6 +329,10 @@ type LeadSortKey =
                       <label>Email</label>
                       <input type="email" [(ngModel)]="contactDraft.email" name="lcd_email" placeholder="jane@example.com" />
 
+                      <label>LinkedIn URL</label>
+                      <input type="url" [(ngModel)]="contactDraft.linkedin_url" name="lcd_linkedin"
+                             placeholder="https://www.linkedin.com/in/jane-doe/" />
+
                       <label>Numbers</label>
                       @for (n of contactNumbers(); track $index; let i = $index) {
                         <div class="number-row">
@@ -375,6 +385,7 @@ type LeadSortKey =
                           @if (expandedContact() === ct.id) {
                             <div class="contact-body">
                               @if (ct.email) { <div class="muted small"><span class="ic">✉</span> <a [href]="'mailto:' + ct.email">{{ ct.email }}</a></div> }
+                              @if (ct.linkedin_url) { <div class="muted small"><span class="ic">in</span> <a [href]="ct.linkedin_url" target="_blank" rel="noopener">LinkedIn profile</a></div> }
                               @for (n of ct.numbers; track n.id) {
                                 <div class="muted small"><span class="ic">☏</span> <a [href]="'tel:' + n.number">{{ n.number }}</a> @if (n.label) { <span>— {{ n.label }}</span> }</div>
                               }
@@ -447,6 +458,17 @@ type LeadSortKey =
                       }
                     </div>
                   }
+                }
+                @case ('assignments') {
+                  <div class="tab-head">
+                    <h3>Assignments</h3>
+                    <span class="spacer"></span>
+                  </div>
+                  <p class="muted small" style="margin: 0 0 12px 0;">
+                    Assign an employee, contractor, or partner to each work-area role.
+                    Reassignment keeps a full audit trail of who was assigned when, by whom.
+                  </p>
+                  <app-assignments-panel entity="lead" [entityId]="l.id!"></app-assignments-panel>
                 }
                 @case ('onboarding') {
                   <div class="tab-head">
@@ -856,6 +878,12 @@ type LeadSortKey =
       border: 1px solid var(--line);
       background: var(--bg-3); color: var(--muted);
     }
+    .stage-chip {
+      display: inline-block; margin-left: 8px; padding: 1px 7px;
+      border: 1px solid var(--primary); border-radius: 999px;
+      color: var(--primary); font-size: 10px; font-weight: 700; vertical-align: middle;
+      text-transform: none; letter-spacing: 0;
+    }
     .status-pill[data-status="new"]       { color: var(--primary); border-color: var(--primary); }
     .status-pill[data-status="prospect"]  { color: #60a5fa; border-color: #60a5fa; background: rgba(96, 165, 250, 0.1); }
     .status-pill[data-status="dead"]      { color: var(--danger); border-color: var(--danger); background: rgba(239, 68, 68, 0.10); }
@@ -1245,6 +1273,7 @@ export class LeadsAdmin {
     { key: 'info',       label: 'Info' },
     { key: 'contacts',   label: 'Contacts' },
     { key: 'services',   label: 'Services' },
+    { key: 'assignments', label: 'Assignments' },
     { key: 'onboarding', label: 'Onboarding' },
     { key: 'feedback',   label: 'Feedback' },
     { key: 'notes',      label: 'Notes' },

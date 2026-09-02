@@ -185,15 +185,24 @@ return function (string $method, array $segs): void {
                 // afterwards so only one is_primary=1 ever lives per client.
                 $wantPrimary = !empty($body['is_primary']) || !$hasPrimary($id);
 
+                // linkedin_url is optional (migration 150). Blank means
+                // "no profile"; anything non-blank must at least parse
+                // as a URL so the frontend can safely render it as an <a>.
+                $linkedin = trim((string)($body['linkedin_url'] ?? ''));
+                if ($linkedin !== '' && !filter_var($linkedin, FILTER_VALIDATE_URL)) {
+                    Json::fail('Invalid LinkedIn URL', 400);
+                }
+
                 $ins = $pdo->prepare('INSERT INTO client_contacts
-                    (client_id, first_name, last_name, position, email, verified, is_primary, sort_order)
-                    VALUES (?,?,?,?,?,?,?,?)');
+                    (client_id, first_name, last_name, position, email, linkedin_url, verified, is_primary, sort_order)
+                    VALUES (?,?,?,?,?,?,?,?,?)');
                 $ins->execute([
                     $id,
                     $first,
                     trim((string)($body['last_name'] ?? '')) ?: null,
                     trim((string)($body['position']  ?? '')) ?: null,
                     $email !== '' ? $email : null,
+                    $linkedin !== '' ? $linkedin : null,
                     !empty($body['verified']) ? 1 : 0,
                     $wantPrimary ? 1 : 0,
                     (int)($body['sort_order'] ?? 0),
@@ -226,14 +235,24 @@ return function (string $method, array $segs): void {
             $email = trim((string)($body['email'] ?? $contact['email'] ?? ''));
             if ($email !== '' && !filter_var($email, FILTER_VALIDATE_EMAIL)) Json::fail('Invalid email', 400);
 
+            // Only validate linkedin_url when the caller sends it; a
+            // PUT that omits the key preserves the stored value.
+            $linkedin = array_key_exists('linkedin_url', $body)
+                ? trim((string)$body['linkedin_url'])
+                : trim((string)($contact['linkedin_url'] ?? ''));
+            if ($linkedin !== '' && !filter_var($linkedin, FILTER_VALIDATE_URL)) {
+                Json::fail('Invalid LinkedIn URL', 400);
+            }
+
             $upd = $pdo->prepare('UPDATE client_contacts
-                SET first_name=?, last_name=?, position=?, email=?, verified=?, sort_order=?
+                SET first_name=?, last_name=?, position=?, email=?, linkedin_url=?, verified=?, sort_order=?
                 WHERE id = ?');
             $upd->execute([
                 $first,
                 trim((string)($body['last_name'] ?? $contact['last_name'] ?? '')) ?: null,
                 trim((string)($body['position']  ?? $contact['position']  ?? '')) ?: null,
                 $email !== '' ? $email : null,
+                $linkedin !== '' ? $linkedin : null,
                 !empty($body['verified']) ? 1 : 0,
                 (int)($body['sort_order'] ?? $contact['sort_order']),
                 $cid,
@@ -1083,6 +1102,80 @@ return function (string $method, array $segs): void {
         }
 
         Json::send(['ok' => true, 'lead_id' => $newLeadId], 201);
+    }
+
+    // ── /api/clients/:id/assignments[/:aid] ────────────────────────
+    if (($segs[2] ?? '') === 'assignments') {
+        \BRS\Assignments::handle('client', $id, $method, $segs);
+    }
+
+    // ── /api/clients/:id/{commissions|commission-rules}[/:xid] ─────
+    if (($segs[2] ?? '') === 'commissions' || ($segs[2] ?? '') === 'commission-rules') {
+        require_once __DIR__ . '/../lib/my_commissions.php';
+        client_commissions_route($pdo, $id, $method, $segs);
+    }
+
+    // ── /api/clients/:id/contractors[/:linkId] ─────────────────────
+    // Attach/detach contractors on a client. GET returns the full list,
+    // POST attaches by contractor_id (with an optional role label), DELETE
+    // removes a specific link row.
+    if (($segs[2] ?? '') === 'contractors') {
+        $linkId = isset($segs[3]) ? (int)$segs[3] : null;
+
+        if ($linkId === null) {
+            if ($method === 'GET') {
+                $rows = $pdo->prepare(
+                    'SELECT cc.id AS link_id, cc.role, cc.added_at,
+                            c.id AS contractor_id, c.name AS contractor_name,
+                            c.discipline, c.status AS contractor_status,
+                            c.primary_email, c.admin_user_id, c.rate, c.currency,
+                            c.engagement_type
+                     FROM client_contractors cc
+                     JOIN contractors c ON c.id = cc.contractor_id
+                     WHERE cc.client_id = ?
+                     ORDER BY cc.added_at DESC'
+                );
+                $rows->execute([$id]);
+                Json::send(['contractors' => $rows->fetchAll()]);
+            }
+            if ($method === 'POST') {
+                $b   = Json::readBody();
+                $cid = (int)($b['contractor_id'] ?? 0);
+                if ($cid <= 0) Json::fail('contractor_id required', 400);
+                $exists = $pdo->prepare('SELECT id FROM contractors WHERE id = ?');
+                $exists->execute([$cid]);
+                if (!$exists->fetchColumn()) Json::fail('Contractor not found', 404);
+                try {
+                    $ins = $pdo->prepare(
+                        'INSERT INTO client_contractors (client_id, contractor_id, role, added_by)
+                         VALUES (?,?,?,?)'
+                    );
+                    $ins->execute([
+                        $id, $cid,
+                        trim((string)($b['role'] ?? '')) ?: null,
+                        (int)(\BRS\Tenant::userId() ?? 0) ?: null,
+                    ]);
+                } catch (\PDOException $e) {
+                    if ($e->errorInfo[1] === 1062) Json::fail('That contractor is already assigned', 409);
+                    throw $e;
+                }
+                Json::send(['id' => (int)$pdo->lastInsertId()], 201);
+            }
+            Json::fail('Method not allowed', 405);
+        }
+
+        if ($method === 'PUT') {
+            $b = Json::readBody();
+            $pdo->prepare('UPDATE client_contractors SET role = ? WHERE id = ? AND client_id = ?')
+                ->execute([trim((string)($b['role'] ?? '')) ?: null, $linkId, $id]);
+            Json::send(['ok' => true]);
+        }
+        if ($method === 'DELETE') {
+            $pdo->prepare('DELETE FROM client_contractors WHERE id = ? AND client_id = ?')
+                ->execute([$linkId, $id]);
+            Json::send(['ok' => true]);
+        }
+        Json::fail('Method not allowed', 405);
     }
 
     if ($method === 'GET') Json::send(['client' => $client]);

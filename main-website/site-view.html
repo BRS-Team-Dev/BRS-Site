@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Site view — a per-site mockup preview for Built Right Studio.">
+  <meta name="author" content="Built Right Studio">
+
+  <!-- Favicon -->
+  <link rel="icon" type="image/png" sizes="32x32" href="assets/images/icon.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="assets/images/icon.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="assets/images/icon.png">
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+  <!-- Stylesheet -->
+  <link rel="stylesheet" href="css/styles.css?v=5">
+  <link rel="stylesheet" href="css/site-view.css?v=14">
+  <link rel="stylesheet" href="css/booking-modal.css?v=1">
+
+  <title>Site view | Built Right Studio</title>
+</head>
+<body>
+
+  <!-- ============================================
+       HEADER / NAVIGATION
+       ============================================ -->
+  <header class="header">
+    <div class="header-inner">
+      <a href="index.html" class="logo">
+        <img src="assets/images/icon-removebg-preview.png" alt="Built Right Studio">
+      </a>
+
+      <nav class="nav-main" role="navigation" aria-label="Main navigation">
+        <a href="index.html" class="nav-link">Home</a>
+        <div class="nav-dropdown">
+          <span class="nav-link" style="cursor: default;">Services
+            <svg class="nav-dropdown-caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+          </span>
+          <div class="nav-dropdown-menu">
+            <a href="websites.html">Websites</a>
+            <a href="software-solutions.html">Software Solutions</a>
+            <a href="it-services.html">IT Services</a>
+            <a href="brand-kit.html">Brand Kit</a>
+            <a href="social-media-marketing.html">Social Media Marketing</a>
+          </div>
+        </div>
+        <a href="casestudy.html" class="nav-link">Case Studies</a>
+        <a href="about.html" class="nav-link">About</a>
+        <a href="contact.html" class="nav-link">Contact</a>
+      </nav>
+
+      <div class="header-cta">
+        <button type="button" class="btn btn-primary" data-book-call>Book a Call</button>
+        <button class="mobile-toggle" aria-label="Toggle menu" aria-expanded="false"><span></span></button>
+      </div>
+    </div>
+
+    <nav class="nav-mobile" role="navigation" aria-label="Mobile navigation">
+      <a href="index.html" class="nav-link">Home</a>
+      <div class="nav-mobile-dropdown">
+        <button class="nav-mobile-services-toggle" aria-expanded="false" aria-label="Toggle services menu">Services
+          <svg class="nav-dropdown-caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+        </button>
+        <div class="nav-mobile-submenu">
+          <a href="websites.html" class="nav-link">Websites</a>
+          <a href="software-solutions.html" class="nav-link">Software Solutions</a>
+          <a href="it-services.html" class="nav-link">IT Services</a>
+          <a href="brand-kit.html" class="nav-link">Brand Kit</a>
+          <a href="social-media-marketing.html" class="nav-link">Social Media Marketing</a>
+        </div>
+      </div>
+      <a href="casestudy.html" class="nav-link">Case Studies</a>
+      <a href="about.html" class="nav-link">About</a>
+      <a href="contact.html" class="nav-link">Contact</a>
+      <button type="button" class="btn btn-primary" style="margin-top: var(--space-6);" data-book-call>Book a Call</button>
+    </nav>
+  </header>
+
+  <!-- ============================================
+       MAIN CONTENT
+       ============================================ -->
+  <main>
+
+
+    <!-- ============================================
+         FEATURE — full-page split: video left, text right
+         ============================================
+         Two-column, edge-to-edge, 100vh. Video fills the left
+         cell with no padding or margin (object-fit: cover so it
+         crops to fill rather than letterbox). Right cell is a
+         text block. Swap the <video> source with your final
+         asset when ready. -->
+    <section class="sv-feature">
+      <video class="sv-feature-video" autoplay muted loop playsinline preload="auto" data-bind-video="feature.video">
+        <source src="assets/video/website.mp4" type="video/mp4" data-bind-src="feature.video">
+      </video>
+      <div class="sv-feature-text">
+        <div class="sv-feature-text-inner">
+          <span class="overline" data-bind-text="feature.overline">Feature</span>
+          <h2 class="sv-feature-title" data-bind-text="feature.heading">Placeholder heading — replace with the real copy.</h2>
+          <p class="sv-feature-body" data-bind-text="feature.body">
+            Placeholder paragraph. Two or three sentences describing what
+            this video is showing and what it means for the visitor.
+            Swap for the real copy when you have it.
+          </p>
+        </div>
+      </div>
+    </section>
+
+
+    <!-- ============================================
+         BRAND STRIP — large centred logo, above the mockup
+         ============================================ -->
+    <section class="sv-logo-strip">
+      <img class="sv-logo-strip-img" src="assets/images/icon-removebg-preview.png" alt="Built Right Studio">
+    </section>
+
+    <!-- ============================================
+         SITE VIEW — multi-device mockup
+         ============================================
+         Three CSS-drawn device frames (desktop, tablet, phone)
+         arranged in a composed grid on a dark bg. Each device's
+         <img> is the screenshot slot — drop screenshots at:
+           assets/images/site-view/{name}-desktop.png
+           assets/images/site-view/{name}-tablet.png
+           assets/images/site-view/{name}-phone.png
+         Placeholder pattern shows in each screen until a real
+         image is set. -->
+    <section class="site-view">
+      <div class="sv-scene">
+
+        <!-- Desktop / iMac-style monitor (largest, back-centre) -->
+        <div class="sv-device sv-desktop">
+          <div class="sv-desktop-bezel">
+            <span class="sv-camera"></span>
+            <div class="sv-screen">
+              <img src="assets/images/site-view/desktop.png" alt="" data-bind-src="mockup.desktop" />
+            </div>
+          </div>
+          <div class="sv-desktop-neck"></div>
+          <div class="sv-desktop-base"></div>
+        </div>
+
+        <!-- Tablet (front-left, slightly tilted) -->
+        <div class="sv-device sv-tablet">
+          <div class="sv-tablet-bezel">
+            <div class="sv-screen">
+              <img src="assets/images/site-view/tablet.png" alt="" data-bind-src="mockup.tablet" />
+            </div>
+          </div>
+        </div>
+
+        <!-- Phone (front-right) -->
+        <div class="sv-device sv-phone">
+          <div class="sv-phone-bezel">
+            <span class="sv-phone-notch"></span>
+            <div class="sv-screen">
+              <img src="assets/images/site-view/phone.png" alt="" data-bind-src="mockup.phone" />
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ============================================
+         IMAGE SLIDER — reproduces the reference: full-height
+         white panel with image + title + description + filter
+         row + thumbnail rail, dots at the bottom.
+         ============================================ -->
+    <section class="sv-slider" aria-label="Gallery" aria-roledescription="carousel">
+      <div class="sv-slider-panel">
+        <div class="sv-slider-viewport">
+          <div class="sv-slides">
+            <article class="sv-slide" aria-roledescription="slide"><div class="sv-slide-img"><img src="assets/images/posters/software.jpg" alt=""></div></article>
+            <article class="sv-slide" aria-roledescription="slide"><div class="sv-slide-img"><img src="assets/images/posters/it-services.jpg" alt=""></div></article>
+            <article class="sv-slide" aria-roledescription="slide"><div class="sv-slide-img"><img src="assets/images/posters/hero.jpg" alt=""></div></article>
+            <article class="sv-slide" aria-roledescription="slide"><div class="sv-slide-img"><img src="assets/images/posters/7598766-hd_1920_1080_30fps.jpg" alt=""></div></article>
+            <article class="sv-slide" aria-roledescription="slide"><div class="sv-slide-img"><img src="assets/images/posters/website.jpg" alt=""></div></article>
+          </div>
+        </div>
+
+        <div class="sv-dots" role="tablist" aria-label="Choose slide"></div>
+      </div>
+    </section>
+
+    <!-- ============================================
+         FULL-PAGE VIDEO — muted autoplay, low-profile controls
+         ============================================
+         100vh, edge-to-edge. No native browser controls; a small
+         mute toggle sits bottom-right and a play icon appears
+         only when paused. Click anywhere on the video to
+         pause / resume. Placed at the end of main by default —
+         say the word if it belongs elsewhere. -->
+    <section class="sv-fullvideo" data-sv-fullvideo>
+      <video class="sv-fullvideo-media" autoplay muted loop playsinline preload="auto" data-bind-video="fullvideo">
+        <source src="assets/video/website.mp4" type="video/mp4" data-bind-src="fullvideo">
+      </video>
+
+      <!-- Centre play icon — visible only when paused. -->
+      <span class="sv-fullvideo-play" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="currentColor" width="28" height="28"><polygon points="6,4 20,12 6,20"/></svg>
+      </span>
+
+      <!-- Corner mute toggle — low-profile, always visible. -->
+      <button type="button" class="sv-fullvideo-mute" aria-label="Unmute video" data-sv-mute>
+        <svg class="sv-mute-icon sv-mute-icon--muted"   viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="20" height="20"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>
+        <svg class="sv-mute-icon sv-mute-icon--unmuted" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="20" height="20"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg>
+      </button>
+    </section>
+
+    <!-- ============================================
+         FULL-PAGE IMAGE — long website preview
+         ============================================
+         Full-width, height auto — a tall website screenshot
+         flows at its natural aspect ratio (typically much
+         taller than a viewport). Drop the real image at
+         assets/images/site-view/fullpage.png; the diagonal-
+         line placeholder shows until then. Placed at the end
+         of main by default — say if it belongs elsewhere. -->
+    <section class="sv-fullimage">
+      <img class="sv-fullimage-img" data-bind-src="fullimage"
+           src="assets/images/site-view/fullpage.png"
+           alt="Full-page website preview" />
+      <div class="sv-fullimage-placeholder">Full-page website preview</div>
+    </section>
+
+  </main>
+
+  <!-- ============================================
+       FOOTER
+       ============================================ -->
+  <footer class="footer">
+    <div class="container">
+      <div class="footer-grid">
+        <div class="footer-brand">
+          <a href="index.html" class="logo">
+            <img src="assets/images/icon-removebg-preview.png" alt="Built Right Studio" style="height: 100px;">
+          </a>
+          <p>Modern websites built in 24–72 hours. Fast delivery, clean design, affordable pricing.</p>
+          <div class="social-links">
+            <a href="#" class="social-link" aria-label="Instagram"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"></rect><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"></path><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"></line></svg></a>
+            <a href="#" class="social-link" aria-label="TikTok"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 12a4 4 0 1 0 4 4V4a5 5 0 0 0 5 5"></path></svg></a>
+            <a href="#" class="social-link" aria-label="LinkedIn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6z"></path><rect x="2" y="9" width="4" height="12"></rect><circle cx="4" cy="4" r="2"></circle></svg></a>
+          </div>
+        </div>
+
+        <div>
+          <h6 class="footer-heading">Quick Links</h6>
+          <ul class="footer-links">
+            <li><a href="index.html">Home</a></li>
+            <li><a href="websites.html">Services</a></li>
+            <li><a href="portfolio.html">Portfolio</a></li>
+            <li><a href="about.html">About Us</a></li>
+            <li><a href="contact.html">Contact</a></li>
+          </ul>
+        </div>
+
+        <div>
+          <h6 class="footer-heading">Services</h6>
+          <ul class="footer-links">
+            <li><a href="websites.html">Websites</a></li>
+            <li><a href="software-solutions.html">Software Solutions</a></li>
+            <li><a href="it-services.html">IT Services</a></li>
+            <li><a href="brand-kit.html">Brand Kit</a></li>
+            <li><a href="social-media-marketing.html">Social Media Marketing</a></li>
+          </ul>
+        </div>
+
+        <div>
+          <h6 class="footer-heading">Contact</h6>
+          <ul class="footer-links">
+            <li><a href="mailto:hello@builtrightstudio.com">hello@builtrightstudio.com</a></li>
+            <li><a href="contact.html">Book a Consultation</a></li>
+            <li>UK based Team</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="footer-bottom">
+        <p class="footer-copyright">© 2025 Built Right Studio. All rights reserved.</p>
+        <div class="footer-legal">
+          <a href="#">Privacy Policy</a>
+          <a href="#">Terms of Service</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+  <!-- Floating CTA -->
+  <div class="floating-cta">
+    <button type="button" class="btn btn-primary" data-book-call>
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+      Book a Call
+    </button>
+  </div>
+
+  <script src="js/main.js?v=3"></script>
+  <script src="js/site-view.js?v=1"></script>
+  <script src="js/booking-modal.js?v=1"></script>
+</body>
+</html>

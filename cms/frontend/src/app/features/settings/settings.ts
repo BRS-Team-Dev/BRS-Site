@@ -9,6 +9,7 @@ import { ThemeService, TENANT_THEMES, THEME_META, TenantTheme } from '../../core
 import { LeadgenSettings } from '../leadgen/leadgen-settings';
 import { SettingsAccount } from './settings-account';
 import { SettingsBilling } from './settings-billing';
+import { SettingsBookings } from './settings-bookings';
 import { SettingsEmail } from './settings-email';
 import { SettingsInvoices } from './settings-invoices';
 import { SettingsNotifications } from './settings-notifications';
@@ -25,7 +26,7 @@ import { SettingsNotifications } from './settings-notifications';
  * been retired in favour of per-tab actions because the user invariably
  * only wants to save the tab they're looking at.
  */
-type TabKey = 'general' | 'notifications' | 'email' | 'appearance' | 'uploads' | 'leadgen' | 'account' | 'billing' | 'invoices';
+type TabKey = 'general' | 'notifications' | 'email' | 'appearance' | 'uploads' | 'leadgen' | 'account' | 'billing' | 'invoices' | 'bookings';
 
 interface TabDef {
   key: TabKey;
@@ -35,7 +36,7 @@ interface TabDef {
 
 @Component({
   selector: 'app-settings',
-  imports: [FormsModule, LeadgenSettings, SettingsAccount, SettingsBilling, SettingsEmail, SettingsInvoices, SettingsNotifications],
+  imports: [FormsModule, LeadgenSettings, SettingsAccount, SettingsBilling, SettingsBookings, SettingsEmail, SettingsInvoices, SettingsNotifications],
   template: `
     <div class="page">
       <header class="page-head">
@@ -141,6 +142,14 @@ interface TabDef {
                      catalogue (migration 127). Extracted into its own
                      component because the editor is substantial. -->
                 <app-settings-notifications></app-settings-notifications>
+              }
+
+              @case ('bookings') {
+                <!-- Booking-specific settings: default notification
+                     recipients + Microsoft Teams meeting integration.
+                     Consumed by LeadBookingNotifier on both admin and
+                     public routes. -->
+                <app-settings-bookings></app-settings-bookings>
               }
 
               @case ('email') {
@@ -587,6 +596,7 @@ export class Settings {
     { key: 'account',       label: 'Account',        icon: '👤' },
     { key: 'email',         label: 'Email',          icon: '✉' },
     { key: 'notifications', label: 'Notifications',  icon: '🔔' },
+    { key: 'bookings',      label: 'Bookings',       icon: '🗓' },
     { key: 'leadgen',       label: 'AI LLMs',        icon: '🤖' },
     { key: 'uploads',       label: 'Uploads',        icon: '⇪' },
   ];

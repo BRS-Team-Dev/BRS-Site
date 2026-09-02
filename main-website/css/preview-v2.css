@@ -1,0 +1,606 @@
+/* preview.css — page-specific styles for /preview.html
+   Extracted from inline <style> blocks. Keep any rule that is
+   TRULY reusable in css/styles.css; keep experimental / preview-
+   only rules here. */
+
+/* ============================================================
+   Showcase styles — scoped to this page only.
+   ============================================================ */
+/* ============================================
+         Showcase styles — scoped to this page only.
+         Two independent flex columns; every item sits on
+         pure black with even gap spacing between and around.
+         ============================================ */
+      :root { --showcase-gap: 24px; }
+
+      .showcase {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: var(--showcase-gap);
+        padding: var(--showcase-gap);
+        background: #000;
+      }
+      .showcase-col {
+        display: flex;
+        flex-direction: column;
+        gap: var(--showcase-gap);
+        min-width: 0; /* let images shrink inside grid cell */
+      }
+      .showcase-item {
+        background: #000;
+        display: flex;
+        flex-direction: column;
+      }
+
+      /* Intro block — 100vh, matches the name-card bg so the text
+         panels + label strips read as one material. */
+      .showcase-intro {
+        position: relative;
+        background: #0a0a0a;
+        color: #f5f5f5;
+        padding: clamp(2rem, 5vw, 4.5rem);
+        height: 100vh;
+        display: flex;
+        align-items: center;
+        overflow: hidden;
+        box-shadow: 0px 0px 20px rgb(68, 51, 10);
+      }
+      .showcase-intro-logo {
+        position: absolute;
+        top: clamp(1.25rem, 3vw, 2rem);
+        right: clamp(1.25rem, 3vw, 2rem);
+        width: clamp(48px, 6vw, 84px);
+        height: auto;
+        opacity: 0.95;
+      }
+      .showcase-intro-body { max-width: 44ch; }
+      .showcase-intro-title {
+        font-family: 'Playfair Display', Georgia, serif;
+        font-size: clamp(1.75rem, 3.5vw, 3rem);
+        line-height: 1.1;
+        margin: 0.5rem 0 1rem;
+      }
+      .showcase-intro-text {
+        color: #f5f5f5;
+        opacity: 0.85;
+        font-size: clamp(0.95rem, 1.05vw, 1.05rem);
+        line-height: 1.6;
+        margin: 0 0 1.75rem;
+      }
+
+      /* Text-only closer block — 50vh so the left column
+         (intro 100 + image 150 + closer 50 = 300vh) ends flush with
+         the right column (image 150 + image 150 = 300vh). */
+      .showcase-textblock {
+        background: #0a0a0a;
+        color: #f5f5f5;
+        height: 50vh;
+        padding: clamp(2rem, 5vw, 4.5rem);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+      }
+      .showcase-textblock-text {
+        max-width: 44ch;
+        color: #f5f5f5;
+        opacity: 0.9;
+        font-family: 'Playfair Display', Georgia, serif;
+        font-style: italic;
+        font-size: clamp(1.15rem, 1.6vw, 1.5rem);
+        line-height: 1.55;
+        margin: 0 auto;
+      }
+
+      /* Anchor wrapping the figure — links to the per-site page. */
+      .showcase-link {
+        display: block;
+        color: inherit;
+        text-decoration: none;
+      }
+      .showcase-link:hover .showcase-photo { filter: brightness(1.05); }
+      .showcase-photo { transition: filter 240ms ease; }
+
+      /* Figure = image (150vh) + name-card BELOW it (like ALPHA GROUP) */
+      .showcase-figure { margin: 0; background: #000; display: flex; flex-direction: column; box-shadow: 0px 0px 20px rgb(68, 51, 10);}
+      .showcase-image {
+        height: 150vh;
+        background-size: cover;
+        background-position: center;
+        background-color: #141414;
+        /* Diagonal-line placeholder so the empty state reads as
+           "image slot", not "broken card". Remove once real
+           background-image is set inline / via JS. */
+        background-image:
+          repeating-linear-gradient(
+            45deg,
+            rgba(255, 255, 255, 0.03) 0 12px,
+            rgba(255, 255, 255, 0.06) 12px 24px
+          );
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+      }
+      /* Real image slot — a proper <img>, not a background. */
+      .showcase-photo {
+        display: block;
+        width: 100%;
+        height: 150vh;
+        object-fit: contain;
+        object-position: top;
+        background: #141414;
+      }
+      .showcase-image-placeholder {
+        color: rgba(255, 255, 255, 0.35);
+        font-family: 'Poppins', sans-serif;
+        font-size: 0.85rem;
+        letter-spacing: 0.2em;
+        text-transform: uppercase;
+      }
+
+      /* Name card — dark strip under each image, title left + category
+         beside it. Mirrors the ALPHA GROUP style. */
+      .showcase-name-card {
+        background: #0a0a0a;
+        padding: 22px clamp(1.25rem, 2.5vw, 2rem);
+        display: flex;
+        align-items: baseline;
+        gap: clamp(1rem, 3vw, 2.5rem);
+        flex-wrap: wrap;
+      }
+      .showcase-name-title {
+        color: #ffffff;
+        font-family: 'Poppins', sans-serif;
+        font-size: 0.95rem;
+        font-weight: 700;
+        letter-spacing: 0.22em;
+        text-transform: uppercase;
+      }
+      .showcase-name-category {
+        color: #888;
+        font-family: 'Poppins', sans-serif;
+        font-size: 0.95rem;
+        font-weight: 400;
+        letter-spacing: 0.02em;
+      }
+
+      /* Mobile: single column, drop the viewport-locked heights so a
+         phone doesn't need to scroll through several 150vh stacks. */
+      @media (max-width: 900px) {
+        .showcase { grid-template-columns: 1fr; }
+        .showcase-intro,
+        .showcase-textblock { height: auto; min-height: 60vh; padding: 3rem 1.5rem; }
+        .showcase-image,
+        .showcase-photo { height: 70vh; }
+      }
+
+/* ============================================================
+   Full-video feature — scoped to this page.
+   ============================================================ */
+/* ============================================
+         Full-video feature — scoped to this page.
+         Video fills the section; a right-hand black overlay
+         (gradient into near-solid) carries two stacked cards.
+         ============================================ */
+      .preview-video {
+        position: relative;
+        height: 100vh;                                   /* roughly one screen, but can grow */
+        overflow: hidden;
+        background: var(--color-black-pure);
+        display: flex;
+        align-items: stretch;                               /* both halves equal height */
+        /* margin: clamp(2.5rem, 6vw, 5rem) clamp(1rem, 4vw, 3rem);  space around the section */
+        padding: clamp(2rem, 4vw, 3.5rem) 0;                /* top + bottom breathing room */
+        border-radius: var(--radius-lg);
+      }
+      /* Left half — video, contained + centred within its column. */
+      .preview-video-media {
+        flex: 0 0 50%;
+        width: 50%;
+        height: 100%;
+        object-fit: contain;
+        object-position: center;
+        background: #000;
+        z-index: 0;
+      }
+      /* Low-profile mute toggle sitting over the video. */
+      .pv-mute {
+        position: absolute;
+        bottom: clamp(1rem, 2vw, 1.75rem);
+        left: clamp(1rem, 2vw, 1.75rem);
+        width: 40px; height: 40px;
+        display: flex; align-items: center; justify-content: center;
+        color: #fff;
+        background: rgba(0, 0, 0, 0.55);
+        border: 1px solid rgba(255, 255, 255, 0.14);
+        border-radius: 50%;
+        cursor: pointer;
+        opacity: 0.75;
+        transition: opacity 200ms ease, background 200ms ease;
+        z-index: 3;
+      }
+      .pv-mute:hover { opacity: 1; background: rgba(0, 0, 0, 0.8); }
+      /* Show muted icon by default; swap to unmuted icon via section state class. */
+      .pv-mute-icon--unmuted { display: none; }
+      .preview-video.is-unmuted .pv-mute-icon--muted   { display: none; }
+      .preview-video.is-unmuted .pv-mute-icon--unmuted { display: inline-block; }
+      /* Section title — sits above the two cards inside the right overlay. */
+      .preview-video-title h2 {
+        font-family: var(--font-heading);
+        font-size: clamp(1.75rem, 3.6vw, 3rem);
+        line-height: 1.1;
+        margin-top: var(--space-3);
+        text-align: center;
+      }
+      /* Right half — title above the two stacked cards, vertically centred. */
+      .preview-video-overlay {
+        flex: 0 0 50%;
+        width: 50%;
+        min-height: 0;
+        z-index: 2;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        gap: var(--space-5);
+        padding: clamp(1.5rem, 4vw, 4rem) clamp(1.5rem, 4vw, 4rem);
+      }
+      /* Two distinct cards, stacked with a gap (the overlay's gap). */
+      .pv-card {
+        background: rgba(12, 12, 12, 0.55);
+        border: 1px solid var(--border-light);
+        border-radius: var(--radius-lg);
+        padding: clamp(1.5rem, 2.5vw, 2.25rem);
+        backdrop-filter: blur(6px);
+        -webkit-backdrop-filter: blur(6px);
+        box-shadow: var(--shadow-lg);
+      }
+      /* Single panel: title + short writeup + a 2-item list. */
+      .pv-single .preview-video-title { margin-bottom: var(--space-2); }
+      .pv-lead { margin-top: var(--space-3) !important; }
+      .pv-list {
+        list-style: none;
+        margin: var(--space-6) 0 0;
+        padding: 0;
+        display: flex;
+        flex-direction: column;
+        gap: var(--space-5);
+      }
+      .pv-list li + li {
+        border-top: 1px solid var(--border-light);
+        padding-top: var(--space-5);
+      }
+      .pv-cta { margin-top: var(--space-4); }
+      .pv-title {
+        font-family: var(--font-heading);
+        font-size: clamp(1.35rem, 2vw, 1.85rem);
+        line-height: 1.12;
+        margin: 0 0 0.6rem;
+      }
+      .pv-text {
+        color: var(--text-primary);
+        opacity: 0.85;
+        font-size: var(--text-base);
+        line-height: 1.65;
+        margin: 0;
+      }
+      .pv-link {
+        display: inline-block;
+        margin-top: var(--space-4);
+        color: var(--color-soft-gold);
+        font-family: var(--font-body);
+        font-weight: var(--font-semibold);
+        font-size: var(--text-sm);
+        letter-spacing: 0.02em;
+        transition: color 0.2s ease, transform 0.2s ease;
+      }
+      .pv-link:hover { color: var(--color-gold-light); transform: translateX(3px); }
+
+      /* Mobile: let the overlay span the full width along the bottom so the
+         cards stay readable without fighting the video, and release the
+         viewport-locked height. */
+      @media (max-width: 900px) {
+        .preview-video { height: auto; flex-direction: column; }
+        .preview-video-media { flex-basis: auto; width: 100%; height: 52vh; }
+        .preview-video-overlay {
+          flex-basis: auto;
+          width: 100%;
+          padding: 3rem 1.5rem;
+        }
+      }
+
+/* ============================================================
+   Video grid — full-bleed, 4 per row, small gap between
+   ============================================================ */
+/* ============================================
+         Video grid — full-bleed, 4 per row, small gap between
+         tiles (no outer padding), on a standard white section.
+         Poster shows at rest; the muted video crossfades in on
+         hover under a black overlay card carrying the @username;
+         click opens the shared full-page lightbox.
+         ============================================ */
+      .video-grid {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 8px;                 /* gap between each; no padding around */
+      }
+      .vg-tile {
+        position: relative;
+        display: block;
+        width: 100%;
+        margin: 0;
+        padding: 0;
+        border: 0;
+        border-radius: 0;
+        background: #0a0a0a;
+        aspect-ratio: 4 / 5;      /* taller tiles */
+        overflow: hidden;
+        cursor: pointer;
+        outline: none;
+      }
+      .vg-poster,
+      .vg-video {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        display: block;
+      }
+      /* Poster visible at rest; video sits on top but transparent. */
+      .vg-poster { z-index: 1; transition: opacity 0.35s ease; }
+      .vg-video  { z-index: 2; opacity: 0; transition: opacity 0.35s ease; }
+      .vg-tile.is-playing .vg-video  { opacity: 1; }
+      .vg-tile.is-playing .vg-poster { opacity: 0; }
+
+      /* Black overlay card — fades in on hover, darkens toward the
+         bottom so the @username reads across the base of the tile. */
+      .vg-overlay {
+        position: absolute;
+        z-index: 3;
+        inset: 0;
+        display: flex;
+        align-items: flex-end;
+        padding: clamp(0.9rem, 1.6vw, 1.4rem);
+        background: linear-gradient(
+          to top,
+          rgba(0, 0, 0, 0.85) 0%,
+          rgba(0, 0, 0, 0.35) 40%,
+          rgba(0, 0, 0, 0.12) 100%
+        );
+        opacity: 0;
+        transition: opacity 0.3s ease;
+        pointer-events: none;
+      }
+      .vg-tile:hover .vg-overlay,
+      .vg-tile:focus-visible .vg-overlay { opacity: 1; }
+      .vg-username {
+        width: 100%;
+        color: #fff;
+        font-family: var(--font-body);
+        font-weight: var(--font-semibold);
+        font-size: var(--text-sm);
+        letter-spacing: 0.02em;
+        transform: translateY(6px);
+        transition: transform 0.3s ease;
+      }
+      .vg-tile:hover .vg-username,
+      .vg-tile:focus-visible .vg-username { transform: translateY(0); }
+      .vg-tile:focus-visible { box-shadow: inset 0 0 0 3px var(--color-soft-gold); }
+
+      /* Full-page lightbox */
+      .vg-lightbox {
+        position: fixed;
+        inset: 0;
+        z-index: 9999;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: clamp(1rem, 4vw, 3rem);
+        background: rgba(0, 0, 0, 0.92);
+        opacity: 0;
+        transition: opacity 0.25s ease;
+      }
+      .vg-lightbox[hidden] { display: none; }
+      .vg-lightbox.is-open { opacity: 1; }
+      .vg-lightbox-video {
+        width: min(100%, 1400px);
+        max-height: 90vh;
+        background: #000;
+        border-radius: var(--radius-md);
+        box-shadow: var(--shadow-xl);
+      }
+      .vg-lightbox-close {
+        position: absolute;
+        top: clamp(0.75rem, 2vw, 1.5rem);
+        right: clamp(0.75rem, 2vw, 1.5rem);
+        width: 48px; height: 48px;
+        display: flex; align-items: center; justify-content: center;
+        border: 1px solid rgba(255, 255, 255, 0.3);
+        border-radius: var(--radius-full);
+        background: rgba(0, 0, 0, 0.5);
+        color: #fff;
+        cursor: pointer;
+        transition: background 0.2s ease, border-color 0.2s ease;
+      }
+      .vg-lightbox-close:hover { background: rgba(0, 0, 0, 0.8); border-color: var(--color-soft-gold); }
+      .vg-lightbox-close svg { width: 24px; height: 24px; }
+
+      /* Responsive: 4 -> 2 -> 1 columns. */
+      @media (max-width: 900px) { .video-grid { grid-template-columns: repeat(2, 1fr); } }
+      @media (max-width: 520px) { .video-grid { grid-template-columns: 1fr; } }
+
+/* ============================================================
+   Gallery strip — white bg, 4 tiles in one row. Squares that
+   ============================================================ */
+/* Gallery strip — white bg, 4 tiles in one row. Squares that
+         crop the image to fill so 4 tiles of different aspects still
+         line up. Collapses to 2×2 then 1-per-row on smaller screens. */
+      .gallery-strip {
+        background: #ffffff;
+        padding: clamp(1.5rem, 3vw, 3rem);
+      }
+      .gallery-strip-row {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: clamp(0.75rem, 1.5vw, 1.25rem);
+        max-width: 1600px;
+        margin: 0 auto;
+      }
+      .gallery-tile {
+        position: relative;
+        aspect-ratio: 1 / 1;
+        padding: 0;
+        border: 0;
+        background: #f2f2f2;
+        cursor: pointer;
+        overflow: hidden;
+        border-radius: 4px;
+      }
+      .gallery-tile-image {
+        position: absolute; inset: 0;
+        background-color: #e6e6e6;
+        background-size: cover;
+        background-position: center;
+        background-image:
+          repeating-linear-gradient(
+            45deg,
+            rgba(0, 0, 0, 0.04) 0 12px,
+            rgba(0, 0, 0, 0.08) 12px 24px
+          );
+        transition: transform 500ms ease;
+      }
+      .gallery-tile:hover .gallery-tile-image { transform: scale(1.04); }
+      .gallery-tile-caption {
+        position: absolute;
+        left: 12px; bottom: 12px;
+        background: rgba(0, 0, 0, 0.72);
+        color: #ffffff;
+        font-family: 'Poppins', sans-serif;
+        font-size: 0.7rem;
+        letter-spacing: 0.22em;
+        text-transform: uppercase;
+        padding: 6px 10px;
+        border-radius: 3px;
+      }
+      @media (max-width: 900px) {
+        .gallery-strip-row { grid-template-columns: repeat(2, 1fr); }
+      }
+      @media (max-width: 480px) {
+        .gallery-strip-row { grid-template-columns: 1fr; }
+      }
+
+      /* Lightbox — fills the viewport, keeps the picker at the bottom. */
+      .lightbox[hidden] { display: none; }
+      .lightbox {
+        position: fixed; inset: 0; z-index: 99999;
+        display: grid;
+        grid-template-rows: 1fr auto auto;
+        background: rgba(0, 0, 0, 0.96);
+        color: #fff;
+      }
+      /* Hide the site's floating "Get Started" pill while the lightbox
+         is open — it was bleeding through at z-index above the overlay. */
+      body:has(.lightbox:not([hidden])) .floating-cta { display: none !important; }
+
+      .lightbox-close {
+        position: absolute; top: 16px; right: 16px;
+        width: 44px; height: 44px;
+        display: flex; align-items: center; justify-content: center;
+        background: transparent; border: 0; color: #fff; cursor: pointer;
+        border-radius: 50%;
+        z-index: 10;
+      }
+      .lightbox-close:hover { background: rgba(255, 255, 255, 0.08); }
+
+      /* Near-full-viewport stage. Only just enough side padding to keep
+         the nav circles from crashing into the image edge. */
+      .lightbox-stage {
+        position: relative;
+        display: flex; align-items: center; justify-content: center;
+        padding: 8px clamp(70px, 6vw, 100px);
+        min-height: 0;
+        overflow: hidden;  /* clip the slide-in transform */
+      }
+      /* Real <img>: fills the stage; keeps its native aspect via contain. */
+      .lightbox-image {
+        display: block;
+        max-width: 100%;
+        max-height: 100%;
+        width: auto;
+        height: auto;
+        object-fit: contain;
+        /* Slide-in transition: default resting state. */
+        transform: translateX(0);
+        opacity: 1;
+        transition: transform 320ms ease, opacity 220ms ease;
+      }
+      /* Applied for one frame before the src swap so the new image
+         enters from the right. `.is-leaving-left` for prev nav. */
+      .lightbox-image.is-leaving-right { transform: translateX(60px);  opacity: 0; }
+      .lightbox-image.is-leaving-left  { transform: translateX(-60px); opacity: 0; }
+      .lightbox-image.is-entering-right { transform: translateX(60px);  opacity: 0; transition: none; }
+      .lightbox-image.is-entering-left  { transform: translateX(-60px); opacity: 0; transition: none; }
+      .lightbox-nav {
+        position: absolute;
+        top: 50%;
+        transform: translateY(-50%);
+        width: 52px; height: 52px;
+        display: flex; align-items: center; justify-content: center;
+        background: rgba(255, 255, 255, 0.06);
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        color: #fff; cursor: pointer;
+        border-radius: 50%;
+      }
+      .lightbox-nav:hover { background: rgba(255, 255, 255, 0.14); }
+      .lightbox-prev { left: clamp(0.5rem, 2vw, 2rem); }
+      .lightbox-next { right: clamp(0.5rem, 2vw, 2rem); }
+
+      .lightbox-footer {
+        display: flex; align-items: baseline; justify-content: space-between;
+        gap: 1rem;
+        padding: 0 clamp(1rem, 4vw, 3rem) 0.75rem;
+        font-family: 'Poppins', sans-serif;
+      }
+      .lightbox-title {
+        color: #fff;
+        font-size: 0.85rem;
+        letter-spacing: 0.22em;
+        text-transform: uppercase;
+        font-weight: 600;
+      }
+      .lightbox-counter {
+        color: rgba(255, 255, 255, 0.55);
+        font-size: 0.85rem;
+        font-variant-numeric: tabular-nums;
+      }
+
+      .lightbox-thumbs {
+        display: flex;
+        gap: 8px;
+        overflow-x: auto;
+        padding: 0.75rem clamp(1rem, 4vw, 3rem) 1.25rem;
+        scrollbar-width: thin;
+      }
+      .lightbox-thumb {
+        flex: 0 0 auto;
+        width: 88px; height: 66px;
+        padding: 0; border: 2px solid transparent; border-radius: 3px;
+        background: #1a1a1a;
+        background-size: cover;
+        background-position: center;
+        background-image:
+          repeating-linear-gradient(
+            45deg,
+            rgba(255, 255, 255, 0.03) 0 8px,
+            rgba(255, 255, 255, 0.06) 8px 16px
+          );
+        cursor: pointer;
+        opacity: 0.55;
+        transition: opacity 200ms ease, border-color 200ms ease;
+      }
+      .lightbox-thumb:hover { opacity: 0.9; }
+      .lightbox-thumb[aria-current="true"] {
+        opacity: 1;
+        border-color: var(--primary, #d4a93a);
+      }

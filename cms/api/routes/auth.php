@@ -88,7 +88,8 @@ return function (string $method, array $segs) use ($tenantPayload): void {
             (int)(Tenant::userId() ?? 0),
             (string)(Tenant::email() ?? ''),
             $targetTenant,
-            true               // super stays true through impersonation
+            true,               // super stays true through impersonation
+            ['from' => $fromTenant]
         );
 
         Tenants::logSuperAction(
@@ -106,6 +107,62 @@ return function (string $method, array $segs) use ($tenantPayload): void {
             'brand_name'    => $row['brand_name'],
             'tenant'        => $tenantPayload($targetTenant),
             'impersonating' => ['from' => $fromTenant],
+        ]);
+    }
+
+    // /api/auth/impersonate-user { user_id }
+    //
+    // Admin (role='admin') only. Issues a NEW JWT with sub = target user_id
+    // (typically a contractor), same tenant_id. Frontend stashes the caller's
+    // token so switchBack() restores it without a re-login. Refuses:
+    //   - non-admin caller
+    //   - target outside the caller's tenant
+    //   - target is a super-admin (safety — never impersonate a superuser)
+    if ($method === 'POST' && ($segs[1] ?? '') === 'impersonate-user') {
+        $claims  = Auth::require();
+        $callerId = (int)($claims['sub'] ?? 0);
+        $tenantId = Tenant::id();
+
+        // Check caller role.
+        $roleQ = Db::pdo()->prepare('SELECT role FROM admin_users WHERE id = ? AND tenant_id = ?');
+        $roleQ->execute([$callerId, $tenantId]);
+        $callerRole = (string)$roleQ->fetchColumn();
+        if ($callerRole !== 'admin' && empty($claims['super'])) Json::fail('Forbidden', 403);
+
+        $body     = Json::readBody();
+        $targetId = (int)($body['user_id'] ?? 0);
+        if ($targetId <= 0) Json::fail('user_id required', 400);
+        if ($targetId === $callerId) Json::fail('Cannot impersonate yourself', 400);
+
+        $tq = Db::pdo()->prepare('SELECT id, email, display_name, role, is_active
+                                  FROM admin_users
+                                  WHERE id = ? AND tenant_id = ? AND deleted_at IS NULL LIMIT 1');
+        $tq->execute([$targetId, $tenantId]);
+        $target = $tq->fetch();
+        if (!$target) Json::fail('User not found in this tenant', 404);
+        if (!(int)$target['is_active']) Json::fail('User is deactivated', 403);
+        if (Tenants::isSuperAdmin((string)$target['email'])) Json::fail('Cannot impersonate a super-admin', 403);
+
+        $token = Auth::issueToken(
+            $targetId,
+            (string)$target['email'],
+            $tenantId,
+            false, // impersonated session is never super
+            ['from_user' => $callerId]
+        );
+
+        Json::send([
+            'token'         => $token,
+            'user'          => [
+                'id'           => (int)$target['id'],
+                'email'        => $target['email'],
+                'display_name' => $target['display_name'],
+                'role'         => $target['role'],
+                'tenant_id'    => $tenantId,
+                'super'        => false,
+            ],
+            'tenant'        => $tenantPayload($tenantId),
+            'impersonating' => ['from_user' => $callerId],
         ]);
     }
 
@@ -162,7 +219,29 @@ return function (string $method, array $segs) use ($tenantPayload): void {
         $row = $u->fetch();
         if (!$row || !password_verify($current, $row['password_hash'])) Json::fail('Current password incorrect', 400);
 
-        $upd = Db::tpdo()->prepare('UPDATE admin_users SET password_hash = ? WHERE id = ?');
+        $upd = Db::tpdo()->prepare('UPDATE admin_users SET password_hash = ?, must_change_password = 0 WHERE id = ?');
+        $upd->execute([password_hash($new, PASSWORD_BCRYPT), $claims['sub']]);
+        Json::send(['ok' => true]);
+    }
+
+    // /api/auth/set-initial-password
+    //
+    // For users whose `admin_users.must_change_password = 1` — the caller
+    // holds a valid JWT (proof they knew the temp password) so we don't
+    // require the current password. Refuses otherwise so this endpoint
+    // can't be used as a general password change without proof.
+    if ($method === 'POST' && ($segs[1] ?? '') === 'set-initial-password') {
+        $claims = Auth::require();
+        $body = Json::readBody();
+        $new  = (string)($body['new_password'] ?? '');
+        if (strlen($new) < 8) Json::fail('New password must be at least 8 chars', 400);
+
+        $u = Db::tpdo()->prepare('SELECT must_change_password FROM admin_users WHERE id = ?');
+        $u->execute([$claims['sub']]);
+        $row = $u->fetch();
+        if (!$row || !(int)$row['must_change_password']) Json::fail('No pending password change for this account', 400);
+
+        $upd = Db::tpdo()->prepare('UPDATE admin_users SET password_hash = ?, must_change_password = 0 WHERE id = ?');
         $upd->execute([password_hash($new, PASSWORD_BCRYPT), $claims['sub']]);
         Json::send(['ok' => true]);
     }
@@ -234,7 +313,7 @@ return function (string $method, array $segs) use ($tenantPayload): void {
         $pdo->beginTransaction();
         try {
             // @global-scope: admin_user_id comes from a verified password_resets row, so the PK lookup is unambiguous
-            $upd1 = $pdo->prepare('UPDATE admin_users SET password_hash = ? WHERE id = ?');
+            $upd1 = $pdo->prepare('UPDATE admin_users SET password_hash = ?, must_change_password = 0 WHERE id = ?');
             $upd1->execute([password_hash($new, PASSWORD_BCRYPT), $row['admin_user_id']]);
 
             // @global-scope: redeeming our own previously-verified password_resets row by its PK

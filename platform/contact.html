@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Book a Built Right demo — see the CRM/CMS platform on your data and find the route that fits your business.">
+  <link rel="icon" type="image/png" sizes="32x32" href="assets/images/favicon32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="assets/images/favicon16.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Poppins:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/platform.css">
+  <title>Book a Demo | Built Right</title>
+</head>
+<body>
+
+  <!-- ============================ NAV ============================ -->
+  <nav class="nav solid" id="nav">
+    <div class="container nav-inner">
+      <a href="index.html" class="brand" aria-label="Built Right home">
+        <img src="assets/images/logo.png" alt="Built Right">
+        <span class="brand-word"><b>Built Right</b><span>Studio</span></span>
+      </a>
+      <input type="checkbox" id="navCheck" class="nav-check" aria-label="Open menu">
+      <div class="nav-links" id="navLinks">
+        <a href="about.html">About</a>
+
+        <a href="solutions.html">Solutions</a>
+        <a href="pricing.html">Pricing</a>
+        <a href="showcase.html">Showcase</a>
+      </div>
+      <a href="contact.html" class="btn btn-primary nav-cta active">Book a Demo</a>
+      <label class="nav-toggle" for="navCheck" aria-label="Open menu"><span></span><span></span><span></span></label>
+    </div>
+  </nav>
+
+  <!-- ============================ HERO ============================ -->
+  <header class="page-hero dark">
+    <div class="container">
+      <span class="eyebrow">Book a Demo</span>
+      <h1>See it on <span class="hl">your</span> data</h1>
+      <p class="lead">Tell us about your business and we'll show you the platform that fits — bespoke, subscription, or tailored. No hard sell.</p>
+    </div>
+  </header>
+
+  <!-- ============================ CONTACT ============================ -->
+  <section class="contact" style="padding-top:clamp(48px,6vw,80px)">
+    <div class="container">
+      <div class="contact-grid">
+        <div class="reveal">
+          <span class="eyebrow">Get In Touch</span>
+          <h2 class="section-title" style="text-align:left">Let's find your <span class="hl">fit</span></h2>
+          <p class="lead">A 30-minute walkthrough tailored to how you work today. We'll recommend the route that gets you the most for your budget.</p>
+          <div class="contact-info">
+            <div class="contact-row">
+              <div class="ci"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-10 6L2 7"/></svg></div>
+              <div><b>Email</b><a href="mailto:hello@builtrightstudio.com">hello@builtrightstudio.com</a></div>
+            </div>
+            <div class="contact-row">
+              <div class="ci"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92Z"/></svg></div>
+              <div><b>Phone</b><a href="tel:+440000000000">+44 (0) 000 000 0000</a></div>
+            </div>
+            <div class="contact-row">
+              <div class="ci"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 3a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h14zM8.34 17V10.2H6.1V17h2.24zM7.22 9.27a1.3 1.3 0 1 0 0-2.6 1.3 1.3 0 0 0 0 2.6zM18 17v-3.73c0-2-1.07-2.93-2.5-2.93-1.15 0-1.67.63-1.96 1.08V10.2h-2.24c.03.63 0 6.8 0 6.8h2.24v-3.8c0-.2.01-.4.07-.55.16-.4.53-.82 1.15-.82.81 0 1.13.62 1.13 1.52V17H18z"/></svg></div>
+              <div><b>LinkedIn</b><a href="#">Built Right Studio</a></div>
+            </div>
+          </div>
+          <div class="reassure" style="justify-content:flex-start">
+            <span>No hard sell</span><span>30-min walkthrough</span><span>Tailored to your sector</span>
+          </div>
+        </div>
+
+        <div class="form-card reveal d1">
+          <div class="form-success" id="demoSuccess">Thank you — your request is with our team. We'll be in touch within one working day to book your demo.</div>
+          <div class="form-error" id="demoError"></div>
+          <form data-form="demo" novalidate>
+            <input type="text" name="company" class="hp-field" tabindex="-1" autocomplete="off" aria-hidden="true">
+            <div class="form-row">
+              <div class="field"><label>Name</label><input type="text" name="name" required></div>
+              <div class="field"><label>Organisation</label><input type="text" name="organisation" required></div>
+            </div>
+            <div class="form-row">
+              <div class="field"><label>Email</label><input type="email" name="email" required></div>
+              <div class="field"><label>Phone</label><input type="tel" name="phone"></div>
+            </div>
+            <div class="form-row">
+              <div class="field">
+                <label>Industry</label>
+                <select name="industry">
+                  <option value="">Please choose…</option>
+                  <option>Healthcare</option>
+                  <option>Recruitment</option>
+                  <option>Education</option>
+                  <option>Professional Services</option>
+                  <option>Construction</option>
+                  <option>Hospitality</option>
+                  <option>Other</option>
+                </select>
+              </div>
+              <div class="field">
+                <label>Interested in</label>
+                <select name="seeking">
+                  <option value="">Please choose…</option>
+                  <option value="Bespoke">Bespoke — full custom</option>
+                  <option value="Subscription">Subscription — ready-made</option>
+                  <option value="Tailored">Tailored — adapt ours</option>
+                  <option value="Not sure">Not sure — help me choose</option>
+                </select>
+              </div>
+            </div>
+            <div class="field"><label>What are you trying to solve?</label><textarea name="message" placeholder="e.g. We're running five tools and want one platform for clients, onboarding and contracts." required></textarea></div>
+            <button type="submit" class="btn btn-primary btn-lg" style="width:100%">Book My Demo</button>
+            <p class="form-note">We respond to demo requests within one working day.</p>
+          </form>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================ FOOTER ============================ -->
+  <footer class="footer">
+    <div class="container">
+      <div class="footer-top">
+        <div>
+          <a href="index.html" class="brand"><img src="assets/images/logo.png" alt="Built Right" style="height:36px;filter:brightness(0) invert(1)"><span class="brand-word"><b>Built Right</b><span>Studio</span></span></a>
+          <p class="blurb">Bespoke CRM &amp; CMS platforms — built custom, subscription-ready, or tailored to you. For any industry.</p>
+        </div>
+        <div class="footer-col"><h5>Platform</h5><a href="solutions.html">Modules</a><a href="solutions.html">Features</a><a href="showcase.html">Showcase</a><a href="pricing.html">Pricing</a></div>
+        <div class="footer-col"><h5>Solutions</h5><a href="solutions.html">Healthcare</a><a href="solutions.html">Recruitment</a><a href="solutions.html">Education</a><a href="solutions.html">Your industry</a></div>
+        <div class="footer-col"><h5>Company</h5><a href="about.html">About</a><a href="contact.html">Book a Demo</a><a href="contact.html">Contact</a></div>
+      </div>
+      <div class="footer-bottom"><span>© <span id="year"></span> Built Right Studio. Business platforms, built right.</span><span>Bespoke · Subscription · Tailored</span></div>
+    </div>
+  </footer>
+
+  <script src="js/platform.js"></script>
+</body>
+</html>
