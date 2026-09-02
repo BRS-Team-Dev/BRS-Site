@@ -29,6 +29,7 @@ return function (string $method, array $segs): void {
     $uid    = (int)($claims['sub'] ?? 0);
     if ($uid <= 0) Json::fail('Not authenticated', 401);
 
+    // @global-scope: PK lookup by admin_user_id from a verified JWT claim; runs against the untenanted PDO by design (contractor row lives on the shared admin_users table).
     $uRow = Db::pdo()->prepare('SELECT id, email, display_name, role FROM admin_users WHERE id = ? LIMIT 1');
     $uRow->execute([$uid]);
     $user = $uRow->fetch();
@@ -97,11 +98,13 @@ return function (string $method, array $segs): void {
 
         // Use the untenanted PDO — admin_users.password_hash lives on the shared row.
         $rawPdo = Db::pdo();
+        // @global-scope: PK lookup by admin_user_id from a verified JWT claim; password_hash lives on the shared row by design.
         $row = $rawPdo->prepare('SELECT password_hash FROM admin_users WHERE id = ?');
         $row->execute([$uid]);
         $hash = (string)$row->fetchColumn();
         if (!$hash || !password_verify($current, $hash)) Json::fail('Current password is incorrect', 400);
 
+        // @global-scope: PK update by admin_user_id from a verified JWT claim; own-password change is deliberately cross-tenant.
         $rawPdo->prepare('UPDATE admin_users SET password_hash = ?, must_change_password = 0 WHERE id = ?')
                ->execute([password_hash($next, PASSWORD_DEFAULT), $uid]);
         Json::send(['ok' => true]);

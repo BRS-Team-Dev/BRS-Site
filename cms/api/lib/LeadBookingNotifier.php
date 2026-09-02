@@ -209,11 +209,13 @@ final class LeadBookingNotifier
         // Setting is unset — fall back to active tenant admins so a fresh
         // tenant is never silently broken. Logged loud so it's obvious we're
         // in fallback mode; the fix is "set the setting".
+        // Explicit tenant_id so the static tenant-scope scanner is happy.
+        // TenantPdo's rewriter also injects at runtime — belt + braces.
         $q = $pdo->prepare(
             "SELECT email FROM admin_users
-             WHERE role = 'admin' AND is_active = 1 AND email <> ''"
+             WHERE tenant_id = ? AND role = 'admin' AND is_active = 1 AND email <> ''"
         );
-        $q->execute();
+        $q->execute([Tenant::id()]);
         $fallback = self::cleanEmails(array_column($q->fetchAll(\PDO::FETCH_ASSOC), 'email'));
         if ($fallback) {
             error_log('[LeadBookingNotifier] no tenant default configured; '

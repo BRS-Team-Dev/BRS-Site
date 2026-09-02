@@ -48,12 +48,14 @@ return function (string $method, array $segs): void {
     // render pre-checked chips without shipping ObjectId lookups to the
     // browser.
     if (($segs[1] ?? '') === 'recipient-options' && $method === 'GET') {
+        // Explicit tenant_id — the static scanner requires it even though
+        // TenantPdo's rewriter would inject at runtime.
         $q = $pdo->prepare(
             "SELECT email, display_name FROM admin_users
-             WHERE is_active = 1 AND email <> ''
+             WHERE tenant_id = ? AND is_active = 1 AND email <> ''
              ORDER BY display_name"
         );
-        $q->execute();
+        $q->execute([Tenant::id()]);
         $people = array_map(fn($r) => [
             'email'        => (string)$r['email'],
             'display_name' => (string)$r['display_name'],
