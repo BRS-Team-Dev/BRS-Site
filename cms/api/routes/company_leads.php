@@ -1265,54 +1265,48 @@ return function (string $method, array $segs): void {
             throw $e;
         }
 
-        // Auto-enrich with directors for the freshly-inserted companies.
-        // Uses a fresh untenanted PDO with tenant_id supplied explicitly —
-        // the rewriter doesn't reliably inject tenant_id on INSERTs into
-        // child tables like company_lead_contacts, so the previous version
-        // (writing without tenant_id in the column list) silently failed on
-        // the NOT NULL constraint and no directors ever landed. Any error
-        // now advances to error_log AND propagates back into the JSON
-        // response as `director_error` so the UI can surface it.
-        $directors = 0;
-        $directorError = null;
+        // Spawn a detached background worker for officers enrichment.
+        //
+        // Why detached: Hostinger caps HTTP requests at 60s (nginx). A
+        // 200-company officers batch takes ~90s of CH API round-trips,
+        // and even the officers self-fetch goes through nginx so it too
+        // hits the same 60s wall. `ignore_user_abort(true)` alone did
+        // NOT keep PHP-FPM alive past connection close on this host
+        // (verified 2026-09-03), and `fastcgi_finish_request()` isn't
+        // available. `exec("... &")` fully decouples the worker from
+        // the parent request via the OS scheduler, and the worker
+        // itself is a CLI PHP process with no HTTP timeout.
+        $directorsPending = 0;
         if ($insertedMap) {
-            try {
-                $officersRes = $chApiFetch('mode=officers&numbers=' . urlencode(implode(',', array_keys($insertedMap))));
-                $tid = (int)\BRS\Tenant::id();
-                $raw = Db::pdo(); // untenanted — we're writing tenant_id ourselves
-                $raw->setAttribute(\PDO::ATTR_ERRMODE, \PDO::ERRMODE_EXCEPTION);
-                $insContact = $raw->prepare('INSERT INTO company_lead_contacts
-                    (tenant_id, company_lead_id, first_name, last_name, position, email, verified, is_primary, sort_order)
-                    VALUES (?,?,?,?,?,?,?,?,?)');
-                $advance = $raw->prepare('UPDATE company_leads SET stage=2, stage_updated_at=NOW() WHERE id = ? AND tenant_id = ?');
-                foreach ($insertedMap as $num => $lid) {
-                    $people = $officersRes[$num] ?? [];
-                    foreach ($people as $i => $p) {
-                        $first = ($p['first'] ?? '') !== '' ? $p['first'] : (($p['last'] ?? '') !== '' ? $p['last'] : 'Director');
-                        $insContact->execute([
-                            $tid,
-                            $lid,
-                            $first,
-                            ($p['last'] ?? '') !== '' ? $p['last'] : null,
-                            ($p['role'] ?? '') !== '' ? $p['role'] : 'Director',
-                            null, 0,
-                            $i === 0 ? 1 : 0,
-                            $i,
-                        ]);
-                        $directors++;
-                    }
-                    if ($people) $advance->execute([$lid, $tid]);
-                }
-            } catch (\Throwable $e) {
-                $directorError = $e->getMessage();
-                error_log('[company_leads.fetch] director auto-enrich failed: ' . $e->getMessage() . "\n" . $e->getTraceAsString());
-            }
+            $payload = [
+                'site_base'   => $selfScheme . '://' . $selfHost . $selfBase,
+                'insertedMap' => $insertedMap,
+            ];
+            $tmp = tempnam(sys_get_temp_dir(), 'brs_officers_');
+            file_put_contents($tmp, json_encode($payload));
+            $workerPath = dirname(__DIR__) . '/workers/officers_worker.php';
+            $tid = (int)\BRS\Tenant::id();
+            // proc_open — `exec()` is disabled on Hostinger; proc_open
+            // isn't. The trailing `&` backgrounds the child under a shell,
+            // so proc_close returns immediately (waits only on the shell,
+            // not the detached PHP worker).
+            $cmd = escapeshellcmd(PHP_BINARY) . ' '
+                 . escapeshellarg($workerPath) . ' '
+                 . (int)$tid . ' '
+                 . escapeshellarg($tmp)
+                 . ' > /dev/null 2>&1 &';
+            $proc = @proc_open($cmd, [
+                0 => ['file', '/dev/null', 'r'],
+                1 => ['file', '/dev/null', 'w'],
+                2 => ['file', '/dev/null', 'w'],
+            ], $pipes);
+            if (is_resource($proc)) proc_close($proc);
+            $directorsPending = count($insertedMap);
         }
 
         Json::send([
             'inserted' => $inserted, 'skipped' => $skipped, 'fetched' => $fetched,
-            'directors' => $directors,
-            'director_error' => $directorError,
+            'directors_pending' => $directorsPending,
         ]);
     }
 
