@@ -423,7 +423,7 @@ return function (string $method, array $segs): void {
             $people = $off[$s['num']] ?? [];
             foreach ($people as $idx => $p) {
                 $first = $p['first'] !== '' ? $p['first'] : ($p['last'] ?: 'Director');
-                $insContact->execute([$lid, $first, ($p['last'] !== '' ? $p['last'] : null), ($p['role'] !== '' ? $p['role'] : 'Director'), null, 0, $idx === 0 ? 1 : 0, $idx]);
+                $insContact->execute([$lid, $first, ($p['last'] !== '' ? $p['last'] : null), ($p['role'] !== '' ? $p['role'] : 'director'), null, 0, $idx === 0 ? 1 : 0, $idx]);
                 $bits = [];
                 if (($p['appointed_on'] ?? '') !== '') $bits[] = 'Appointed: ' . $p['appointed_on'];
                 if (($p['occupation']   ?? '') !== '') $bits[] = 'Occupation: ' . $p['occupation'];
@@ -1458,7 +1458,7 @@ return function (string $method, array $segs): void {
                         $lid,
                         $first,
                         ($p['last'] !== '' ? $p['last'] : null),
-                        ($p['role'] !== '' ? $p['role'] : 'Director'),
+                        ($p['role'] !== '' ? $p['role'] : 'director'),
                         null,                 // email unknown until a later stage
                         0,                    // verified
                         $i === 0 ? 1 : 0,     // first active director is primary

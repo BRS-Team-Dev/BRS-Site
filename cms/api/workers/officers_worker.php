@@ -96,7 +96,7 @@ for ($k = 0; $k < count($nums); $k += $CHUNK) {
                     $lid,
                     $first,
                     ($p['last'] ?? '') !== '' ? $p['last'] : null,
-                    ($p['role'] ?? '') !== '' ? $p['role'] : 'Director',
+                    ($p['role'] ?? '') !== '' ? $p['role'] : 'director',
                     null, 0,
                     $i === 0 ? 1 : 0,
                     $i,
