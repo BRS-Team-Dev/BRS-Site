@@ -1,0 +1,212 @@
+<?php
+declare(strict_types=1);
+
+require __DIR__ . '/bootstrap.php';
+
+use BRS\Json;
+
+// CORS preflight
+if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'OPTIONS') {
+    Json::send(['ok' => true]);
+}
+
+// Determine path AFTER /api/. The script's directory (auto-detected from
+// SCRIPT_NAME) is the URL prefix — works for any deployment path:
+//   local  /builtrightstudio/cms/api/index.php → base /builtrightstudio/cms/api
+//   server /cc/api/index.php                   → base /cc/api
+$uri  = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?? '/';
+$base = rtrim(str_replace('\\', '/', dirname($_SERVER['SCRIPT_NAME'] ?? '/api/index.php')), '/');
+if ($base !== '' && strpos($uri, $base) === 0) {
+    $path = trim(substr($uri, strlen($base)), '/');
+} else {
+    // Fallback: explicit __route override
+    $path = trim((string)($_GET['__route'] ?? ''), '/');
+}
+
+$segs   = $path === '' ? [] : explode('/', $path);
+$method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
+$first  = $segs[0] ?? '';
+
+// Gate: contractors can only reach a small allowlist of routes. Everything
+// else (admin CRUD, HR, accounting, etc.) 403s. Route-file Auth::require()
+// still runs for admin auth checks — this is a coarse role gate on top.
+$contractorAllow = [
+    'auth', 'contractor', 'stripe-webhook', 'health',
+    'public-hr-onboarding', 'public-recruitment-onboarding',
+    'public-recruitment-apply', 'public-recruitment-client',
+    'public-recruitment-contact', 'public-survey', 'public-tenant-signup',
+    'public-site-preview', 'public-lead-booking',
+];
+if ($first !== '' && !in_array($first, $contractorAllow, true)) {
+    $hdr = $_SERVER['HTTP_AUTHORIZATION'] ?? '';
+    if (!$hdr && function_exists('apache_request_headers')) {
+        $h = apache_request_headers();
+        $hdr = $h['Authorization'] ?? $h['authorization'] ?? '';
+    }
+    if (preg_match('/^Bearer\s+(.+)$/i', $hdr, $m)) {
+        $claims = \BRS\Auth::verifyToken(trim($m[1]));
+        if ($claims) \BRS\Auth::requireNonContractor($claims);
+    }
+}
+
+try {
+    switch ($first) {
+        case 'auth':
+            (require __DIR__ . '/routes/auth.php')($method, $segs);
+            break;
+        case 'forms':
+            // /api/forms              → forms.php
+            // /api/forms/:id          → forms.php
+            // /api/forms/:id/submissions[/...] → submissions.php
+            // /api/forms/:id/invites[/...]     → form_invites.php
+            if (($segs[2] ?? '') === 'submissions') {
+                (require __DIR__ . '/routes/submissions.php')($method, $segs);
+            } elseif (($segs[2] ?? '') === 'invites') {
+                (require __DIR__ . '/routes/form_invites.php')($method, $segs);
+            } else {
+                (require __DIR__ . '/routes/forms.php')($method, $segs);
+            }
+            break;
+        case 'settings':
+            (require __DIR__ . '/routes/settings.php')($method, $segs);
+            break;
+        case 'themes':
+            (require __DIR__ . '/routes/themes.php')($method, $segs);
+            break;
+        case 'onboarding':
+            (require __DIR__ . '/routes/onboarding.php')($method, $segs);
+            break;
+        case 'sections':
+            (require __DIR__ . '/routes/sections.php')($method, $segs);
+            break;
+        case 'clients':
+            (require __DIR__ . '/routes/clients.php')($method, $segs);
+            break;
+        case 'leads':
+            (require __DIR__ . '/routes/leads.php')($method, $segs);
+            break;
+        case 'company-leads':
+            (require __DIR__ . '/routes/company_leads.php')($method, $segs);
+            break;
+        case 'leadgen':
+            (require __DIR__ . '/routes/leadgen.php')($method, $segs);
+            break;
+        case 'newsletter':
+            (require __DIR__ . '/routes/newsletter.php')($method, $segs);
+            break;
+        case 'tenders':
+            (require __DIR__ . '/routes/tenders.php')($method, $segs);
+            break;
+        case 'operations':
+            (require __DIR__ . '/routes/operations.php')($method, $segs);
+            break;
+        case 'services':
+            (require __DIR__ . '/routes/services.php')($method, $segs);
+            break;
+        case 'contracts':
+            (require __DIR__ . '/routes/contracts.php')($method, $segs);
+            break;
+        case 'crm-tasks':
+            (require __DIR__ . '/routes/crm_tasks.php')($method, $segs);
+            break;
+        case 'email':
+            (require __DIR__ . '/routes/email.php')($method, $segs);
+            break;
+        case 'notifications':
+            (require __DIR__ . '/routes/notifications.php')($method, $segs);
+            break;
+        case 'billing':
+            (require __DIR__ . '/routes/billing.php')($method, $segs);
+            break;
+        case 'form-submission-links':
+            (require __DIR__ . '/routes/form_submission_links.php')($method, $segs);
+            break;
+        case 'stripe-webhook':
+            // Public — signature verified inside the handler. No Auth::require().
+            (require __DIR__ . '/routes/stripe_webhook.php')($method, $segs);
+            break;
+        case 'feedback-forms':
+            (require __DIR__ . '/routes/feedback.php')($method, $segs);
+            break;
+        case 'partners':
+            (require __DIR__ . '/routes/partners.php')($method, $segs);
+            break;
+        case 'contractors':
+            (require __DIR__ . '/routes/contractors.php')($method, $segs);
+            break;
+        case 'contractor':
+            (require __DIR__ . '/routes/contractor_me.php')($method, $segs);
+            break;
+        case 'affiliates':
+            (require __DIR__ . '/routes/affiliates.php')($method, $segs);
+            break;
+        case 'assignees':
+            (require __DIR__ . '/routes/assignees.php')($method, $segs);
+            break;
+        case 'dashboard':
+            (require __DIR__ . '/routes/dashboard.php')($method, $segs);
+            break;
+        case 'tasks':
+            (require __DIR__ . '/routes/tasks.php')($method, $segs);
+            break;
+        case 'hr':
+            (require __DIR__ . '/routes/hr.php')($method, $segs);
+            break;
+        case 'accounting':
+            (require __DIR__ . '/routes/accounting.php')($method, $segs);
+            break;
+        case 'recruitment':
+            (require __DIR__ . '/routes/recruitment.php')($method, $segs);
+            break;
+        case 'public-hr-onboarding':
+            (require __DIR__ . '/routes/public_hr_onboarding.php')($method, $segs);
+            break;
+        case 'public-recruitment-onboarding':
+            (require __DIR__ . '/routes/public_recruitment_onboarding.php')($method, $segs);
+            break;
+        case 'public-recruitment-apply':
+            (require __DIR__ . '/routes/public_recruitment_apply.php')($method, $segs);
+            break;
+        case 'public-recruitment-client':
+            (require __DIR__ . '/routes/public_recruitment_client.php')($method, $segs);
+            break;
+        case 'public-recruitment-contact':
+            (require __DIR__ . '/routes/public_recruitment_contact.php')($method, $segs);
+            break;
+        case 'public-survey':
+            (require __DIR__ . '/routes/public_survey.php')($method, $segs);
+            break;
+        case 'public-tenant-signup':
+            (require __DIR__ . '/routes/public_tenant_signup.php')($method, $segs);
+            break;
+        case 'public-site-preview':
+            (require __DIR__ . '/routes/public_site_preview.php')($method, $segs);
+            break;
+        case 'public-lead-booking':
+            (require __DIR__ . '/routes/public_lead_booking.php')($method, $segs);
+            break;
+        case 'site-previews':
+            (require __DIR__ . '/routes/site_previews.php')($method, $segs);
+            break;
+        case 'lead-bookings':
+            (require __DIR__ . '/routes/lead_bookings.php')($method, $segs);
+            break;
+        case 'super-admin':
+            (require __DIR__ . '/routes/super_admin.php')($method, $segs);
+            break;
+        case 'users':
+            (require __DIR__ . '/routes/users.php')($method, $segs);
+            break;
+        case 'public':
+            (require __DIR__ . '/routes/public.php')($method, $segs);
+            break;
+        case '':
+        case 'health':
+            Json::send(['ok' => true, 'service' => 'builtrightstudio-cms']);
+        default:
+            Json::fail('Not found', 404);
+    }
+} catch (\Throwable $e) {
+    error_log('[API] ' . $e->getMessage() . "\n" . $e->getTraceAsString());
+    Json::fail('Server error: ' . $e->getMessage(), 500);
+}

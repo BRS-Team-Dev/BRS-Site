@@ -1,0 +1,1 @@
+var e=[{key:"clients",label:"Clients"},{key:"leads",label:"Leads"},{key:"leadgen",label:"Lead Gen"},{key:"newsletter",label:"Newsletter"},{key:"services",label:"Services"},{key:"forms",label:"Forms"},{key:"onboarding",label:"Onboarding"}];export{e as a};

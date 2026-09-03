@@ -1,0 +1,25 @@
+RewriteEngine On
+RewriteBase /cc/
+
+# /api/* → PHP front controller
+RewriteRule ^api(/.*)?$ api/index.php [L,QSA]
+
+# Already-existing files/dirs at the cc root — serve directly
+RewriteCond %{REQUEST_FILENAME} -f [OR]
+RewriteCond %{REQUEST_FILENAME} -d
+RewriteRule ^ - [L]
+
+# If the request matches a file inside the Angular dist, serve it
+RewriteCond %{DOCUMENT_ROOT}/cc/dist/$1 -f
+RewriteRule ^(.*)$ dist/$1 [L]
+
+# Otherwise, SPA shell (Angular router takes over)
+RewriteRule ^ dist/index.html [L]
+
+# Allow iframe embedding of public form pages
+<IfModule mod_headers.c>
+  Header always unset X-Frame-Options
+</IfModule>
+
+# Disable directory listings
+Options -Indexes
