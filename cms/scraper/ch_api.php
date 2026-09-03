@@ -55,7 +55,9 @@
 // CONFIG
 // ---------------------------------------------------------------------
 
-$CH_API_KEY = getenv('CH_API_KEY') ?: '290d0ec9-c25d-4fd2-acca-7c45ec6a06d1';
+// Companies House REST API key — MUST come from the env (never hardcode).
+// Set CH_API_KEY in cms/.env locally and in cc/.env on the server.
+$CH_API_KEY = (string)(getenv('CH_API_KEY') ?: ($_ENV['CH_API_KEY'] ?? ''));
 
 // Environment must match how your application was registered on the
 // Companies House developer hub:
