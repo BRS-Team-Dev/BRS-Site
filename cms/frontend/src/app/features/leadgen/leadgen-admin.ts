@@ -54,7 +54,7 @@ const ALLOWED_STATUSES: LeadStatus[] = ['new', 'prospect', 'dead', 'converted'];
   imports: [FormsModule, RouterLink, LeadgenChDashboard],
   template: `
     <div class="toolbar">
-      <h1>{{ mode() === 'import' ? 'Import Leads' : mode() === 'ch' ? 'Companies House' : mode() === 'li' ? 'LinkedIn' : 'AI prompt' }}</h1>
+      <h1>{{ mode() === 'import' ? 'Import Leads' : mode() === 'ch' ? 'Companies House' : mode() === 'li' ? 'LinkedIn' : mode() === 'google' ? 'Google' : 'AI prompt' }}</h1>
       <span class="spacer"></span>
       @if (hasInput()) {
         <button class="ghost" (click)="reset()">Start over</button>
@@ -100,7 +100,30 @@ const ALLOWED_STATUSES: LeadStatus[] = ['new', 'prospect', 'dead', 'converted'];
       <app-leadgen-ch-dashboard [milestones]="chMilestones()" [lastRun]="chLastRun()" [progress]="chProgress()" />
 
       <div class="card">
-        @if (mode() === 'li') {
+        @if (mode() === 'google') {
+          <h2>Google pull · Stage 1</h2>
+          <p class="muted small">Find businesses on Google Maps by <strong>what they do + where</strong>, and seed them straight into the pipeline. Unlike the other sources Google hands us the phone and website up front, so these arrive part-enriched. Re-running skips businesses already stored.</p>
+          <div class="meta-row ch-fetch-row">
+            <div class="meta-field">
+              <label>What (business type / keyword)</label>
+              <input type="text" [(ngModel)]="gWhat" name="g_what" placeholder="e.g. care homes" />
+            </div>
+            <div class="meta-field">
+              <label>Where (town, city or region)</label>
+              <input type="text" [(ngModel)]="gWhere" name="g_where" placeholder="e.g. Nottingham" />
+            </div>
+            <button class="primary ch-fetch-btn" [disabled]="chFetching() || !gWhat.trim()" (click)="doGoogleFetch()">
+              {{ chFetching() ? 'Searching…' : '① Find on Google' }}
+            </button>
+          </div>
+          @if (chFetching()) {
+            <div class="li-prog">
+              <div class="li-prog-track"><div class="li-prog-fill"></div></div>
+              <span class="muted small"><strong>{{ gCaptured() }}</strong> captured@if (gPage()) { · page {{ gPage() }}… }</span>
+            </div>
+          }
+          <p class="muted small">Searches the query <code>{{ gWhat.trim() || 'what' }}{{ gWhere.trim() ? ' in ' + gWhere.trim() : '' }}</code>. Google returns at most <strong>60 results per query</strong> (three pages) and then stops issuing pages — to go wider, narrow the search rather than repeating it: run one town at a time, or split the sector ("nursing homes", "residential care"). Needs a Google Maps API key with Places API (New) enabled and billing on (<a routerLink="/admin/leadgen/settings">Settings</a>).</p>
+        } @else if (mode() === 'li') {
           <h2>LinkedIn pull · Stage 1</h2>
           <p class="muted small">Capture a company list from LinkedIn's company search by <strong>keyword + region</strong>, paginating through the results. The shared Qualify flow below then enriches each one (website, phone, email, staff…). Re-running skips companies already stored.</p>
           <div class="meta-row ch-fetch-row">
@@ -590,16 +613,17 @@ export class LeadgenAdmin {
    *  Both share the unified preview/mapping/import flow that fires
    *  once `hasInput()` is true. Detected from the route's `data.mode`
    *  property — set per-route in app.routes.ts. */
-  readonly mode = signal<'ai' | 'import' | 'ch' | 'li'>(
+  readonly mode = signal<'ai' | 'import' | 'ch' | 'li' | 'google'>(
     this.route.snapshot.data['mode'] === 'import' ? 'import'
       : this.route.snapshot.data['mode'] === 'ch' ? 'ch'
       : this.route.snapshot.data['mode'] === 'linkedin' ? 'li'
+      : this.route.snapshot.data['mode'] === 'google' ? 'google'
       : 'ai'
   );
   /** 'ch' and 'li' share the entire pipeline UI; only Stage 1's source differs. */
-  readonly isPipeline = computed(() => this.mode() === 'ch' || this.mode() === 'li');
+  readonly isPipeline = computed(() => this.mode() === 'ch' || this.mode() === 'li' || this.mode() === 'google');
   /** The company_leads.source discriminator for the active page. */
-  readonly sourceKey = computed(() => this.mode() === 'li' ? 'linkedin' : 'companies-house');
+  readonly sourceKey = computed(() => this.mode() === 'li' ? 'linkedin' : this.mode() === 'google' ? 'google' : 'companies-house');
 
   allFields = ALL_FIELDS;
   allowedStatuses = ALLOWED_STATUSES;
@@ -639,6 +663,11 @@ export class LeadgenAdmin {
   chDays = 1;
   chLimit = 200;
   chSector = '';
+  // Google source-pull (mode === 'google')
+  gWhat = '';
+  gWhere = '';
+  gCaptured = signal(0);   // live progress across the paged crawl
+  gPage = signal(0);
   // LinkedIn source-pull (mode === 'li')
   liKeyword = '';
   liLocation = '';
@@ -799,6 +828,8 @@ export class LeadgenAdmin {
 
   // ---- Companies House pipeline ------------------------------------------
 
+  private chDirectorPollTimer: any = null;
+
   private loadChPipeline() {
     this.api.chPipeline(this.sourceKey()).subscribe({
       next: r => {
@@ -808,10 +839,59 @@ export class LeadgenAdmin {
         // when we don't already have live/session data (so a running pass or a
         // just-finished run isn't clobbered by the stored value).
         if (r.last_run && this.chLastRun() === null) this.chLastRun.set(r.last_run);
+
+        // Director-enrichment background worker status. Surfaces as
+        // `progress` on the dashboard (existing UI) — persists across
+        // page reloads because it's driven by a server-side settings row
+        // that only clears when the worker writes status='done'.
+        const dj = (r as any).director_job;
+        if (dj && dj.status === 'running' && (dj.total ?? 0) > 0) {
+          const processed = Math.min(dj.processed ?? 0, dj.total);
+          this.chProgress.set({
+            processed,
+            remaining: Math.max(0, dj.total - processed),
+            done: false,
+          });
+          // Force `running` on the last-run object so the dashboard
+          // renders the moving bar even if this session never started
+          // a Qualify pass locally.
+          const cur = this.chLastRun();
+          this.chLastRun.set(cur
+            ? { ...cur, running: true }
+            : { checked: 0, enriched: 0, found: { directors: 0, industry: 0, address: 0, website: 0, phone: 0, email: 0, linkedin: 0, staff: 0 }, running: true });
+          this.startChDirectorPolling();
+        } else {
+          // Worker finished (or never ran). Clear progress + stop the
+          // polling timer. Don't clobber `running` if a Qualify pass
+          // is legitimately running — only unset it if we were the ones
+          // asserting it via the director job path.
+          if (this.chProgress()?.done === false && (!dj || dj.status !== 'running')) {
+            this.chProgress.set(null);
+            const cur = this.chLastRun();
+            if (cur && cur.running && (r.last_run && !r.last_run.running || !r.last_run)) {
+              this.chLastRun.set({ ...cur, running: false });
+            }
+          }
+          this.stopChDirectorPolling();
+        }
       },
       error: () => {/* leave last-known counts */},
     });
     if (this.isPipeline()) this.loadCompanyLeads();
+  }
+
+  private startChDirectorPolling() {
+    if (this.chDirectorPollTimer) return;
+    this.chDirectorPollTimer = setInterval(() => this.loadChPipeline(), 3000);
+  }
+  private stopChDirectorPolling() {
+    if (this.chDirectorPollTimer) {
+      clearInterval(this.chDirectorPollTimer);
+      this.chDirectorPollTimer = null;
+    }
+  }
+  ngOnDestroy() {
+    this.stopChDirectorPolling();
   }
 
   // ---- Pipeline records (company_leads) ----------------------------------
@@ -1120,6 +1200,48 @@ export class LeadgenAdmin {
       case 3: this.doChProfiles(); break;
       case 4: /* pending crawler */ break;
       case 5: this.doChStaff();    break;
+    }
+  }
+
+  /** Stage 1 (Google) — walk every page Google will give us for this query.
+   *  Google issues a nextPageToken for at most 3 pages, so this loop ends on
+   *  its own; the guard is belt-and-braces against a token that never clears. */
+  async doGoogleFetch() {
+    if (this.chFetching()) return;
+    this.chError.set(null);
+    this.chFetchMsg.set(null);
+    this.chFetching.set(true);
+    this.chActive.set(1);
+    this.gCaptured.set(0);
+    this.gPage.set(0);
+
+    let token: string | null = null;
+    let inserted = 0, skipped = 0, fetched = 0, page = 0;
+    try {
+      do {
+        page++;
+        this.gPage.set(page);
+        const r: any = await firstValueFrom(this.api.googleFetchCompanies({
+          what: this.gWhat.trim(),
+          where: this.gWhere.trim() || undefined,
+          page_token: token || undefined,
+        }));
+        inserted += r.inserted; skipped += r.skipped; fetched += r.fetched;
+        this.gCaptured.set(inserted);
+        token = r.done ? null : (r.page_token || null);
+      } while (token && page < 5);
+
+      this.chFetchMsg.set(
+        `Added ${inserted} new business${inserted === 1 ? '' : 'es'} ` +
+        `(${skipped} already stored, ${fetched} returned by Google across ${page} page${page === 1 ? '' : 's'}).`
+      );
+      this.loadChPipeline();
+    } catch (e: any) {
+      this.chError.set(e?.error?.error || 'Google search failed.');
+    } finally {
+      this.chFetching.set(false);
+      this.chActive.set(null);
+      this.gPage.set(0);
     }
   }
 

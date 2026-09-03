@@ -113,4 +113,22 @@ for ($k = 0; $k < count($nums); $k += $CHUNK) {
 }
 
 @unlink($path);
+
+// Mark the job as done so the pipeline endpoint stops reporting "running"
+// and the dashboard's progress bar clears on the next poll. Best-effort —
+// if this write fails, worst case the frontend keeps polling and eventually
+// notices the director count stopped moving.
+try {
+    $existing = $pdo->query("SELECT v FROM settings WHERE k = 'ch_director_job'")->fetchColumn();
+    $state = is_string($existing) ? (json_decode($existing, true) ?: []) : [];
+    $state['status']   = $errors > 0 && $inserted === 0 ? 'error' : 'done';
+    $state['done_at']  = date('c');
+    $state['inserted'] = $inserted;
+    $state['errors']   = $errors;
+    $pdo->prepare("INSERT INTO settings (k, v) VALUES ('ch_director_job', ?)
+        ON DUPLICATE KEY UPDATE v = VALUES(v)")->execute([json_encode($state)]);
+} catch (\Throwable $e) {
+    error_log('[officers_worker] job state update failed: ' . $e->getMessage());
+}
+
 error_log("[officers_worker] finished: inserted={$inserted} errors={$errors}");

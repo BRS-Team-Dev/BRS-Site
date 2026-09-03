@@ -606,6 +606,7 @@ return function (string $method, array $segs): void {
             switch ($key) {
                 case 'companies-house': return 'Companies House';
                 case 'linkedin':        return 'LinkedIn';
+                case 'google':          return 'Google';
                 case '':                return 'Manual';
                 default:                return $key;
             }
@@ -1027,6 +1028,30 @@ return function (string $method, array $segs): void {
         $lrStmt->execute([$runKey]);
         $lrRaw = $lrStmt->fetchColumn();
         $lastRun = $lrRaw ? json_decode((string)$lrRaw, true) : null;
+        // Background job status for the director enrichment worker
+        // (only surfaces on the companies-house source since it's the
+        // only source that runs officers). Frontend uses this to render
+        // a persistent progress bar that survives page reloads while
+        // the worker is still running.
+        $directorJob = null;
+        if ($source === 'companies-house') {
+            $jStmt = $pdo->prepare("SELECT v FROM settings WHERE k = 'ch_director_job'");
+            $jStmt->execute();
+            $jRaw = $jStmt->fetchColumn();
+            if ($jRaw) {
+                $j = json_decode((string)$jRaw, true);
+                if (is_array($j) && ($j['status'] ?? '') !== '') {
+                    $directorJob = [
+                        'status'     => (string)$j['status'],
+                        'total'      => (int)($j['total'] ?? 0),
+                        'processed'  => $directors,
+                        'started_at' => (string)($j['started_at'] ?? ''),
+                        'done_at'    => (string)($j['done_at'] ?? ''),
+                    ];
+                }
+            }
+        }
+
         Json::send([
             'stages' => $counts,
             'milestones' => [
@@ -1041,6 +1066,7 @@ return function (string $method, array $segs): void {
                 'staff'     => $staff,
             ],
             'last_run' => is_array($lastRun) ? $lastRun : null,
+            'director_job' => $directorJob,
         ]);
     }
 
@@ -1286,6 +1312,25 @@ return function (string $method, array $segs): void {
             file_put_contents($tmp, json_encode($payload));
             $workerPath = dirname(__DIR__) . '/workers/officers_worker.php';
             $tid = (int)\BRS\Tenant::id();
+
+            // Persist the job state BEFORE spawning so the pipeline endpoint
+            // (called by the dashboard right after fetch) already sees
+            // "running". The `total` is how many director rows we expect —
+            // one per company; the actual number of officers CH returns can
+            // be higher (each company may have several) or lower (dissolved
+            // companies have none), so `total` is an upper bound not the
+            // final target. Frontend uses it as the denominator for the
+            // progress bar and clears when status transitions to 'done'.
+            $pdo->prepare('INSERT INTO settings (k, v) VALUES (?, ?)
+                ON DUPLICATE KEY UPDATE v = VALUES(v)')->execute([
+                'ch_director_job',
+                json_encode([
+                    'status'     => 'running',
+                    'total'      => count($insertedMap),
+                    'started_at' => date('c'),
+                ]),
+            ]);
+
             // proc_open — `exec()` is disabled on Hostinger; proc_open
             // isn't. The trailing `&` backgrounds the child under a shell,
             // so proc_close returns immediately (waits only on the shell,
@@ -1409,6 +1454,107 @@ return function (string $method, array $segs): void {
             'total' => $total,          // LinkedIn's reported result count for this search
             'to_page' => $toPage, 'next_page' => $toPage + 1,
             'done' => $done || $toPage >= 100,
+        ]);
+    }
+
+    // ----- Stage 1 (Google source): discover businesses from Google Maps -----
+    // The Google equivalent of the Companies House and LinkedIn pulls. Runs a
+    // Places (New) Text Search for "<what> in <where>" and seeds the pipeline
+    // with source='google'; the shared Qualify flow then enriches each one.
+    //
+    // Unlike the other two sources, Google hands us the phone and website up
+    // front, so these leads arrive part-enriched. De-duped on Google place id,
+    // falling back to name+address for rows captured before an id was stored.
+    //
+    // Google issues a nextPageToken for at most 3 pages (60 results) per
+    // query. Past that the answer is a narrower query, not more paging, so the
+    // response says `done` and the UI stops rather than looping forever.
+    if ($sub === 'fetch-google') {
+        if ($method !== 'POST') Json::fail('Method not allowed', 405);
+        set_time_limit(0);
+        $body     = Json::readBody();
+        $what     = trim((string)($body['what'] ?? ''));
+        $where    = trim((string)($body['where'] ?? ''));
+        $query    = trim((string)($body['query'] ?? ''));
+        $token    = trim((string)($body['page_token'] ?? ''));
+
+        // A raw query wins; otherwise compose the familiar "X in Y".
+        if ($query === '') {
+            if ($what === '') Json::fail('Enter what to search for, e.g. "care homes".', 400);
+            $query = $what . ($where !== '' ? ' in ' . $where : '');
+        }
+
+        $gkey = trim((string)($pdo->query("SELECT v FROM settings WHERE k = 'google_maps_api_key'")->fetchColumn() ?: ''));
+        if ($gkey === '') Json::fail('No Google Maps API key configured. Add it under Lead Gen -> Settings.', 400);
+
+        $params = ['query' => $query, 'key' => $gkey];
+        if ($token !== '') $params['page_token'] = $token;
+        $res = $selfGet('/scraper/google_search.php', $params, 90);
+        if (!empty($res['error'])) Json::fail((string)$res['error'], 502);
+        $results = is_array($res['results'] ?? null) ? $res['results'] : [];
+        $next    = trim((string)($res['next_page_token'] ?? ''));
+
+        // Place ids already captured, so re-running only adds genuinely new
+        // businesses. Name+address covers rows from before this source existed.
+        $seenPlace = [];
+        foreach ($pdo->query("SELECT value FROM company_lead_info WHERE name = 'Google place id'")->fetchAll(\PDO::FETCH_COLUMN) as $v) {
+            $seenPlace[strtolower(trim((string)$v))] = true;
+        }
+        $seenNameAddr = [];
+        foreach ($pdo->query("SELECT company, address FROM company_leads")->fetchAll() as $r) {
+            $seenNameAddr[strtolower(trim((string)$r['company'])) . '|' . strtolower(trim((string)$r['address']))] = true;
+        }
+
+        $insLead = $pdo->prepare('INSERT INTO company_leads
+            (name, company, address, phone, url, status, source, stage, stage_updated_at, added_by_user_id, added_by_system)
+            VALUES (?,?,?,?,?, ?,?,?,?, ?,?)');
+        $insInfo = $pdo->prepare('INSERT INTO company_lead_info (company_lead_id, name, value, sort_order) VALUES (?,?,?,?)');
+
+        $now = date('Y-m-d H:i:s');
+        $inserted = 0; $skipped = 0;
+        $pdo->beginTransaction();
+        try {
+            foreach ($results as $r) {
+                $name    = trim((string)($r['name'] ?? ''));
+                $placeId = strtolower(trim((string)($r['place_id'] ?? '')));
+                $address = trim((string)($r['address'] ?? ''));
+                if ($name === '') { $skipped++; continue; }
+
+                $nameAddrKey = strtolower($name) . '|' . strtolower($address);
+                if (($placeId !== '' && isset($seenPlace[$placeId])) || isset($seenNameAddr[$nameAddrKey])) {
+                    $skipped++;
+                    continue;
+                }
+                if ($placeId !== '') $seenPlace[$placeId] = true;
+                $seenNameAddr[$nameAddrKey] = true;
+
+                $insLead->execute([
+                    $name, $name, ($address ?: null),
+                    (trim((string)($r['phone'] ?? '')) ?: null),
+                    (trim((string)($r['website'] ?? '')) ?: null),
+                    'new', 'google', 1, $now, $currentUserId, 1,
+                ]);
+                $leadId = (int)$pdo->lastInsertId();
+
+                $sort = 0;
+                if ($placeId !== '')                          $insInfo->execute([$leadId, 'Google place id', $r['place_id'], $sort++]);
+                if (trim((string)($r['maps_url'] ?? '')) !== '') $insInfo->execute([$leadId, 'Google Maps', $r['maps_url'], $sort++]);
+                if (($r['rating'] ?? null) !== null)          $insInfo->execute([$leadId, 'Google rating', (string)$r['rating'], $sort++]);
+                if (trim((string)($r['business_status'] ?? '')) !== '') $insInfo->execute([$leadId, 'Business status', $r['business_status'], $sort++]);
+                if (trim((string)($r['types'] ?? '')) !== '') $insInfo->execute([$leadId, 'Google categories', $r['types'], $sort++]);
+                $insInfo->execute([$leadId, 'Search keyword', $query, $sort++]);
+                $inserted++;
+            }
+            $pdo->commit();
+        } catch (\Throwable $e) { $pdo->rollBack(); throw $e; }
+
+        Json::send([
+            'inserted'   => $inserted,
+            'skipped'    => $skipped,
+            'fetched'    => count($results),
+            'query'      => $query,
+            'page_token' => $next ?: null,
+            'done'       => $next === '',
         ]);
     }
 
