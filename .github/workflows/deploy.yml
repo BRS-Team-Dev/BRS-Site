@@ -122,6 +122,7 @@ jobs:
           cp -a cms/db     "$ART/"
           cp -a cms/deploy "$ART/"
           cp -a cms/scripts "$ART/"
+          cp -a cms/scraper "$ART/"
           cp -a cms/index.php "$ART/"
           cp -a cms/.htaccess.deploy "$ART/"
           # Strip package documentation from vendor/. Runtime never loads

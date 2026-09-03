@@ -56,7 +56,27 @@
 // ---------------------------------------------------------------------
 
 // Companies House REST API key — MUST come from the env (never hardcode).
-// Set CH_API_KEY in cms/.env locally and in cc/.env on the server.
+// Set CH_API_KEY in cms/.env locally and in cc/.env on the server. Apache
+// does NOT load our .env into the CGI environment, so parse it ourselves
+// before reading — otherwise HTTP-invoked scraper hits 500 "no API key"
+// even though the .env line is set.
+(function () {
+    $envFile = dirname(__DIR__) . '/.env';
+    if (!is_file($envFile) || !is_readable($envFile)) return;
+    foreach (file($envFile, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) as $line) {
+        $line = trim($line);
+        if ($line === '' || $line[0] === '#') continue;
+        $eq = strpos($line, '=');
+        if ($eq === false) continue;
+        $k = trim(substr($line, 0, $eq));
+        $v = trim(substr($line, $eq + 1));
+        // Strip surrounding quotes if present.
+        if (strlen($v) >= 2 && ($v[0] === '"' || $v[0] === "'") && $v[strlen($v)-1] === $v[0]) {
+            $v = substr($v, 1, -1);
+        }
+        if (getenv($k) === false) { putenv("$k=$v"); $_ENV[$k] = $v; }
+    }
+})();
 $CH_API_KEY = (string)(getenv('CH_API_KEY') ?: ($_ENV['CH_API_KEY'] ?? ''));
 
 // Environment must match how your application was registered on the
