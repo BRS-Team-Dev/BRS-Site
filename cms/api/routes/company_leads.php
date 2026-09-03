@@ -25,13 +25,233 @@ use BRS\Json;
  *   POST   /api/company-leads/:id/officers|google|linkedin|domain|contact
  *                                         one isolated enrichment step on a single
  *                                         record (reusable from any section)
+ *   GET    /api/company-leads/all         unified Lead Gen list (consolidated)
+ *   POST   /api/company-leads/promote-bulk  promote consolidated groups to leads
  */
+
+/*
+ * ---- Lead Gen consolidation helpers ----------------------------------
+ *
+ * The Lead Gen list unions `company_leads` and `leads`, so the same company
+ * can appear more than once: pulled from Companies House, scraped again off
+ * LinkedIn, and typed in by hand. These normalise the two fields we group on.
+ */
+
+/** Company number reduced to its comparable core (case/space/punctuation-free). */
+function brs_lg_norm_number(?string $s): string
+{
+    $s = strtoupper(preg_replace('/[^A-Za-z0-9]/', '', (string)$s));
+    return $s === '' ? '' : $s;
+}
+
+/**
+ * Company name reduced for comparison: lowercased, punctuation dropped,
+ * whitespace collapsed, and the usual UK suffixes removed so
+ * "Malik1 Barbers Ltd" and "MALIK1 BARBERS LIMITED" group together.
+ */
+function brs_lg_norm_name(?string $s): string
+{
+    $s = strtolower(trim((string)$s));
+    if ($s === '') return '';
+    $s = preg_replace('/&/', ' and ', $s);
+    $s = preg_replace('/[^a-z0-9]+/', ' ', $s);
+    $s = trim(preg_replace('/\s+/', ' ', $s));
+    // Strip trailing company-type suffixes, repeatedly (e.g. "co ltd").
+    $suffixes = ['limited', 'ltd', 'plc', 'llp', 'lp', 'cic', 'cio', 'inc', 'incorporated',
+                 'company', 'co', 'holdings', 'group', 'uk', 'the'];
+    $changed = true;
+    while ($changed) {
+        $changed = false;
+        foreach ($suffixes as $suf) {
+            if (preg_match('/^(.*?)\s+' . preg_quote($suf, '/') . '$/', $s, $m) && trim($m[1]) !== '') {
+                $s = trim($m[1]);
+                $changed = true;
+            }
+        }
+    }
+    return $s;
+}
+
+/** Generic text key for supporting signals (address / industry / director). */
+function brs_lg_norm_text(?string $s): string
+{
+    $s = strtolower((string)$s);
+    $s = preg_replace('/[^a-z0-9]+/', ' ', $s);
+    return trim(preg_replace('/\s+/', ' ', $s));
+}
+
+/**
+ * `leads.source` values that are NOT lead-gen output, and so are kept off
+ * the Lead Gen list. Lead Gen answers "what have our acquisition methods
+ * produced", so anything that arrived because the prospect came to US, or
+ * reached us through someone else, belongs in Leads but not here.
+ *
+ *   website booking / call booking - inbound; they booked a call with us
+ *   inbound / referral             - they approached us, or someone sent them
+ *   web search / cold outreach     - legacy free-text labels the team used
+ *                                    before the current capture methods
+ *
+ * Compared lower-cased and trimmed. Add to this list rather than scattering
+ * source checks around the query.
+ */
+const BRS_LG_NON_LEADGEN_SOURCES = [
+    'website booking', 'call booking',
+    'inbound', 'referral', 'web search', 'cold outreach',
+];
+
+/**
+ * SQL for "this lead did not come from an acquisition method".
+ *
+ * Belt and braces on the booking case, agreed with the session that owns the
+ * booking flow: the source strings are the documented contract ('website
+ * booking' from routes/public_lead_booking.php, 'call booking' from the admin
+ * flow), but `source` is a free-text UX label an admin can edit. The NOT
+ * EXISTS is the structural test that survives any relabelling. The other
+ * values have no such structural marker, so for those the label is all we have.
+ */
+function brs_lg_exclude_bookings_sql(string $alias = 'l'): string
+{
+    $in = implode(',', array_map(
+        fn(string $s): string => "'" . str_replace("'", "''", $s) . "'",
+        BRS_LG_NON_LEADGEN_SOURCES
+    ));
+    return "($alias.source IS NULL OR LOWER(TRIM($alias.source)) NOT IN ($in))
+            AND NOT EXISTS (SELECT 1 FROM lead_bookings b WHERE b.lead_id = $alias.id)";
+}
+
 return function (string $method, array $segs): void {
     $claims = Auth::require();
     $pdo = Db::tpdo();
     $currentUserId = isset($claims['sub']) ? (int)$claims['sub'] : null;
 
     $sub = $segs[1] ?? '';
+
+    /**
+     * Copy one `company_leads` record into `leads` (with its info entries and
+     * contacts), then delete the pipeline row. Returns the new lead id.
+     *
+     * Caller owns the transaction, so this can be used both for the single
+     * promote and inside the bulk loop.
+     *
+     * The new row is stamped `leadgen_promoted_at` immediately: without it the
+     * lead would drop off the source page but pop straight back onto the Lead
+     * Gen list, since that list unions `leads` too.
+     */
+    $promoteCompanyLead = function (int $id) use ($pdo, $currentUserId): int {
+        $stmt = $pdo->prepare('SELECT * FROM company_leads WHERE id = ?');
+        $stmt->execute([$id]);
+        $cl = $stmt->fetch();
+        if (!$cl) throw new \RuntimeException('Company lead ' . $id . ' not found');
+
+        $insLead = $pdo->prepare('INSERT INTO leads
+            (name, email, phone, address, company, company_number, url, notes, status, source,
+             industry, added_by_user_id, added_by_system)
+            VALUES (?,?,?,?,?,?,?,?, ?,?, ?,?,?)');
+        $insLead->execute([
+            $cl['name'], $cl['email'], $cl['phone'], $cl['address'], $cl['company'], $cl['company_number'],
+            $cl['url'], $cl['notes'], 'new', ($cl['source'] ?: 'companies-house'), $cl['industry'], $currentUserId, 1,
+        ]);
+        $leadId = (int)$pdo->lastInsertId();
+
+        // Stamped in a follow-up UPDATE rather than inline in the INSERT:
+        // TenantPdo rewrites INSERTs to inject tenant_id and a bare NOW()
+        // inside the VALUES list breaks its paren matching.
+        $pdo->prepare('UPDATE leads SET leadgen_promoted_at = NOW() WHERE id = ?')->execute([$leadId]);
+
+        $srcInfo = $pdo->prepare('SELECT name, value, sort_order FROM company_lead_info WHERE company_lead_id = ? ORDER BY sort_order, id');
+        $srcInfo->execute([$id]);
+        $dstInfo = $pdo->prepare('INSERT INTO lead_info (lead_id, name, value, sort_order) VALUES (?,?,?,?)');
+        foreach ($srcInfo->fetchAll() as $r) $dstInfo->execute([$leadId, $r['name'], $r['value'], (int)$r['sort_order']]);
+
+        $srcCon = $pdo->prepare('SELECT * FROM company_lead_contacts WHERE company_lead_id = ? ORDER BY is_primary DESC, sort_order, id');
+        $srcCon->execute([$id]);
+        $dstCon = $pdo->prepare('INSERT INTO lead_contacts
+            (lead_id, first_name, last_name, position, email, linkedin_url, verified, is_primary, sort_order)
+            VALUES (?,?,?,?,?,?,?,?,?)');
+        // lead_contacts stores phones in a child table (lead_contact_numbers),
+        // so carry any per-contact phone across as a number row.
+        $dstNum = $pdo->prepare('INSERT INTO lead_contact_numbers (contact_id, number, label, sort_order) VALUES (?,?,?,?)');
+        foreach ($srcCon->fetchAll() as $c) {
+            $dstCon->execute([$leadId, $c['first_name'], $c['last_name'], $c['position'], $c['email'], $c['linkedin_url'], (int)$c['verified'], (int)$c['is_primary'], (int)$c['sort_order']]);
+            $phone = trim((string)($c['phone'] ?? ''));
+            if ($phone !== '') $dstNum->execute([(int)$pdo->lastInsertId(), $phone, 'phone', 0]);
+        }
+
+        \BRS\Contracts::fanOutToNewEntity($pdo, 'lead', $leadId);
+        $pdo->prepare('DELETE FROM company_leads WHERE id = ?')->execute([$id]);
+        return $leadId;
+    };
+
+    /**
+     * Fold a `company_leads` record INTO an existing `leads` row, then delete
+     * the pipeline record.
+     *
+     * Used when a consolidated Lead Gen group already contains a real lead:
+     * promoting must not mint a second lead for the same company, or the
+     * Leads list inherits exactly the duplication the Lead Gen list just
+     * finished removing. Existing values on the lead always win; the pipeline
+     * record only fills gaps and contributes its info entries and contacts.
+     */
+    $mergeCompanyLeadIntoLead = function (int $clId, int $leadId) use ($pdo): void {
+        $stmt = $pdo->prepare('SELECT * FROM company_leads WHERE id = ?');
+        $stmt->execute([$clId]);
+        $cl = $stmt->fetch();
+        if (!$cl) return;
+
+        $lq = $pdo->prepare('SELECT * FROM leads WHERE id = ?');
+        $lq->execute([$leadId]);
+        $ld = $lq->fetch();
+        if (!$ld) throw new \RuntimeException('Lead ' . $leadId . ' not found');
+
+        $fill = [];
+        foreach (['name','email','phone','address','company','company_number','url','industry','notes'] as $f) {
+            if (trim((string)($ld[$f] ?? '')) === '' && trim((string)($cl[$f] ?? '')) !== '') $fill[$f] = $cl[$f];
+        }
+        if ($fill) {
+            $set = implode(', ', array_map(fn($k) => "`$k` = ?", array_keys($fill)));
+            $pdo->prepare("UPDATE leads SET $set WHERE id = ?")->execute([...array_values($fill), $leadId]);
+        }
+
+        // Carry enrichment across, skipping info entries the lead already has.
+        $have = [];
+        $hq = $pdo->prepare('SELECT name FROM lead_info WHERE lead_id = ?');
+        $hq->execute([$leadId]);
+        foreach ($hq->fetchAll() as $h) $have[strtolower((string)$h['name'])] = true;
+
+        $srcInfo = $pdo->prepare('SELECT name, value, sort_order FROM company_lead_info WHERE company_lead_id = ? ORDER BY sort_order, id');
+        $srcInfo->execute([$clId]);
+        $dstInfo = $pdo->prepare('INSERT INTO lead_info (lead_id, name, value, sort_order) VALUES (?,?,?,?)');
+        foreach ($srcInfo->fetchAll() as $r) {
+            if (isset($have[strtolower((string)$r['name'])])) continue;
+            $dstInfo->execute([$leadId, $r['name'], $r['value'], (int)$r['sort_order']]);
+        }
+
+        // Contacts are de-duplicated on email, falling back to first+last name.
+        $seen = [];
+        $cq = $pdo->prepare('SELECT first_name, last_name, email FROM lead_contacts WHERE lead_id = ?');
+        $cq->execute([$leadId]);
+        foreach ($cq->fetchAll() as $c) {
+            $k = trim(strtolower((string)$c['email'])) ?: trim(strtolower($c['first_name'] . ' ' . $c['last_name']));
+            if ($k !== '') $seen[$k] = true;
+        }
+        $srcCon = $pdo->prepare('SELECT * FROM company_lead_contacts WHERE company_lead_id = ? ORDER BY is_primary DESC, sort_order, id');
+        $srcCon->execute([$clId]);
+        $dstCon = $pdo->prepare('INSERT INTO lead_contacts
+            (lead_id, first_name, last_name, position, email, linkedin_url, verified, is_primary, sort_order)
+            VALUES (?,?,?,?,?,?,?,?,?)');
+        $dstNum = $pdo->prepare('INSERT INTO lead_contact_numbers (contact_id, number, label, sort_order) VALUES (?,?,?,?)');
+        foreach ($srcCon->fetchAll() as $c) {
+            $k = trim(strtolower((string)$c['email'])) ?: trim(strtolower($c['first_name'] . ' ' . $c['last_name']));
+            if ($k !== '' && isset($seen[$k])) continue;
+            if ($k !== '') $seen[$k] = true;
+            // Never demote the lead's existing primary contact.
+            $dstCon->execute([$leadId, $c['first_name'], $c['last_name'], $c['position'], $c['email'], $c['linkedin_url'], (int)$c['verified'], 0, (int)$c['sort_order']]);
+            $phone = trim((string)($c['phone'] ?? ''));
+            if ($phone !== '') $dstNum->execute([(int)$pdo->lastInsertId(), $phone, 'phone', 0]);
+        }
+
+        $pdo->prepare('DELETE FROM company_leads WHERE id = ?')->execute([$clId]);
+    };
 
     // ================= Shared enrichment toolkit =======================
     // Each "qualify a lead" step is isolated into its own reusable closure so
@@ -400,13 +620,18 @@ return function (string $method, array $segs): void {
         $stmt->execute($clParams);
         $clRows = $stmt->fetchAll();
 
-        $cLi = []; $pAddr = []; $pStaffLi = [];
-        $iq = $pdo->query("SELECT company_lead_id AS cid, name FROM company_lead_info
+        $cLi = []; $pAddr = []; $pStaffLi = []; $directors = [];
+        $iq = $pdo->query("SELECT company_lead_id AS cid, name, value FROM company_lead_info
                             WHERE name = 'LinkedIn (company)' OR name LIKE 'Director:%' OR name LIKE 'Staff:%'");
         foreach ($iq->fetchAll() as $i) {
             $cid = (int)$i['cid'];
             if ($i['name'] === 'LinkedIn (company)')        $cLi[$cid] = true;
-            elseif (stripos($i['name'], 'Director:') === 0)  $pAddr[$cid] = true;
+            elseif (stripos($i['name'], 'Director:') === 0) {
+                $pAddr[$cid] = true;
+                // Director names double as a consolidation signal.
+                $dn = brs_lg_norm_text(substr($i['name'], strlen('Director:')) ?: (string)$i['value']);
+                if ($dn !== '') $directors[$cid][$dn] = true;
+            }
             elseif (stripos($i['name'], 'Staff:') === 0)     $pStaffLi[$cid] = true;
         }
         $pFlags = [];
@@ -443,16 +668,26 @@ return function (string $method, array $segs): void {
                 'p_li'    => (isset($pStaffLi[$cid]) || ($pf && (int)$pf['li'])) ? 1 : 0,
                 'p_email' => ($pf && (int)$pf['em']) ? 1 : 0,
                 'p_phone' => ($pf && (int)$pf['ph']) ? 1 : 0,
+                'directors' => array_keys($directors[$cid] ?? []),
             ];
         }
 
         // --- leads (funnel) — AI-prompt / imported / manual. No people
         // sub-tables, so people flags are all 0; company flags come off the
         // columns exactly like the pipeline list.
-        $ldWhere = '1=1'; $ldParams = [];
-        if ($q !== '') { $ldWhere .= ' AND (company LIKE ? OR name LIKE ? OR company_number LIKE ?)'; $ldParams[] = $like; $ldParams[] = $like; $ldParams[] = $like; }
-        $lstmt = $pdo->prepare("SELECT id, name, company, company_number, address, industry, phone, email, url, source, notes, created_at
-                                  FROM leads WHERE $ldWhere ORDER BY id DESC LIMIT 5000");
+        //
+        // Two exclusions, both required for this list to mean what it says:
+        //   1. Booking-originated leads. Lead Gen is the acquisition list;
+        //      a prospect who booked a call came to US, so they are a lead
+        //      but not lead-GEN. See brs_lg_exclude_bookings_sql().
+        //   2. Leads already promoted out of Lead Gen. Promoting a
+        //      `company_leads` record creates a `leads` row, which without
+        //      this filter would immediately reappear here under its source.
+        $ldWhere = 'l.leadgen_promoted_at IS NULL AND ' . brs_lg_exclude_bookings_sql('l');
+        $ldParams = [];
+        if ($q !== '') { $ldWhere .= ' AND (l.company LIKE ? OR l.name LIKE ? OR l.company_number LIKE ?)'; $ldParams[] = $like; $ldParams[] = $like; $ldParams[] = $like; }
+        $lstmt = $pdo->prepare("SELECT l.id, l.name, l.company, l.company_number, l.address, l.industry, l.phone, l.email, l.url, l.source, l.notes, l.created_at
+                                  FROM leads l WHERE $ldWhere ORDER BY l.id DESC LIMIT 5000");
         $lstmt->execute($ldParams);
         foreach ($lstmt->fetchAll() as $r) {
             $key = (string)($r['source'] ?? '');
@@ -474,7 +709,114 @@ return function (string $method, array $segs): void {
                 'notes'        => $r['notes'],
                 'created_at'   => $r['created_at'],
                 'c_li'    => 0, 'p_addr' => 0, 'p_li' => 0, 'p_email' => 0, 'p_phone' => 0,
+                'directors' => [],
             ];
+        }
+
+        // ---- Consolidate duplicates across sources -------------------
+        // The same company reached us more than once (pulled from Companies
+        // House, scraped off LinkedIn, typed in by hand). Collapse those into
+        // one row that carries every source it came from, so the list is a
+        // list of COMPANIES rather than a list of sightings.
+        //
+        // Union-find over two signals:
+        //   - identical company number  (strongest; a registered identity)
+        //   - identical normalised name (suffix-insensitive)
+        // Guard: two rows that BOTH carry a company number and disagree are
+        // never merged, however alike their names. Address, industry and
+        // director are carried onto the merged row as evidence and are used
+        // to pick which value wins per field, not to force a merge - name
+        // alone is already an aggressive enough signal.
+        $parent = range(0, max(0, count($out) - 1));
+        $find = function (int $x) use (&$parent, &$find): int {
+            while ($parent[$x] !== $x) { $parent[$x] = $parent[$parent[$x]]; $x = $parent[$x]; }
+            return $x;
+        };
+        $union = function (int $a, int $b) use (&$parent, $find): void {
+            $ra = $find($a); $rb = $find($b);
+            if ($ra !== $rb) $parent[max($ra, $rb)] = min($ra, $rb);
+        };
+
+        $byNumber = []; $byName = [];
+        foreach ($out as $i => $r) {
+            $num  = brs_lg_norm_number($r['company_number'] ?? '');
+            $name = brs_lg_norm_name($r['company'] ?? '') ?: brs_lg_norm_name($r['name'] ?? '');
+            $out[$i]['_num'] = $num;
+            $out[$i]['_name'] = $name;
+            if ($num !== '') {
+                if (isset($byNumber[$num])) $union($byNumber[$num], $i); else $byNumber[$num] = $i;
+            }
+        }
+        foreach ($out as $i => $r) {
+            if ($r['_name'] !== '') $byName[$r['_name']][] = $i;
+        }
+        foreach ($byName as $name => $idxs) {
+            if (count($idxs) < 2) continue;
+            // Distinct registered identities inside this name bucket.
+            $nums = [];
+            foreach ($idxs as $i) { if ($out[$i]['_num'] !== '') $nums[$out[$i]['_num']] = true; }
+
+            if (count($nums) <= 1) {
+                // One identity (or none) claimed by this name: same company.
+                foreach ($idxs as $i) $union($idxs[0], $i);
+                continue;
+            }
+            // Two or more DIFFERENT company numbers share this name, so the
+            // name alone no longer identifies anyone. Rows that carry a number
+            // were already merged on it above. Rows WITHOUT a number are
+            // genuinely ambiguous - they could belong to either company - so
+            // leave them standing alone rather than guessing. Guessing here
+            // would silently attach a record to whichever row happened to be
+            // read first, which is not a decision the data supports.
+            foreach ($idxs as $i) {
+                if ($out[$i]['_num'] !== '') continue;
+                $out[$i]['ambiguous_name'] = 1;
+            }
+        }
+
+        // Merge each group into one row. Richer sources win per field: a
+        // non-empty value beats an empty one, and an enrichment-pipeline row
+        // beats a hand-typed one when both have a value.
+        $groups = [];
+        foreach ($out as $i => $r) {
+            $g = $find($i);
+            if (!isset($groups[$g])) {
+                $groups[$g] = $r;
+                $groups[$g]['members'] = [];
+                $groups[$g]['source_labels'] = [];
+                $groups[$g]['directors'] = [];
+            }
+            $t = &$groups[$g];
+            $preferIncoming = $r['origin'] === 'company_lead' && $t['origin'] !== 'company_lead';
+            foreach (['name','company','company_number','address','industry','phone','email','url','url_status','notes'] as $f) {
+                $have = trim((string)($t[$f] ?? ''));
+                $inc  = trim((string)($r[$f] ?? ''));
+                if ($inc !== '' && ($have === '' || $preferIncoming)) $t[$f] = $r[$f];
+            }
+            // Presence flags are a union: any source that proved a fact counts.
+            foreach (['c_li','p_addr','p_li','p_email','p_phone'] as $f) {
+                $t[$f] = ((int)$t[$f] || (int)$r[$f]) ? 1 : 0;
+            }
+            // The row a click opens should be the richest one available.
+            if ($preferIncoming) { $t['id'] = $r['id']; $t['origin'] = $r['origin']; $t['key'] = $r['key']; }
+            // Oldest first-seen date is when this company actually entered the list.
+            if (($r['created_at'] ?? '') > ($t['created_at'] ?? '')) $t['created_at'] = $r['created_at'];
+
+            $t['members'][] = ['origin' => $r['origin'], 'id' => $r['id'], 'source_label' => $r['source_label']];
+            if (!in_array($r['source_label'], $t['source_labels'], true)) $t['source_labels'][] = $r['source_label'];
+            foreach (($r['directors'] ?? []) as $d) {
+                if (!in_array($d, $t['directors'], true)) $t['directors'][] = $d;
+            }
+            unset($t);
+        }
+
+        $out = array_values($groups);
+        foreach ($out as $i => $r) {
+            unset($out[$i]['_num'], $out[$i]['_name']);
+            $out[$i]['member_count'] = count($r['members']);
+            // Kept for the existing client-side filter; source_labels is the
+            // full set for a row that came from more than one method.
+            $out[$i]['source_label'] = $r['source_labels'][0] ?? $r['source_label'];
         }
 
         // Newest first across both tables (created_at desc, id desc as tie-break).
@@ -488,16 +830,85 @@ return function (string $method, array $segs): void {
         // lead and the LinkedIn pipeline collapse into one "LinkedIn" method
         // rather than showing two identically-named filter entries. The frontend
         // filters rows by source_label to match.
+        // A consolidated row counts under EVERY method that found it, so
+        // filtering by "LinkedIn" still surfaces a company LinkedIn found
+        // even though it merged with the Companies House record.
         $srcCounts = [];
         foreach ($out as $row) {
-            $l = $row['source_label'];
-            if (!isset($srcCounts[$l])) $srcCounts[$l] = ['label' => $l, 'count' => 0];
-            $srcCounts[$l]['count']++;
+            foreach (($row['source_labels'] ?? [$row['source_label']]) as $l) {
+                if (!isset($srcCounts[$l])) $srcCounts[$l] = ['label' => $l, 'count' => 0];
+                $srcCounts[$l]['count']++;
+            }
         }
         $sources = array_values($srcCounts);
         usort($sources, fn($a, $b) => $b['count'] <=> $a['count']);
 
         Json::send(['leads' => $out, 'sources' => $sources]);
+    }
+
+    // ---- Promote consolidated Lead Gen rows into real leads ------------
+    // POST /api/company-leads/promote-bulk
+    //   { groups: [ { members: [ {origin:'company_lead'|'lead', id:N}, ... ] }, ... ] }
+    //
+    // One group == one company as shown on the Lead Gen list, which may be
+    // several records across both tables. Promoting it must leave NOTHING
+    // behind on Lead Gen or on the source pages it came from, so per group:
+    //   - the first company_lead member is promoted the normal way (copies
+    //     info/contacts across, then deletes the pipeline row)
+    //   - every other company_lead member is deleted, having been merged
+    //   - `leads` members are stamped with leadgen_promoted_at, which is
+    //     what removes them from the Lead Gen list without moving tables
+    // If a group has no company_lead member at all, its `leads` rows are
+    // simply stamped: they are already leads, they just graduate out.
+    if ($sub === 'promote-bulk' && $method === 'POST') {
+        $body   = Json::readBody();
+        $groups = is_array($body['groups'] ?? null) ? $body['groups'] : [];
+        if (!$groups) Json::fail('No groups supplied', 400);
+
+        $promoted = 0; $leadIds = []; $errors = [];
+
+        foreach ($groups as $gi => $g) {
+            $members = is_array($g['members'] ?? null) ? $g['members'] : [];
+            if (!$members) { $errors[] = ['group' => $gi, 'error' => 'No members']; continue; }
+
+            $clIds = []; $ldIds = [];
+            foreach ($members as $m) {
+                $mid = (int)($m['id'] ?? 0);
+                if ($mid <= 0) continue;
+                if (($m['origin'] ?? '') === 'company_lead') $clIds[] = $mid; else $ldIds[] = $mid;
+            }
+
+            $pdo->beginTransaction();
+            try {
+                $leadId = null;
+
+                if ($ldIds) {
+                    // The group already contains a real lead, so fold the
+                    // pipeline records into it rather than minting a second
+                    // lead for the same company.
+                    $leadId = $ldIds[0];
+                    foreach ($clIds as $clId) $mergeCompanyLeadIntoLead($clId, $leadId);
+
+                    $in = implode(',', array_fill(0, count($ldIds), '?'));
+                    $pdo->prepare("UPDATE leads SET leadgen_promoted_at = NOW()
+                                    WHERE id IN ($in) AND leadgen_promoted_at IS NULL")->execute($ldIds);
+                } elseif ($clIds) {
+                    $primary = array_shift($clIds);
+                    $leadId  = $promoteCompanyLead($primary);
+                    // The rest of the group described the same company, and
+                    // their detail was merged on the way in.
+                    foreach ($clIds as $dup) $mergeCompanyLeadIntoLead($dup, $leadId);
+                }
+
+                $pdo->commit();
+                if ($leadId !== null) { $leadIds[] = $leadId; $promoted++; }
+            } catch (\Throwable $e) {
+                $pdo->rollBack();
+                $errors[] = ['group' => $gi, 'error' => $e->getMessage()];
+            }
+        }
+
+        Json::send(['ok' => true, 'promoted' => $promoted, 'lead_ids' => $leadIds, 'errors' => $errors]);
     }
 
     // ---- Purge all pipeline records (tenant-scoped by the rewriter) ----
@@ -527,46 +938,15 @@ return function (string $method, array $segs): void {
         // Promote: copy into `leads` (+ lead_info + lead_contacts) 1:1, then
         // delete the pipeline record (its info/contacts cascade away).
         if ($act === 'promote' && $method === 'POST') {
-            $stmt = $pdo->prepare('SELECT * FROM company_leads WHERE id = ?');
-            $stmt->execute([$id]);
-            $cl = $stmt->fetch();
-            if (!$cl) Json::fail('Not found', 404);
-
             $pdo->beginTransaction();
             try {
-                $insLead = $pdo->prepare('INSERT INTO leads
-                    (name, email, phone, address, company, company_number, url, notes, status, source,
-                     industry, added_by_user_id, added_by_system)
-                    VALUES (?,?,?,?,?,?,?,?, ?,?, ?,?,?)');
-                $insLead->execute([
-                    $cl['name'], $cl['email'], $cl['phone'], $cl['address'], $cl['company'], $cl['company_number'],
-                    $cl['url'], $cl['notes'], 'new', ($cl['source'] ?: 'companies-house'), $cl['industry'], $currentUserId, 1,
-                ]);
-                $leadId = (int)$pdo->lastInsertId();
-
-                $srcInfo = $pdo->prepare('SELECT name, value, sort_order FROM company_lead_info WHERE company_lead_id = ? ORDER BY sort_order, id');
-                $srcInfo->execute([$id]);
-                $dstInfo = $pdo->prepare('INSERT INTO lead_info (lead_id, name, value, sort_order) VALUES (?,?,?,?)');
-                foreach ($srcInfo->fetchAll() as $r) $dstInfo->execute([$leadId, $r['name'], $r['value'], (int)$r['sort_order']]);
-
-                $srcCon = $pdo->prepare('SELECT * FROM company_lead_contacts WHERE company_lead_id = ? ORDER BY is_primary DESC, sort_order, id');
-                $srcCon->execute([$id]);
-                $dstCon = $pdo->prepare('INSERT INTO lead_contacts
-                    (lead_id, first_name, last_name, position, email, linkedin_url, verified, is_primary, sort_order)
-                    VALUES (?,?,?,?,?,?,?,?,?)');
-                // lead_contacts stores phones in a child table (lead_contact_numbers),
-                // so carry any per-contact phone across as a number row.
-                $dstNum = $pdo->prepare('INSERT INTO lead_contact_numbers (contact_id, number, label, sort_order) VALUES (?,?,?,?)');
-                foreach ($srcCon->fetchAll() as $c) {
-                    $dstCon->execute([$leadId, $c['first_name'], $c['last_name'], $c['position'], $c['email'], $c['linkedin_url'], (int)$c['verified'], (int)$c['is_primary'], (int)$c['sort_order']]);
-                    $phone = trim((string)($c['phone'] ?? ''));
-                    if ($phone !== '') $dstNum->execute([(int)$pdo->lastInsertId(), $phone, 'phone', 0]);
-                }
-
-                \BRS\Contracts::fanOutToNewEntity($pdo, 'lead', $leadId);
-                $pdo->prepare('DELETE FROM company_leads WHERE id = ?')->execute([$id]);
+                $leadId = $promoteCompanyLead($id);
                 $pdo->commit();
-            } catch (\Throwable $e) { $pdo->rollBack(); throw $e; }
+            } catch (\Throwable $e) {
+                $pdo->rollBack();
+                if (str_contains($e->getMessage(), 'not found')) Json::fail('Not found', 404);
+                throw $e;
+            }
             Json::send(['ok' => true, 'lead_id' => $leadId], 201);
         }
 
@@ -885,46 +1265,55 @@ return function (string $method, array $segs): void {
             throw $e;
         }
 
-        // Auto-enrich with directors for the freshly-inserted companies —
-        // one CH batch call across all numbers, then a contact row per
-        // director. Advances those rows to stage=2 like the standalone
-        // Enrich Officers action. Swallows errors so a director fetch
-        // failure doesn't fail the whole import — user can still click
-        // the manual Enrich Officers button to retry.
+        // Auto-enrich with directors for the freshly-inserted companies.
+        // Uses a fresh untenanted PDO with tenant_id supplied explicitly —
+        // the rewriter doesn't reliably inject tenant_id on INSERTs into
+        // child tables like company_lead_contacts, so the previous version
+        // (writing without tenant_id in the column list) silently failed on
+        // the NOT NULL constraint and no directors ever landed. Any error
+        // now advances to error_log AND propagates back into the JSON
+        // response as `director_error` so the UI can surface it.
         $directors = 0;
+        $directorError = null;
         if ($insertedMap) {
             try {
                 $officersRes = $chApiFetch('mode=officers&numbers=' . urlencode(implode(',', array_keys($insertedMap))));
-                $insContact = $pdo->prepare('INSERT INTO company_lead_contacts
-                    (company_lead_id, first_name, last_name, position, email, verified, is_primary, sort_order)
-                    VALUES (?,?,?,?,?,?,?,?)');
-                $advance = $pdo->prepare('UPDATE company_leads SET stage=2, stage_updated_at=NOW() WHERE id = ?');
-                $pdo->beginTransaction();
+                $tid = (int)\BRS\Tenant::id();
+                $raw = Db::pdo(); // untenanted — we're writing tenant_id ourselves
+                $raw->setAttribute(\PDO::ATTR_ERRMODE, \PDO::ERRMODE_EXCEPTION);
+                $insContact = $raw->prepare('INSERT INTO company_lead_contacts
+                    (tenant_id, company_lead_id, first_name, last_name, position, email, verified, is_primary, sort_order)
+                    VALUES (?,?,?,?,?,?,?,?,?)');
+                $advance = $raw->prepare('UPDATE company_leads SET stage=2, stage_updated_at=NOW() WHERE id = ? AND tenant_id = ?');
                 foreach ($insertedMap as $num => $lid) {
                     $people = $officersRes[$num] ?? [];
                     foreach ($people as $i => $p) {
-                        $first = $p['first'] !== '' ? $p['first'] : ($p['last'] ?: 'Director');
+                        $first = ($p['first'] ?? '') !== '' ? $p['first'] : (($p['last'] ?? '') !== '' ? $p['last'] : 'Director');
                         $insContact->execute([
+                            $tid,
                             $lid,
                             $first,
-                            ($p['last'] !== '' ? $p['last'] : null),
-                            ($p['role'] !== '' ? $p['role'] : 'Director'),
+                            ($p['last'] ?? '') !== '' ? $p['last'] : null,
+                            ($p['role'] ?? '') !== '' ? $p['role'] : 'Director',
                             null, 0,
                             $i === 0 ? 1 : 0,
                             $i,
                         ]);
                         $directors++;
                     }
-                    if ($people) $advance->execute([$lid]);
+                    if ($people) $advance->execute([$lid, $tid]);
                 }
-                if ($pdo->inTransaction()) $pdo->commit();
             } catch (\Throwable $e) {
-                if ($pdo->inTransaction()) $pdo->rollBack();
-                error_log('[company_leads.fetch] director auto-enrich failed: ' . $e->getMessage());
+                $directorError = $e->getMessage();
+                error_log('[company_leads.fetch] director auto-enrich failed: ' . $e->getMessage() . "\n" . $e->getTraceAsString());
             }
         }
 
-        Json::send(['inserted' => $inserted, 'skipped' => $skipped, 'fetched' => $fetched, 'directors' => $directors]);
+        Json::send([
+            'inserted' => $inserted, 'skipped' => $skipped, 'fetched' => $fetched,
+            'directors' => $directors,
+            'director_error' => $directorError,
+        ]);
     }
 
     // ----- Stage 1 (LinkedIn source): capture a company list from LinkedIn -----
