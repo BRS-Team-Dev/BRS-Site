@@ -835,6 +835,11 @@ return function (string $method, array $segs): void {
 
         $now = date('Y-m-d H:i:s');
         $inserted = 0; $skipped = 0;
+        // Map inserted company_number -> lead_id so we can immediately pull
+        // directors for exactly the rows we just added, without a second
+        // "click Enrich officers" step. CH's officers endpoint accepts a
+        // batch of numbers, so this stays a single follow-up API call.
+        $insertedMap = [];
         $pdo->beginTransaction();
         try {
             foreach ($companies as $co) {
@@ -857,6 +862,7 @@ return function (string $method, array $segs): void {
                     1,                                              // added_by_system
                 ]);
                 $leadId = (int)$pdo->lastInsertId();
+                $insertedMap[$num] = $leadId;
 
                 // Companies House facts -> Info tab entries.
                 $facts = [
@@ -879,7 +885,46 @@ return function (string $method, array $segs): void {
             throw $e;
         }
 
-        Json::send(['inserted' => $inserted, 'skipped' => $skipped, 'fetched' => $fetched]);
+        // Auto-enrich with directors for the freshly-inserted companies —
+        // one CH batch call across all numbers, then a contact row per
+        // director. Advances those rows to stage=2 like the standalone
+        // Enrich Officers action. Swallows errors so a director fetch
+        // failure doesn't fail the whole import — user can still click
+        // the manual Enrich Officers button to retry.
+        $directors = 0;
+        if ($insertedMap) {
+            try {
+                $officersRes = $chApiFetch('mode=officers&numbers=' . urlencode(implode(',', array_keys($insertedMap))));
+                $insContact = $pdo->prepare('INSERT INTO company_lead_contacts
+                    (company_lead_id, first_name, last_name, position, email, verified, is_primary, sort_order)
+                    VALUES (?,?,?,?,?,?,?,?)');
+                $advance = $pdo->prepare('UPDATE company_leads SET stage=2, stage_updated_at=NOW() WHERE id = ?');
+                $pdo->beginTransaction();
+                foreach ($insertedMap as $num => $lid) {
+                    $people = $officersRes[$num] ?? [];
+                    foreach ($people as $i => $p) {
+                        $first = $p['first'] !== '' ? $p['first'] : ($p['last'] ?: 'Director');
+                        $insContact->execute([
+                            $lid,
+                            $first,
+                            ($p['last'] !== '' ? $p['last'] : null),
+                            ($p['role'] !== '' ? $p['role'] : 'Director'),
+                            null, 0,
+                            $i === 0 ? 1 : 0,
+                            $i,
+                        ]);
+                        $directors++;
+                    }
+                    if ($people) $advance->execute([$lid]);
+                }
+                if ($pdo->inTransaction()) $pdo->commit();
+            } catch (\Throwable $e) {
+                if ($pdo->inTransaction()) $pdo->rollBack();
+                error_log('[company_leads.fetch] director auto-enrich failed: ' . $e->getMessage());
+            }
+        }
+
+        Json::send(['inserted' => $inserted, 'skipped' => $skipped, 'fetched' => $fetched, 'directors' => $directors]);
     }
 
     // ----- Stage 1 (LinkedIn source): capture a company list from LinkedIn -----
