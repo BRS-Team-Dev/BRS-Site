@@ -103,6 +103,27 @@ final class Mailer
      */
     public static function sendVia(string $purpose, string $to, string $subject, string $htmlBody, ?string $text = null): array
     {
+        // ★ Prefer Microsoft Graph Mail.Send when the tenant has the
+        // Teams integration configured. Reuses the same Azure app +
+        // organizer mailbox that the booking notifier uses, so ALL
+        // outbound email (password resets, notifications, mailer
+        // campaigns, invoices, …) flows through the same identity
+        // rather than needing SMTP AUTH enabled on the mailbox. This
+        // runs BEFORE the provider-routing lookup so a stale SMTP row
+        // in email_providers can't intercept a Graph-eligible send.
+        // Fails fast (throws) → we catch and fall through to normal
+        // routing so a Graph outage doesn't kill password resets.
+        require_once __DIR__ . '/MsGraph.php';
+        if (MsGraph::isConfigured()) {
+            try {
+                MsGraph::sendMail($to, $subject, $htmlBody);
+                return [true, null];
+            } catch (\Throwable $e) {
+                error_log('[Mailer.sendVia] Graph send failed, falling back to configured provider: ' . $e->getMessage());
+                // Continue to the provider path below.
+            }
+        }
+
         $provider = self::providerFor($purpose);
         if ($provider !== null) {
             $dispatch = require __DIR__ . '/EmailDispatcher.php';
@@ -122,8 +143,27 @@ final class Mailer
      *  When the tenant's settings SMTP is empty AND the system SMTP
      *  fallback is enabled in .env, we route through that as an
      *  absolute last-resort so fresh tenants aren't silently dropped. */
-    public static function send(string $to, string $subject, string $htmlBody): array
+    public static function send(string $to, string $subject, string $htmlBody, ?string $senderOverride = null): array
     {
+        // Same Graph-first preference as sendVia() — some code paths call
+        // Mailer::send() directly rather than routing through sendVia().
+        // Keep behaviour identical so nothing falls through to unconfigured
+        // SMTP just because the caller picked the legacy method.
+        //
+        // $senderOverride: an M365 mailbox UPN or ObjectId — when set,
+        // Graph sends FROM that mailbox instead of the tenant's default
+        // organizer. Used by the Mailer send endpoint so the operator
+        // can pick which team member the campaign appears to come from.
+        require_once __DIR__ . '/MsGraph.php';
+        if (MsGraph::isConfigured()) {
+            try {
+                MsGraph::sendMail($to, $subject, $htmlBody, $senderOverride);
+                return [true, null];
+            } catch (\Throwable $e) {
+                error_log('[Mailer.send] Graph send failed, falling back to SMTP: ' . $e->getMessage());
+            }
+        }
+
         $s = self::settings();
         $needsFallback = empty($s['smtp_host']) || empty($s['smtp_from_email']);
         $useSystem     = $needsFallback && self::systemFallbackEnabled();

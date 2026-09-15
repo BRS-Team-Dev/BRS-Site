@@ -61,10 +61,10 @@ return function (string $method, array $segs): void {
                         ORDER BY c.id DESC LIMIT 1000';
                 $stmt = $pdo->prepare($sql);
                 $stmt->execute([$sid]);
-                Json::send(['clients' => $stmt->fetchAll()]);
+                Json::send(['clients' => \BRS\PageViews::attach($pdo, 'client', $stmt->fetchAll())]);
             }
             $stmt = $pdo->query('SELECT * FROM clients ORDER BY id DESC LIMIT 1000');
-            Json::send(['clients' => $stmt->fetchAll()]);
+            Json::send(['clients' => \BRS\PageViews::attach($pdo, 'client', $stmt->fetchAll())]);
         }
         if ($method === 'POST') {
             $body = Json::readBody();
@@ -73,13 +73,14 @@ return function (string $method, array $segs): void {
             $email = trim((string)($body['email'] ?? ''));
             if ($email !== '' && !filter_var($email, FILTER_VALIDATE_EMAIL)) Json::fail('Invalid email', 400);
 
-            $ins = $pdo->prepare('INSERT INTO clients (name, email, phone, address, company, url, notes, is_recruitment_client) VALUES (?,?,?,?,?,?,?,?)');
+            $ins = $pdo->prepare('INSERT INTO clients (name, email, phone, address, company, industry, url, notes, is_recruitment_client) VALUES (?,?,?,?,?,?,?,?,?)');
             $ins->execute([
                 $name,
                 $email !== '' ? $email : null,
                 trim((string)($body['phone']   ?? '')) ?: null,
                 $body['address']                       ?? null,
                 trim((string)($body['company'] ?? '')) ?: null,
+                trim((string)($body['industry'] ?? '')) ?: null,
                 trim((string)($body['url']     ?? '')) ?: null,
                 $body['notes'] ?? null,
                 !empty($body['is_recruitment_client']) ? 1 : 0,
@@ -1191,13 +1192,14 @@ return function (string $method, array $segs): void {
             ? (!empty($body['is_recruitment_client']) ? 1 : 0)
             : (int)($client['is_recruitment_client'] ?? 0);
 
-        $upd = $pdo->prepare('UPDATE clients SET name=?, email=?, phone=?, address=?, company=?, url=?, notes=?, is_recruitment_client=? WHERE id = ?');
+        $upd = $pdo->prepare('UPDATE clients SET name=?, email=?, phone=?, address=?, company=?, industry=?, url=?, notes=?, is_recruitment_client=? WHERE id = ?');
         $upd->execute([
             $name,
             $email !== '' ? $email : null,
             trim((string)($body['phone']   ?? $client['phone']   ?? '')) ?: null,
             array_key_exists('address', $body) ? ($body['address'] ?: null) : ($client['address'] ?? null),
             trim((string)($body['company'] ?? $client['company'] ?? '')) ?: null,
+            trim((string)($body['industry'] ?? $client['industry'] ?? '')) ?: null,
             trim((string)($body['url']     ?? $client['url']     ?? '')) ?: null,
             $body['notes'] ?? $client['notes'],
             $newIsRecruit,

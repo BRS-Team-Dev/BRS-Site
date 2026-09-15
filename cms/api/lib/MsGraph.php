@@ -51,6 +51,65 @@ final class MsGraph
     }
 
     /**
+     * List every user in the tenant with their ObjectId + basic
+     * identity fields. Returned shape matches the fields we surface
+     * in dropdowns (organizer picker on the Bookings tab, sender
+     * picker on the Mailer). Requires Application permission
+     * `User.Read.All` (admin-consented) — throws with a clear hint
+     * when Graph returns 403 so the operator knows what to grant.
+     *
+     * Only returns enabled user accounts with a mail address; guest
+     * users (`userType='Guest'`) are excluded so the picker only
+     * shows internal team members.
+     *
+     * @return array<int, array{id:string, displayName:string, mail:string, userPrincipalName:string, jobTitle:?string}>
+     */
+    public static function listUsers(): array
+    {
+        $c = self::config();
+        if (!self::isConfigured()) throw new \RuntimeException('Teams integration not configured');
+        $token = self::getToken($c);
+
+        // $select trims the payload; $filter drops disabled + guest accounts.
+        $url = 'https://graph.microsoft.com/v1.0/users'
+             . '?$select=id,displayName,mail,userPrincipalName,jobTitle,accountEnabled,userType'
+             . '&$top=999';
+
+        $out = [];
+        while ($url !== null) {
+            [$status, $resp] = self::curl('GET', $url, '', [
+                'Authorization: Bearer ' . $token,
+                'Accept: application/json',
+            ], /*json*/ true);
+            if ($status !== 200) {
+                $err = is_array($resp) && isset($resp['error']['message']) ? $resp['error']['message'] : ('HTTP ' . $status);
+                $hint = $status === 403
+                    ? ' — the Azure app is missing the User.Read.All application permission (or admin consent has not been granted). See docs/teams-meeting-setup.md.'
+                    : '';
+                throw new \RuntimeException('Graph list users failed: ' . $err . $hint);
+            }
+            foreach (($resp['value'] ?? []) as $u) {
+                if (empty($u['accountEnabled'])) continue;
+                if (($u['userType'] ?? '') === 'Guest') continue;
+                $mail = (string)($u['mail'] ?? '');
+                if ($mail === '') $mail = (string)($u['userPrincipalName'] ?? '');
+                if ($mail === '') continue;
+                $out[] = [
+                    'id'                => (string)$u['id'],
+                    'displayName'       => (string)($u['displayName'] ?? $mail),
+                    'mail'              => $mail,
+                    'userPrincipalName' => (string)($u['userPrincipalName'] ?? ''),
+                    'jobTitle'          => $u['jobTitle'] ?? null,
+                ];
+            }
+            $url = isset($resp['@odata.nextLink']) ? (string)$resp['@odata.nextLink'] : null;
+        }
+        // Alphabetize by display name — dropdowns look untidy in Graph's default order.
+        usort($out, fn($a, $b) => strcasecmp($a['displayName'], $b['displayName']));
+        return $out;
+    }
+
+    /**
      * Send an email via `POST /users/{sender}/sendMail`. Sender is the
      * configured Teams organiser mailbox — reusing that mailbox keeps the
      * Azure app to a single "acts as this one user" surface rather than
@@ -61,13 +120,18 @@ final class MsGraph
      * on failure. The notifier catches and logs so an email failure
      * cannot fail the booking.
      */
-    public static function sendMail(string $to, string $subject, string $htmlBody): void
+    public static function sendMail(string $to, string $subject, string $htmlBody, ?string $senderOverride = null): void
     {
         $c = self::config();
         if (!self::isConfigured()) throw new \RuntimeException('Teams integration not configured');
 
         $token  = self::getToken($c);
-        $sender = rawurlencode($c['organizer_email']);
+        // Sender: the Mailer can pass a specific mailbox (UPN or ObjectId)
+        // so a campaign goes from the picked team member rather than the
+        // default organizer. Falls back to the configured organizer.
+        $sender = rawurlencode($senderOverride !== null && $senderOverride !== ''
+            ? $senderOverride
+            : $c['organizer_email']);
         $url    = "https://graph.microsoft.com/v1.0/users/{$sender}/sendMail";
 
         $body = [

@@ -10,7 +10,7 @@ import { AssignmentsPanel } from '../../shared/assignments-panel';
 import { FormSubmissionsList } from '../../shared/form-submissions-list';
 
 type Mode = 'list' | 'view' | 'edit';
-type LeadTabKey = 'info' | 'contacts' | 'services' | 'assignments' | 'onboarding' | 'feedback' | 'notes';
+type LeadTabKey = 'info' | 'contacts' | 'services' | 'assignments' | 'onboarding' | 'feedback' | 'mail' | 'activity' | 'notes';
 
 const STATUS_LABELS: Record<LeadStatus, string> = {
   new:       'New',
@@ -22,7 +22,7 @@ const STATUS_LABELS: Record<LeadStatus, string> = {
 /** Columns the user can sort the list by. Tied to fields on `Lead`. */
 type LeadSortKey =
   | 'name' | 'email' | 'phone' | 'company'
-  | 'industry' | 'service_name' | 'contacted_at' | 'added_by' | 'status';
+  | 'industry' | 'service_name' | 'contacted_at' | 'added_by' | 'views' | 'status';
 
 /**
  * Leads section — potential clients before promotion.
@@ -94,6 +94,7 @@ type LeadSortKey =
                 <th class="sortable"
                     [class.active]="sortBy() === c.key"
                     [class.sticky-status]="c.key === 'status'"
+                    [class.sticky-views]="c.key === 'views'"
                     (click)="toggleSort(c.key)"
                     [attr.aria-sort]="sortBy() === c.key ? (sortDir() === 'asc' ? 'ascending' : 'descending') : 'none'">
                   <span>{{ c.label }}</span>
@@ -152,6 +153,8 @@ type LeadSortKey =
                       }
                     </select>
                   </td>
+                  <td class="sticky-views" [class.muted]="!l.views"
+                      [title]="(l.views ?? 0) + (l.views === 1 ? ' tracked-link view' : ' tracked-link views')">{{ l.views ?? 0 }}</td>
                   <td class="actions sticky-actions">
                     <button class="ghost icon-btn" (click)="view(l, $event)" title="View" aria-label="View">👁</button>
                     <button class="ghost icon-btn" (click)="edit(l, $event)" title="Edit" aria-label="Edit">✎</button>
@@ -583,6 +586,88 @@ type LeadSortKey =
                     </div>
                   }
                 }
+                @case ('mail') {
+                  <div class="tab-head">
+                    <h3>Mail correspondence</h3>
+                    <span class="spacer"></span>
+                    @if (mailLoading()) { <span class="muted small">Loading…</span> }
+                    @else if (mailHistory().length) { <span class="muted small">{{ mailHistory().length }} message{{ mailHistory().length === 1 ? '' : 's' }}</span> }
+                  </div>
+
+                  @if (!mailLoading() && !mailHistory().length) {
+                    <p class="muted">No emails have been sent to this lead through the Mailer yet.</p>
+                  }
+
+                  <div class="mail-list">
+                    @for (m of mailHistory(); track m.send_id + ':' + m.to_email) {
+                      <details class="mail-row" [class.failed]="m.status === 'failed'">
+                        <summary>
+                          <span class="mail-caret" aria-hidden="true">›</span>
+                          <span class="mail-avatar" [title]="m.sent_by || 'System'">{{ mailInitials(m.sent_by) }}</span>
+                          <span class="mail-main">
+                            <span class="mail-subj">{{ m.subject || '(no subject)' }}</span>
+                            <span class="mail-meta">
+                              <span class="mail-by">{{ m.sent_by || 'System' }}</span>
+                              <span class="mail-dot">·</span>
+                              <span class="mail-snippet">{{ mailSnippet(m.body_html) }}</span>
+                            </span>
+                          </span>
+                          @if (m.status !== 'sent') {
+                            <span class="mail-status" [attr.data-status]="m.status">{{ m.status }}</span>
+                          }
+                          <span class="mail-when">
+                            <span class="mail-date">{{ mailDate(m.created_at) }}</span>
+                            <span class="mail-time">{{ mailTime(m.created_at) }}</span>
+                          </span>
+                        </summary>
+                        <div class="mail-body">
+                          <dl class="mail-headers">
+                            <div><dt>From</dt><dd>{{ m.sent_by || 'System' }}</dd></div>
+                            <div><dt>To</dt><dd>{{ m.to_name || m.to_email }} <span class="muted">&lt;{{ m.to_email }}&gt;</span></dd></div>
+                            <div><dt>Sent</dt><dd>{{ mailDate(m.created_at) }} at {{ mailTime(m.created_at) }}</dd></div>
+                          </dl>
+                          @if (m.status === 'failed' && m.error) {
+                            <div class="error-msg">Delivery failed: {{ m.error }}</div>
+                          }
+                          <div class="mail-html" [innerHTML]="m.body_html"></div>
+                        </div>
+                      </details>
+                    }
+                  </div>
+                }
+                @case ('activity') {
+                  <div class="tab-head">
+                    <h3>Website activity</h3>
+                    <span class="spacer"></span>
+                    @if (activityLoading()) { <span class="muted small">Loading…</span> }
+                    @else if (activityViews().length) {
+                      <span class="muted small">{{ activityTotal() }} view{{ activityTotal() === 1 ? '' : 's' }} · {{ activityViews().length }} page{{ activityViews().length === 1 ? '' : 's' }}</span>
+                    }
+                  </div>
+
+                  @if (!activityLoading() && !activityViews().length) {
+                    <p class="muted">No tracked page views yet. A view is recorded when this lead opens a link inserted with the Mailer's <strong>Tracked link</strong> button.</p>
+                  } @else if (activityViews().length) {
+                    <div class="act-wrap">
+                      <table class="data">
+                        <thead>
+                          <tr><th>Page</th><th class="act-num">Views</th><th class="act-date act-first">First viewed</th><th class="act-date">Last viewed</th></tr>
+                        </thead>
+                        <tbody>
+                          @for (v of activityViews(); track v.page) {
+                            <tr>
+                              <!-- No ?id= on purpose: an admin opening the page must not count as the lead's view. -->
+                              <td><a class="act-link" [href]="'https://builtrightstudio.com/' + v.page" target="_blank" rel="noopener" title="Open page in a new tab"><strong>{{ pageLabel(v.page) }}</strong> <span class="act-ext">↗</span></a><div class="muted small">{{ v.page }}</div></td>
+                              <td class="act-num">{{ v.view_count }}</td>
+                              <td class="act-date act-first">{{ mailDate(v.first_viewed_at) }} <span class="muted small">{{ mailTime(v.first_viewed_at) }}</span></td>
+                              <td class="act-date">{{ mailDate(v.last_viewed_at) }} <span class="muted small">{{ mailTime(v.last_viewed_at) }}</span></td>
+                            </tr>
+                          }
+                        </tbody>
+                      </table>
+                    </div>
+                  }
+                }
                 @case ('notes') {
                   <div class="tab-head">
                     <h3>Notes</h3>
@@ -819,6 +904,8 @@ type LeadSortKey =
        The thead cells use the global gold thead bg (via the primary-3
        token); tbody cells reuse the card-row bg-3 and pick up the row's
        hover override so the sticky region animates with the row. */
+    table.data th.sticky-views,
+    table.data td.sticky-views,
     table.data th.sticky-status,
     table.data th.sticky-actions,
     table.data td.sticky-status,
@@ -827,6 +914,7 @@ type LeadSortKey =
       background: var(--bg-3);
       z-index: 1;
     }
+    table.data thead th.sticky-views,
     table.data thead th.sticky-status,
     table.data thead th.sticky-actions {
       background: var(--primary-3);
@@ -838,8 +926,13 @@ type LeadSortKey =
        + 24 padding = ~164, rounded up to 170 for the rare 4-button row. */
     table.data td.sticky-actions,
     table.data th.sticky-actions { right: 0; width: 170px; min-width: 170px; }
+    /* Order right-to-left: actions, Views, Status. Views right = actions 170;
+       Status right = actions 170 + views 96. Keep these in step with widths. */
+    table.data td.sticky-views,
+    table.data th.sticky-views { right: 170px; width: 96px; min-width: 96px; text-align: center; }
     table.data td.sticky-status,
-    table.data th.sticky-status { right: 170px; width: 150px; min-width: 150px; }
+    table.data th.sticky-status { right: 266px; width: 150px; min-width: 150px; }
+    table.data tbody tr:hover td.sticky-views,
     table.data tbody tr:hover td.sticky-status,
     table.data tbody tr:hover td.sticky-actions { background: #262626; }
     /* Soft left edge so the user notices content is scrolling under the
@@ -1198,6 +1291,9 @@ type LeadSortKey =
       margin: 0;
       line-height: 1.6;
     }
+
+    /* Mail + Activity tab styles (.mail-*, .act-*) are global in styles.scss,
+       shared with clients-admin.ts, to stay under the component style budget. */
   `],
 })
 export class LeadsAdmin {
@@ -1223,15 +1319,19 @@ export class LeadsAdmin {
     { key: 'contacted_at', label: 'Contacted' },
     { key: 'added_by',     label: 'Added by' },
     { key: 'status',       label: 'Status' },
+    { key: 'views',        label: 'Views' },
   ];
   sortBy  = signal<LeadSortKey | null>(null);
   sortDir = signal<'asc' | 'desc'>('asc');
 
-  /** Click handler for the sortable headers. First click sets the key
-   *  to asc, second click flips to desc, third click clears the sort. */
+  /** Click handler for the sortable headers. First click sets the key to its
+   *  natural direction, second click flips it, third click clears the sort.
+   *  Views starts DESCENDING - "most viewed first" is what anyone clicking that
+   *  column is after; every other key starts ascending. */
   toggleSort(key: LeadSortKey) {
-    if (this.sortBy() !== key) { this.sortBy.set(key); this.sortDir.set('asc'); return; }
-    if (this.sortDir() === 'asc') { this.sortDir.set('desc'); return; }
+    const first: 'asc' | 'desc' = key === 'views' ? 'desc' : 'asc';
+    if (this.sortBy() !== key) { this.sortBy.set(key); this.sortDir.set(first); return; }
+    if (this.sortDir() === first) { this.sortDir.set(first === 'asc' ? 'desc' : 'asc'); return; }
     this.sortBy.set(null);
   }
 
@@ -1276,6 +1376,8 @@ export class LeadsAdmin {
     { key: 'assignments', label: 'Assignments' },
     { key: 'onboarding', label: 'Onboarding' },
     { key: 'feedback',   label: 'Feedback' },
+    { key: 'mail',       label: 'Mail' },
+    { key: 'activity',   label: 'Activity' },
     { key: 'notes',      label: 'Notes' },
   ];
   activeTab = signal<LeadTabKey>('info');
@@ -1374,6 +1476,107 @@ export class LeadsAdmin {
   onTabClick(key: LeadTabKey, leadId: number) {
     this.activeTab.set(key);
     if (key === 'feedback') this.loadFeedback(leadId);
+    if (key === 'mail') this.loadMail(leadId);
+    if (key === 'activity') this.loadActivity(leadId);
+  }
+
+  // Activity tab — marketing-site pages this lead opened via a tracked link
+  // (page_views, migration 164). One row per page; view_count accumulates.
+  activityViews   = signal<Array<{ page: string; view_count: number; first_viewed_at: string; last_viewed_at: string }>>([]);
+  activityLoading = signal(false);
+
+  loadActivity(leadId: number) {
+    this.activityLoading.set(true);
+    this.api.pageViews('lead', leadId).subscribe({
+      next: r => { this.activityViews.set(r.views || []); this.activityLoading.set(false); },
+      error: () => { this.activityViews.set([]); this.activityLoading.set(false); },
+    });
+  }
+
+  activityTotal(): number {
+    return this.activityViews().reduce((n, v) => n + (v.view_count || 0), 0);
+  }
+
+  /** Friendly name for a tracked page file. Unknown files fall back to a
+   *  tidied file name so a newly tracked page still reads sensibly. */
+  pageLabel(file: string): string {
+    const known: Record<string, string> = {
+      'index.html': 'Home', 'preview.html': 'Preview page', 'about.html': 'About',
+      'websites.html': 'Websites', 'software-solutions.html': 'Software solutions',
+      'it-services.html': 'IT services', 'social-media-marketing.html': 'Social media marketing',
+      'portfolio.html': 'Portfolio', 'casestudy.html': 'Case study', 'brand-kit.html': 'Brand kit',
+      'contact.html': 'Contact', 'pricing.html': 'Pricing', 'products.html': 'Products',
+      'onboarding.html': 'Onboarding', 'site-view.html': 'Site view',
+    };
+    const f = (file || '').toLowerCase();
+    if (known[f]) return known[f];
+    const base = f.replace(/\.html?$/, '').replace(/[-_]+/g, ' ').trim();
+    return base ? base.charAt(0).toUpperCase() + base.slice(1) : file;
+  }
+
+  // Mail history — populated on Mail tab open. Each row is one recipient
+  // of one Mailer send that pointed at this lead. A single campaign can
+  // hit multiple contacts on the same lead, so we render one row per
+  // recipient rather than collapsing at the send-id level.
+  mailHistory = signal<Array<{
+    send_id: number;
+    subject: string;
+    body_html: string;
+    created_at: string;
+    sent_by: string | null;
+    to_email: string;
+    to_name: string | null;
+    status: string;
+    error: string | null;
+  }>>([]);
+  mailLoading = signal(false);
+
+  // Mail row formatting helpers. Template-side JS globals (Date, etc.) don't
+  // resolve in Angular templates, so formatting lives on the class.
+  mailInitials(name: string | null): string {
+    const parts = (name || 'System').trim().split(/\s+/).filter(Boolean);
+    const first = parts[0]?.[0] ?? '';
+    const last  = parts.length > 1 ? parts[parts.length - 1][0] : '';
+    return (first + last).toUpperCase();
+  }
+  private mailParse(s: string): Date | null {
+    if (!s) return null;
+    const d = new Date(s.replace(' ', 'T'));
+    return isNaN(d.getTime()) ? null : d;
+  }
+  mailDate(s: string): string {
+    const d = this.mailParse(s);
+    if (!d) return s || '';
+    // Manual month names — Chromium's en-GB locale renders "Sept", not "Sep".
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    return `${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()}`;
+  }
+  mailTime(s: string): string {
+    const d = this.mailParse(s);
+    return d ? d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) : '';
+  }
+  mailSnippet(html: string): string {
+    const text = (html || '')
+      .replace(/<(br|\/p|\/li|\/div|\/h\d)[^>]*>/gi, ' ')
+      .replace(/<[^>]+>/g, '')
+      .replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
+      .replace(/\s+/g, ' ')
+      .trim();
+    return text.length > 140 ? text.slice(0, 140) + '…' : text;
+  }
+
+  loadMail(leadId: number) {
+    this.mailLoading.set(true);
+    this.api.mailerHistory('lead', leadId).subscribe({
+      next: r => {
+        this.mailHistory.set(r.messages || []);
+        this.mailLoading.set(false);
+      },
+      error: () => {
+        this.mailHistory.set([]);
+        this.mailLoading.set(false);
+      },
+    });
   }
 
   loadFeedback(leadId: number) {
@@ -1561,6 +1764,10 @@ export class LeadsAdmin {
           return (l.service_name || '').toLowerCase();
         case 'contacted_at':
           return (l.contacted_at || '');
+        case 'views':
+          // Numeric, zero-padded so the string comparator puts 9 before 10.
+          // Never empty: 0 views is a real value, not missing data.
+          return String(l.views ?? 0).padStart(10, '0');
         default:
           return String((l as any)[key] ?? '').trim().toLowerCase();
       }

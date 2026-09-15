@@ -1,5 +1,8 @@
 import { Component, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { HttpClient } from '@angular/common/http';
+import { RouterLink } from '@angular/router';
+import { environment } from '@env/environment';
 import { Api } from '../../core/api';
 import { DialogService } from '../../core/dialog';
 import { EmailProvider, EmailProviderKind, EmailPurpose, EmailRouting } from '../../core/models';
@@ -55,7 +58,7 @@ const PURPOSES: { key: EmailPurpose; label: string; hint: string }[] = [
 
 @Component({
   selector: 'app-settings-email',
-  imports: [FormsModule],
+  imports: [FormsModule, RouterLink],
   template: `
     <!-- System-fallback banner. Three states, escalating in urgency:
          - Info (grace > 7 days) — informational reminder
@@ -87,12 +90,60 @@ const PURPOSES: { key: EmailPurpose; label: string; hint: string }[] = [
       }
     }
 
+    <!-- Microsoft 365 (Graph) — first-class primary provider when the
+         tenant has the Teams integration wired. Rendered as a full
+         provider card so it visually sits above the fallback provider
+         list rather than as a floating banner. -->
+    @if (graphActive()) {
+      <section>
+        <h2>Primary sender</h2>
+        <div class="prov-list">
+          <div class="prov-row open" style="border-color: var(--primary);">
+            <div class="prov-head">
+              <span class="caret" style="opacity:0;">›</span>
+              <div class="prov-meta">
+                <strong>Microsoft 365 (Graph)</strong>
+                <span class="status-pill" data-status="ready">Active</span>
+              </div>
+              <div class="prov-actions">
+                <a routerLink="/admin/settings" [queryParams]="{ tab: 'bookings' }" class="ghost small"
+                   style="text-decoration: none;">Configure</a>
+              </div>
+            </div>
+            <div style="padding: 8px 16px 16px 32px; color: var(--muted); font-size: 13px;">
+              Every outbound message — password resets, notifications, invoices,
+              campaigns, booking confirmations — is sent through Microsoft Graph
+              Mail.Send from
+              @if (graphOrganizerLabel()) {
+                <strong style="color: var(--fg);">{{ graphOrganizerLabel() }}</strong>
+              } @else {
+                <strong style="color: var(--fg);">the configured Microsoft 365 mailbox</strong>
+              }
+              using the Azure app you registered for Teams meetings. No SMTP AUTH
+              needed. The providers below are <em>fallback only</em>; they take
+              over automatically if Graph fails.
+              <br><br>
+              Change the organizer mailbox, tenant/client credentials, or the
+              Graph app itself in <a routerLink="/admin/settings" [queryParams]="{ tab: 'bookings' }"
+                 style="color: var(--primary); font-weight: 600;">Settings → Bookings</a>.
+            </div>
+          </div>
+        </div>
+      </section>
+    }
+
     <section>
-      <h2>Providers</h2>
+      <h2>{{ graphActive() ? 'Fallback providers' : 'Providers' }}</h2>
       <p class="muted small">
-        Configure one or more email providers. You can point different email
-        purposes at different providers below — e.g. Postmark for password
-        resets, SES for newsletters.
+        @if (graphActive()) {
+          Optional. Used automatically only if Microsoft Graph is unreachable
+          (network outage, revoked permission, expired secret). Leave the list
+          empty if you're happy relying on Graph.
+        } @else {
+          Configure one or more email providers. You can point different email
+          purposes at different providers below — e.g. Postmark for password
+          resets, SES for newsletters.
+        }
       </p>
 
       @if (loading()) {
@@ -545,6 +596,19 @@ export class SettingsEmail {
   loading = signal(true);
   providers = signal<EmailProvider[]>([]);
   routing = signal<EmailRouting>({ newsletter: null, system: null, invite: null, internal: null });
+
+  /** True when the tenant has the Microsoft Graph Mail.Send route wired
+   *  (via the Bookings tab's Teams settings). When set, the Mailer
+   *  short-circuits every send through Graph and only falls back to a
+   *  provider row on Graph failure. Read from settings. */
+  graphActive    = signal(false);
+  graphOrganizer = signal<string>('');
+  /** Human-readable sender for the banner. Blank when the organizer
+   *  setting is a raw ObjectId GUID (Graph accepts one there but it's
+   *  ugly to display) — in that case the template shows a fallback
+   *  phrase. When it's an email or a UPN, we show it verbatim. */
+  graphOrganizerLabel = signal<string>('');
+  private http = inject(HttpClient);
   /** True when the .env has SYSTEM_SMTP_* configured — we show a banner
    *  so tenants know their un-routed sends use YOUR infrastructure. */
   systemFallbackEnabled = signal(false);
@@ -574,7 +638,29 @@ export class SettingsEmail {
   savingRouting = signal(false);
   routingMsg = signal<string | null>(null);
 
-  ngOnInit() { this.load(); }
+  ngOnInit() { this.load(); this.loadGraphStatus(); }
+
+  private loadGraphStatus() {
+    // Read the four Teams keys directly from /api/settings — no dedicated
+    // endpoint since these are shared with the Bookings tab and already
+    // returned by the generic settings GET.
+    this.http.get<{ settings: Record<string, string> }>(`${environment.basePath}/api/settings`).subscribe({
+      next: r => {
+        const s = r.settings || {};
+        const configured = !!(s['teams_tenant_id'] && s['teams_client_id']
+          && s['teams_organizer_email'] && s['teams_client_secret']);
+        const organizer = s['teams_organizer_email'] || '';
+        this.graphActive.set(configured);
+        this.graphOrganizer.set(organizer);
+        // Only display the organizer when it looks like an email/UPN
+        // rather than a raw ObjectId GUID — the Teams onlineMeetings
+        // endpoint needs a GUID so users are advised to paste that.
+        const looksLikeGuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(organizer);
+        this.graphOrganizerLabel.set(looksLikeGuid ? '' : organizer);
+      },
+      error: () => {/* leave defaults */},
+    });
+  }
 
   private load() {
     this.loading.set(true);

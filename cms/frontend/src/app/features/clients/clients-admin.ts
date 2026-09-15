@@ -11,7 +11,7 @@ import { EntityContracts } from '../../shared/entity-contracts';
 import { FormSubmissionsList } from '../../shared/form-submissions-list';
 import { InvoiceDetailModal } from '../accounting/invoice-detail-modal';
 
-type TabKey = 'info' | 'contacts' | 'services' | 'invoices' | 'accounts' | 'contracts' | 'assignments' | 'commissions' | 'onboarding' | 'feedback' | 'notes';
+type TabKey = 'info' | 'contacts' | 'services' | 'invoices' | 'accounts' | 'contracts' | 'assignments' | 'commissions' | 'onboarding' | 'feedback' | 'mail' | 'activity' | 'notes';
 
 /**
  * Standalone Clients section.
@@ -40,15 +40,16 @@ type TabKey = 'info' | 'contacts' | 'services' | 'invoices' | 'accounts' | 'cont
         <div class="table-wrap">
           <table class="data">
             <thead><tr>
-              <th>Name</th><th>Email</th><th>Phone</th><th>Company</th><th></th>
+              <th>Name</th><th>Email</th><th>Phone</th><th>Company</th><th class="sortable views-col" (click)="toggleViewsSort()" title="Tracked-link views - click to sort" [attr.aria-sort]="viewsSort() === 'desc' ? 'descending' : (viewsSort() === 'asc' ? 'ascending' : 'none')">Views<span class="sort-mark">@if (viewsSort()) { {{ viewsSort() === 'desc' ? '▼' : '▲' }} } @else { <span class="muted small">↕</span> }</span></th><th></th>
             </tr></thead>
             <tbody>
-              @for (c of clients(); track c.id) {
+              @for (c of sortedClients(); track c.id) {
                 <tr (click)="view(c)">
                   <td><strong>{{ c.name }}</strong></td>
                   <td>{{ c.email || '—' }}</td>
                   <td>{{ c.phone || '—' }}</td>
                   <td>{{ c.company || '—' }}</td>
+                  <td class="views-col" [class.muted]="!c.views">{{ c.views ?? 0 }}</td>
                   <td class="actions">
                     <button class="ghost icon-btn" (click)="view(c, $event)" title="View" aria-label="View"
 >👁</button>
@@ -1021,6 +1022,88 @@ type TabKey = 'info' | 'contacts' | 'services' | 'invoices' | 'accounts' | 'cont
                     </div>
                   }
                 }
+                @case ('mail') {
+                  <div class="tab-head">
+                    <h3>Mail correspondence</h3>
+                    <span class="spacer"></span>
+                    @if (mailLoading()) { <span class="muted small">Loading…</span> }
+                    @else if (mailHistory().length) { <span class="muted small">{{ mailHistory().length }} message{{ mailHistory().length === 1 ? '' : 's' }}</span> }
+                  </div>
+
+                  @if (!mailLoading() && !mailHistory().length) {
+                    <p class="muted">No emails have been sent to this client through the Mailer yet.</p>
+                  }
+
+                  <div class="mail-list">
+                    @for (m of mailHistory(); track m.send_id + ':' + m.to_email) {
+                      <details class="mail-row" [class.failed]="m.status === 'failed'">
+                        <summary>
+                          <span class="mail-caret" aria-hidden="true">›</span>
+                          <span class="mail-avatar" [title]="m.sent_by || 'System'">{{ mailInitials(m.sent_by) }}</span>
+                          <span class="mail-main">
+                            <span class="mail-subj">{{ m.subject || '(no subject)' }}</span>
+                            <span class="mail-meta">
+                              <span class="mail-by">{{ m.sent_by || 'System' }}</span>
+                              <span class="mail-dot">·</span>
+                              <span class="mail-snippet">{{ mailSnippet(m.body_html) }}</span>
+                            </span>
+                          </span>
+                          @if (m.status !== 'sent') {
+                            <span class="mail-status" [attr.data-status]="m.status">{{ m.status }}</span>
+                          }
+                          <span class="mail-when">
+                            <span class="mail-date">{{ mailDate(m.created_at) }}</span>
+                            <span class="mail-time">{{ mailTime(m.created_at) }}</span>
+                          </span>
+                        </summary>
+                        <div class="mail-body">
+                          <dl class="mail-headers">
+                            <div><dt>From</dt><dd>{{ m.sent_by || 'System' }}</dd></div>
+                            <div><dt>To</dt><dd>{{ m.to_name || m.to_email }} <span class="muted">&lt;{{ m.to_email }}&gt;</span></dd></div>
+                            <div><dt>Sent</dt><dd>{{ mailDate(m.created_at) }} at {{ mailTime(m.created_at) }}</dd></div>
+                          </dl>
+                          @if (m.status === 'failed' && m.error) {
+                            <div class="error-msg">Delivery failed: {{ m.error }}</div>
+                          }
+                          <div class="mail-html" [innerHTML]="m.body_html"></div>
+                        </div>
+                      </details>
+                    }
+                  </div>
+                }
+                @case ('activity') {
+                  <div class="tab-head">
+                    <h3>Website activity</h3>
+                    <span class="spacer"></span>
+                    @if (activityLoading()) { <span class="muted small">Loading…</span> }
+                    @else if (activityViews().length) {
+                      <span class="muted small">{{ activityTotal() }} view{{ activityTotal() === 1 ? '' : 's' }} · {{ activityViews().length }} page{{ activityViews().length === 1 ? '' : 's' }}</span>
+                    }
+                  </div>
+
+                  @if (!activityLoading() && !activityViews().length) {
+                    <p class="muted">No tracked page views yet. A view is recorded when this client opens a link inserted with the Mailer's <strong>Tracked link</strong> button.</p>
+                  } @else if (activityViews().length) {
+                    <div class="act-wrap">
+                      <table class="data">
+                        <thead>
+                          <tr><th>Page</th><th class="act-num">Views</th><th class="act-date act-first">First viewed</th><th class="act-date">Last viewed</th></tr>
+                        </thead>
+                        <tbody>
+                          @for (v of activityViews(); track v.page) {
+                            <tr>
+                              <!-- No ?id= on purpose: an admin opening the page must not count as the client's view. -->
+                              <td><a class="act-link" [href]="'https://builtrightstudio.com/' + v.page" target="_blank" rel="noopener" title="Open page in a new tab"><strong>{{ pageLabel(v.page) }}</strong> <span class="act-ext">↗</span></a><div class="muted small">{{ v.page }}</div></td>
+                              <td class="act-num">{{ v.view_count }}</td>
+                              <td class="act-date act-first">{{ mailDate(v.first_viewed_at) }} <span class="muted small">{{ mailTime(v.first_viewed_at) }}</span></td>
+                              <td class="act-date">{{ mailDate(v.last_viewed_at) }} <span class="muted small">{{ mailTime(v.last_viewed_at) }}</span></td>
+                            </tr>
+                          }
+                        </tbody>
+                      </table>
+                    </div>
+                  }
+                }
                 @case ('notes') {
                   <div class="tab-head">
                     <h3>Notes</h3>
@@ -1295,7 +1378,7 @@ type TabKey = 'info' | 'contacts' | 'services' | 'invoices' | 'accounts' | 'cont
       background: var(--primary);
     }
     .tab-content { padding: 24px; }
-    .tab-content h3 {
+    .tab-content h3, .card h2 {
       margin: 0 0 12px 0; font-size: 14px;
       text-transform: uppercase; letter-spacing: 0.5px; color: var(--muted); font-weight: 600;
     }
@@ -1587,14 +1670,15 @@ type TabKey = 'info' | 'contacts' | 'services' | 'invoices' | 'accounts' | 'cont
     .service-breakdown .k { color: var(--muted); font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; }
 
     /* ----- Info tab ---------------------------------------------------- */
-    .info-form {
+    /* Same box as .contact-form below; declared once to keep the style budget. */
+    .info-form, .contact-form {
       padding: 16px;
       background: var(--bg-3);
       border: 1px solid var(--line);
       border-radius: var(--radius-sm);
       margin-bottom: 16px;
     }
-    .info-form label { margin-top: 12px; display: block; }
+    .info-form label, .contact-form label { margin-top: 12px; display: block; }
 
     /* Info rows reuse the global .kv label-above-value pattern; we only
        add the trailing edit/delete actions that appear on hover. */
@@ -1606,14 +1690,6 @@ type TabKey = 'info' | 'contacts' | 'services' | 'invoices' | 'accounts' | 'cont
     }
     .info-row:hover .info-actions { opacity: 1; }
 
-    .contact-form {
-      padding: 16px;
-      background: var(--bg-3);
-      border: 1px solid var(--line);
-      border-radius: var(--radius-sm);
-      margin-bottom: 16px;
-    }
-    .contact-form label { margin-top: 12px; display: block; }
     .contact-form .req { color: var(--primary); margin-left: 4px; }
     .contact-form .row.two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
     .number-row {
@@ -1693,7 +1769,6 @@ type TabKey = 'info' | 'contacts' | 'services' | 'invoices' | 'accounts' | 'cont
       margin: 0;
       line-height: 1.6;
     }
-    .card h2 { font-size: 14px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--muted); margin: 0 0 12px 0; font-weight: 600; }
     .card label { margin-top: 12px; }
     .card hr { border: none; border-top: 1px solid var(--line); margin: 20px 0 16px 0; }
     .req { color: var(--primary); margin-left: 2px; }
@@ -1706,6 +1781,11 @@ type TabKey = 'info' | 'contacts' | 'services' | 'invoices' | 'accounts' | 'cont
     .kv .notes { white-space: pre-wrap; }
     td.actions { text-align: right; white-space: nowrap; }
     td.actions .icon-btn + .icon-btn { margin-left: 4px; }
+    /* Views column - total tracked-link views per client (page_views). */
+    th.views-col, td.views-col { text-align: right; white-space: nowrap; width: 90px; }
+    th.sortable { cursor: pointer; user-select: none; }
+    th.sortable:hover { color: var(--primary); }
+    th.sortable .sort-mark { margin-left: 6px; font-size: 11px; opacity: 0.8; }
     .icon-btn {
       width: 32px; height: 32px; padding: 0;
       display: inline-flex; align-items: center; justify-content: center;
@@ -1717,6 +1797,9 @@ type TabKey = 'info' | 'contacts' | 'services' | 'invoices' | 'accounts' | 'cont
        two buttons don't look interchangeable at a glance. */
     .icon-btn.relegate { color: #60a5fa; }
     .icon-btn.relegate:hover { color: #60a5fa; border-color: #60a5fa; background: rgba(96, 165, 250, 0.10); }
+
+    /* Mail + Activity tab styles (.mail-*, .act-*) are global in styles.scss,
+       shared with leads-admin.ts, to stay under the component style budget. */
   `],
 })
 export class ClientsAdmin {
@@ -1730,6 +1813,25 @@ export class ClientsAdmin {
   saving = signal(false);
   error = signal<string | null>(null);
   clients = signal<Client[]>([]);
+
+  /** Views column sort (tracked-link views, page_views). First click shows the
+   *  most viewed first, second the least viewed, third returns to the order the
+   *  API sends (newest first). */
+  viewsSort = signal<'desc' | 'asc' | null>(null);
+  toggleViewsSort() {
+    const s = this.viewsSort();
+    this.viewsSort.set(s === null ? 'desc' : s === 'desc' ? 'asc' : null);
+  }
+  /** The list as rendered: API order unless sorted by views. Equal counts fall
+   *  back to newest first, so ties keep a stable, familiar order. */
+  readonly sortedClients = computed(() => {
+    const list = this.clients();
+    const dir = this.viewsSort();
+    if (!dir) return list;
+    const sign = dir === 'desc' ? -1 : 1;
+    return [...list].sort((a, b) =>
+      ((a.views ?? 0) - (b.views ?? 0)) * sign || ((b.id ?? 0) - (a.id ?? 0)));
+  });
   current = signal<Client | null>(null);
   /** Becomes true once draft is ready to bind — prevents ngModel from latching
    *  onto stale empty values before the GET resolves. */
@@ -1746,6 +1848,8 @@ export class ClientsAdmin {
     { key: 'commissions', label: 'Commissions' },
     { key: 'onboarding', label: 'Onboarding' },
     { key: 'feedback',   label: 'Feedback' },
+    { key: 'mail',       label: 'Mail' },
+    { key: 'activity',   label: 'Activity' },
     { key: 'notes',      label: 'Notes' },
   ];
   activeTab = signal<TabKey>('info');
@@ -1861,6 +1965,101 @@ export class ClientsAdmin {
     if (key === 'feedback')    this.loadFeedback(clientId);
     if (key === 'invoices')    this.loadInvoices(clientId);
     if (key === 'commissions') this.loadCommissions(clientId);
+    if (key === 'mail')        this.loadMail(clientId);
+    if (key === 'activity')    this.loadActivity(clientId);
+  }
+
+  // Activity tab — mirrored in leads-admin.ts.
+  activityViews   = signal<Array<{ page: string; view_count: number; first_viewed_at: string; last_viewed_at: string }>>([]);
+  activityLoading = signal(false);
+
+  loadActivity(clientId: number) {
+    this.activityLoading.set(true);
+    this.api.pageViews('client', clientId).subscribe({
+      next: r => { this.activityViews.set(r.views || []); this.activityLoading.set(false); },
+      error: () => { this.activityViews.set([]); this.activityLoading.set(false); },
+    });
+  }
+
+  activityTotal(): number {
+    return this.activityViews().reduce((n, v) => n + (v.view_count || 0), 0);
+  }
+
+  pageLabel(file: string): string {
+    const known: Record<string, string> = {
+      'index.html': 'Home', 'preview.html': 'Preview page', 'about.html': 'About',
+      'websites.html': 'Websites', 'software-solutions.html': 'Software solutions',
+      'it-services.html': 'IT services', 'social-media-marketing.html': 'Social media marketing',
+      'portfolio.html': 'Portfolio', 'casestudy.html': 'Case study', 'brand-kit.html': 'Brand kit',
+      'contact.html': 'Contact', 'pricing.html': 'Pricing', 'products.html': 'Products',
+      'onboarding.html': 'Onboarding', 'site-view.html': 'Site view',
+    };
+    const f = (file || '').toLowerCase();
+    if (known[f]) return known[f];
+    const base = f.replace(/\.html?$/, '').replace(/[-_]+/g, ' ').trim();
+    return base ? base.charAt(0).toUpperCase() + base.slice(1) : file;
+  }
+
+  // Mail history — one row per (send, recipient) tied to this client via
+  // the Mailer's per-recipient log. See leads-admin.ts for the mirror.
+  mailHistory = signal<Array<{
+    send_id: number;
+    subject: string;
+    body_html: string;
+    created_at: string;
+    sent_by: string | null;
+    to_email: string;
+    to_name: string | null;
+    status: string;
+    error: string | null;
+  }>>([]);
+  mailLoading = signal(false);
+
+  // Mail row formatting helpers — mirrored in leads-admin.ts.
+  mailInitials(name: string | null): string {
+    const parts = (name || 'System').trim().split(/\s+/).filter(Boolean);
+    const first = parts[0]?.[0] ?? '';
+    const last  = parts.length > 1 ? parts[parts.length - 1][0] : '';
+    return (first + last).toUpperCase();
+  }
+  private mailParse(s: string): Date | null {
+    if (!s) return null;
+    const d = new Date(s.replace(' ', 'T'));
+    return isNaN(d.getTime()) ? null : d;
+  }
+  mailDate(s: string): string {
+    const d = this.mailParse(s);
+    if (!d) return s || '';
+    // Manual month names — Chromium's en-GB locale renders "Sept", not "Sep".
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    return `${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()}`;
+  }
+  mailTime(s: string): string {
+    const d = this.mailParse(s);
+    return d ? d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) : '';
+  }
+  mailSnippet(html: string): string {
+    const text = (html || '')
+      .replace(/<(br|\/p|\/li|\/div|\/h\d)[^>]*>/gi, ' ')
+      .replace(/<[^>]+>/g, '')
+      .replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
+      .replace(/\s+/g, ' ')
+      .trim();
+    return text.length > 140 ? text.slice(0, 140) + '…' : text;
+  }
+
+  loadMail(clientId: number) {
+    this.mailLoading.set(true);
+    this.api.mailerHistory('client', clientId).subscribe({
+      next: r => {
+        this.mailHistory.set(r.messages || []);
+        this.mailLoading.set(false);
+      },
+      error: () => {
+        this.mailHistory.set([]);
+        this.mailLoading.set(false);
+      },
+    });
   }
 
   loadCommissions(clientId: number) {

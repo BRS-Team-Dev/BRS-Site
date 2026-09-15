@@ -469,3 +469,86 @@ input[type="file"]::-webkit-file-upload-button {
 .file-pick:hover { background: var(--primary-2); }
 .file-pick input[type="file"] { display: none; }
 .file-pick::before { content: '+'; font-size: 16px; line-height: 1; }
+
+/* ----- Lead/Client detail: Mail + Activity tabs (shared) -------------------
+   Used verbatim by leads-admin.ts and clients-admin.ts. Lives here rather than
+   in each component so the styles are not duplicated and neither component
+   trips the production anyComponentStyle budget (16 kB error). Being global
+   also means the mail body injected via [innerHTML] is reachable without
+   ::ng-deep. */
+.mail-list { display: flex; flex-direction: column; gap: 8px; }
+.act-wrap { overflow-x: auto; }
+.act-num { text-align: right; width: 80px; font-variant-numeric: tabular-nums; }
+.act-date { white-space: nowrap; }
+.act-link { color: inherit; text-decoration: none; }
+.act-link:hover strong { color: var(--gold-400, #d4a73a); text-decoration: underline; }
+.act-ext { font-size: 11px; opacity: .55; margin-left: 4px; }
+.act-link:hover .act-ext { opacity: 1; color: var(--gold-400, #d4a73a); }
+@media (max-width: 900px) { .act-first { display: none; } }
+.mail-row {
+  background: var(--bg-2); border: 1px solid var(--line);
+  border-radius: var(--radius-sm); overflow: hidden;
+  transition: border-color 140ms ease;
+}
+.mail-row:hover { border-color: color-mix(in srgb, var(--primary) 45%, var(--line)); }
+.mail-row[open] { border-color: var(--primary); }
+.mail-row.failed { box-shadow: inset 3px 0 0 var(--danger); }
+.mail-row summary {
+  display: flex; align-items: center; gap: 14px;
+  padding: 12px 18px; cursor: pointer; list-style: none;
+}
+.mail-row summary::-webkit-details-marker { display: none; }
+.mail-caret {
+  flex: none; width: 10px; color: var(--muted);
+  font-size: 18px; line-height: 1; transition: transform 150ms ease, color 150ms ease;
+}
+.mail-row[open] .mail-caret { transform: rotate(90deg); color: var(--primary); }
+.mail-avatar {
+  flex: none; width: 36px; height: 36px; border-radius: 50%;
+  display: grid; place-items: center;
+  background: color-mix(in srgb, var(--primary) 16%, var(--bg-3));
+  color: var(--primary); font-weight: 700; font-size: 12px; letter-spacing: 0.5px;
+}
+.mail-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.mail-subj {
+  font-size: 14px; font-weight: 600; color: var(--fg);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.mail-meta { display: flex; gap: 6px; min-width: 0; font-size: 12px; color: var(--muted); white-space: nowrap; }
+.mail-by { flex: none; color: var(--fg); opacity: 0.8; }
+.mail-dot { flex: none; }
+.mail-snippet { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+/* Once open, the full body is right below; the preview line is just noise. */
+.mail-row[open] .mail-dot, .mail-row[open] .mail-snippet { display: none; }
+.mail-when {
+  flex: none; display: flex; flex-direction: column; align-items: flex-end; gap: 3px;
+  padding-left: 8px; font-variant-numeric: tabular-nums; white-space: nowrap;
+}
+.mail-date { font-size: 12px; color: var(--fg); }
+.mail-time { font-size: 11px; color: var(--muted); }
+.mail-status {
+  flex: none; font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px;
+  padding: 2px 8px; border-radius: 999px; border: 1px solid var(--line);
+}
+.mail-status[data-status="failed"]  { color: var(--danger); border-color: var(--danger); }
+.mail-status[data-status="skipped"] { color: var(--muted); }
+.mail-body { border-top: 1px solid var(--line); background: var(--bg-1); padding: 16px 20px 20px 78px; }
+.mail-headers { margin: 0 0 14px; display: grid; gap: 5px; font-size: 13px; }
+.mail-headers div { display: flex; gap: 12px; align-items: baseline; }
+.mail-headers dt {
+  flex: none; width: 42px; margin: 0; color: var(--muted);
+  font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.6px;
+}
+.mail-headers dd { margin: 0; color: var(--fg); min-width: 0; overflow-wrap: anywhere; }
+.mail-html {
+  background: var(--bg-2); border: 1px solid var(--line); border-radius: var(--radius-sm);
+  padding: 18px 22px; color: var(--fg); font-size: 14px; line-height: 1.65; overflow-wrap: anywhere;
+}
+.mail-html p { margin: 0 0 12px; }
+.mail-html p:last-child { margin-bottom: 0; }
+.mail-html ul, .mail-html ol { margin: 0 0 12px; padding-left: 22px; }
+.mail-html a { color: var(--primary); }
+@media (max-width: 780px) {
+  .mail-avatar, .mail-dot, .mail-snippet { display: none; }
+  .mail-body { padding-left: 20px; }
+}

@@ -121,11 +121,22 @@ export const routes: Routes = [
         data: { mode: 'ch' } },
       { path: 'admin/leadgen/linkedin', loadComponent: () => import('./features/leadgen/leadgen-admin').then(m => m.LeadgenAdmin),
         data: { mode: 'linkedin' } },
+      // Google Maps / Places discovery — third capture source alongside
+      // Companies House and LinkedIn, sharing the same Qualify pipeline.
+      { path: 'admin/leadgen/google', loadComponent: () => import('./features/leadgen/leadgen-admin').then(m => m.LeadgenAdmin),
+        data: { mode: 'google' } },
       { path: 'admin/leadgen/settings',  loadComponent: () => import('./features/leadgen/leadgen-settings').then(m => m.LeadgenSettings) },
 
       { path: 'admin/feedback',          loadComponent: () => import('./features/feedback/feedback-admin').then(m => m.FeedbackAdmin) },
       { path: 'admin/feedback/:id',      loadComponent: () => import('./features/feedback/feedback-builder').then(m => m.FeedbackBuilder) },
 
+      // Mailer — targeted, personalised messages to leads + clients. Sibling
+      // of Newsletter (which broadcasts); the two share delivery + suppression.
+      { path: 'admin/mailer',            loadComponent: () => import('./features/mailer/mailer-overview').then(m => m.MailerOverview) },
+      { path: 'admin/mailer/compose',    loadComponent: () => import('./features/mailer/mailer-admin').then(m => m.MailerAdmin) },
+      { path: 'admin/mailer/templates',  loadComponent: () => import('./features/mailer/mailer-templates').then(m => m.MailerTemplates) },
+      // Sent emails - flat per-recipient log of everything the Mailer sent.
+      { path: 'admin/mailer/sent',       loadComponent: () => import('./features/mailer/mailer-sent').then(m => m.MailerSent) },
       { path: 'admin/newsletter',        loadComponent: () => import('./features/newsletter/newsletter-admin').then(m => m.NewsletterAdmin) },
       { path: 'admin/newsletter/new',    loadComponent: () => import('./features/newsletter/newsletter-admin').then(m => m.NewsletterAdmin) },
       { path: 'admin/newsletter/:id',    loadComponent: () => import('./features/newsletter/newsletter-admin').then(m => m.NewsletterAdmin) },

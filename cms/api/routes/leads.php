@@ -48,7 +48,9 @@ return function (string $method, array $segs): void {
             // pagination is a follow-up when the lead funnel actually
             // exceeds this cap.
             $rows = $pdo->query($leadSelect . ' ORDER BY l.id DESC LIMIT 1000')->fetchAll();
-            Json::send(['leads' => $rows]);
+            // Total tracked-link views per lead (page_views, migration 164) for
+            // the list's Views column - one grouped query, not one per row.
+            Json::send(['leads' => \BRS\PageViews::attach($pdo, 'lead', $rows)]);
         }
         if ($method === 'POST') {
             $body = Json::readBody();
@@ -600,15 +602,18 @@ return function (string $method, array $segs): void {
 
         $pdo->beginTransaction();
         try {
+            // `industry` carries across (163) so the Mailer's industry filter
+            // keeps working after a lead becomes a client.
             $insClient = $pdo->prepare('INSERT INTO clients
-                (name, email, phone, address, company, url, notes)
-                VALUES (?,?,?,?,?,?,?)');
+                (name, email, phone, address, company, industry, url, notes)
+                VALUES (?,?,?,?,?,?,?,?)');
             $insClient->execute([
                 $lead['name'],
                 $lead['email'],
                 $lead['phone'],
                 $lead['address'] ?? null,
                 $lead['company'],
+                $lead['industry'] ?? null,
                 $lead['url']     ?? null,
                 $lead['notes'],
             ]);

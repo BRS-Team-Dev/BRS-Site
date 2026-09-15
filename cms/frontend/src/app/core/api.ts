@@ -31,7 +31,8 @@ import {
   ServiceOffering,
   SuperAuditEntry,
   TenantSummary,
-  UnifiedLead, UnifiedLeadSource,
+  MailerOutcome, MailerOverviewData, MailerPlaceholder, MailerRecipient, MailerSentEmailDetail, MailerSentGroup, MailerTemplate,
+  UnifiedLead, UnifiedLeadMember, UnifiedLeadSource,
 } from './models';
 import { AiModel, CustomAiModel } from './ai-models';
 import { environment } from '@env/environment';
@@ -639,6 +640,14 @@ export class Api {
   chFetchCompanies(opts: { days?: number; limit?: number; sector?: string; status?: string }): Observable<ChFetchResult> {
     return this.http.post<ChFetchResult>(`${BASE}/company-leads/fetch`, opts);
   }
+  /** Lead Gen "Google" source — Places Text Search discovery, one page per
+   *  call. `page_token` continues the same query; `done` is true once Google
+   *  stops issuing tokens (it caps a query at ~60 results). */
+  googleFetchCompanies(opts: { what: string; where?: string; page_token?: string }):
+      Observable<{ inserted: number; skipped: number; fetched: number; query: string; page_token: string | null; done: boolean }> {
+    return this.http.post<{ inserted: number; skipped: number; fetched: number; query: string; page_token: string | null; done: boolean }>(
+      `${BASE}/company-leads/fetch-google`, opts);
+  }
   /** Push the local pipeline (optionally one source) to a dev/prod target that
    *  can't run the headless crawlers. Local exports + ships to the target's import. */
   chPush(opts: { target: 'dev' | 'prod'; source?: string; ids?: number[] }): Observable<{ target: string; pushed: number; result: { inserted: number; skipped: number } }> {
@@ -693,6 +702,121 @@ export class Api {
   listAllLeads(q?: string): Observable<{ leads: UnifiedLead[]; sources: UnifiedLeadSource[] }> {
     const s = q ? '?q=' + encodeURIComponent(q) : '';
     return this.http.get<{ leads: UnifiedLead[]; sources: UnifiedLeadSource[] }>(`${BASE}/company-leads/all${s}`);
+  }
+  // ───── Mailer ────────────────────────────────────────────────────
+  mailerIndustries(): Observable<{ industries: { label: string; count: number }[] }> {
+    return this.http.get<{ industries: { label: string; count: number }[] }>(`${BASE}/mailer/industries`);
+  }
+  /** Every Mailer message ever sent to the given lead or client, newest first.
+   *  Used by the Mail tab on the lead / client detail pages. */
+  mailerHistory(entityType: 'lead' | 'client', entityId: number): Observable<{
+    messages: Array<{
+      send_id: number; subject: string; body_html: string; created_at: string;
+      sent_by: string | null; to_email: string; to_name: string | null;
+      status: string; error: string | null;
+    }>;
+  }> {
+    let hp = new HttpParams()
+      .set('entity_type', entityType)
+      .set('entity_id', String(entityId));
+    return this.http.get<any>(`${BASE}/mailer/history`, { params: hp });
+  }
+  /** Marketing-site pages a lead or client has opened via a tracked link
+   *  (page_views, migration 164). Newest activity first. */
+  pageViews(idType: 'lead' | 'client', recordId: number): Observable<{
+    views: Array<{ page: string; view_count: number; first_viewed_at: string; last_viewed_at: string }>;
+    total_views: number;
+    pages: number;
+  }> {
+    const hp = new HttpParams().set('id_type', idType).set('record_id', String(recordId));
+    return this.http.get<any>(`${BASE}/page-views`, { params: hp });
+  }
+  mailerPlaceholders(): Observable<{ placeholders: MailerPlaceholder[] }> {
+    return this.http.get<{ placeholders: MailerPlaceholder[] }>(`${BASE}/mailer/placeholders`);
+  }
+  mailerRoles(): Observable<{ roles: { label: string; count: number }[] }> {
+    return this.http.get<{ roles: { label: string; count: number }[] }>(`${BASE}/mailer/roles`);
+  }
+  /** Lead acquisition sources present on mailable leads. Leads-only — clients
+   *  carry no source, so choosing one excludes them from the audience. */
+  mailerSources(): Observable<{ sources: { label: string; count: number }[] }> {
+    return this.http.get<{ sources: { label: string; count: number }[] }>(`${BASE}/mailer/sources`);
+  }
+  /** `sendTo`: company | primary | role | all — which contacts on each record
+   *  the message is addressed to. `role` is only read when sendTo === 'role'. */
+  mailerAudience(audience: string, industry?: string, q?: string, sendTo?: string, role?: string, source?: string):
+      Observable<{ recipients: MailerRecipient[]; total: number }> {
+    let hp = new HttpParams().set('audience', audience);
+    if (industry) hp = hp.set('industry', industry);
+    if (q) hp = hp.set('q', q);
+    if (sendTo) hp = hp.set('send_to', sendTo);
+    if (role) hp = hp.set('role', role);
+    if (source) hp = hp.set('source', source);
+    return this.http.get<{ recipients: MailerRecipient[]; total: number }>(`${BASE}/mailer/audience`, { params: hp });
+  }
+  listMailerTemplates(): Observable<{ templates: MailerTemplate[] }> {
+    return this.http.get<{ templates: MailerTemplate[] }>(`${BASE}/mailer/templates`);
+  }
+  createMailerTemplate(p: { name: string; subject: string; body_html: string }): Observable<{ ok: boolean; id: number }> {
+    return this.http.post<{ ok: boolean; id: number }>(`${BASE}/mailer/templates`, p);
+  }
+  updateMailerTemplate(id: number, p: { name: string; subject: string; body_html: string }): Observable<{ ok: boolean }> {
+    return this.http.put<{ ok: boolean }>(`${BASE}/mailer/templates/${id}`, p);
+  }
+  deleteMailerTemplate(id: number): Observable<{ ok: boolean }> {
+    return this.http.delete<{ ok: boolean }>(`${BASE}/mailer/templates/${id}`);
+  }
+  sendMailer(p: {
+    subject: string; body_html: string; audience: string; industry?: string;
+    recipients: { kind: string; id: number; contact_id?: number | null; reply_to_recipient_id?: number; email?: string; name?: string }[];
+    sender_id?: string; template_id?: number;
+  }): Observable<{ ok: boolean; send_id: number; total: number; sent: number; failed: number; skipped: number }> {
+    return this.http.post<{ ok: boolean; send_id: number; total: number; sent: number; failed: number; skipped: number }>(
+      `${BASE}/mailer/send`, p);
+  }
+  /** Every email the Mailer produced, grouped by send batch, newest batch
+   *  first and paged by batch. Filters apply to the emails; a batch is
+   *  listed only while at least one of its emails matches. */
+  listMailerSent(p: { q?: string; status?: string; kind?: string; outcome?: string; page?: number; per_page?: number }):
+      Observable<{ groups: MailerSentGroup[]; total: number; batches: number; page: number; pages: number; per_page: number;
+                   summary: { sent: number; failed: number; skipped: number; positive: number } }> {
+    let hp = new HttpParams();
+    if (p.q) hp = hp.set('q', p.q);
+    if (p.status) hp = hp.set('status', p.status);
+    if (p.kind) hp = hp.set('kind', p.kind);
+    if (p.outcome) hp = hp.set('outcome', p.outcome);
+    if (p.page) hp = hp.set('page', String(p.page));
+    if (p.per_page) hp = hp.set('per_page', String(p.per_page));
+    return this.http.get<any>(`${BASE}/mailer/sent`, { params: hp });
+  }
+  mailerOverview(): Observable<MailerOverviewData> {
+    return this.http.get<MailerOverviewData>(`${BASE}/mailer/overview`);
+  }
+  mailerOutcomes(): Observable<{ outcomes: MailerOutcome[] }> {
+    return this.http.get<{ outcomes: MailerOutcome[] }>(`${BASE}/mailer/outcomes`);
+  }
+  /** Set (or clear, with null) the after-delivery outcome on one or more emails. */
+  setMailerOutcome(ids: number[], outcome: string | null): Observable<{ ok: boolean; updated: number; outcome: string | null }> {
+    return this.http.put<{ ok: boolean; updated: number; outcome: string | null }>(`${BASE}/mailer/sent/outcome`, { ids, outcome });
+  }
+  /** Earlier log rows turned into composer recipients for a follow-up. */
+  mailerFollowup(ids: number[]): Observable<{
+    recipients: MailerRecipient[]; total: number; subject: string | null;
+    missing: { recipient_id: number; email: string; name: string | null }[];
+  }> {
+    return this.http.get<any>(`${BASE}/mailer/followup`, { params: new HttpParams().set('ids', ids.join(',')) });
+  }
+  getMailerSentEmail(id: number): Observable<{ email: MailerSentEmailDetail }> {
+    return this.http.get<{ email: MailerSentEmailDetail }>(`${BASE}/mailer/sent/${id}`);
+  }
+
+  /** Promote consolidated Lead Gen rows. Each group carries every record that
+   *  merged into it, so the company disappears from Lead Gen AND from each
+   *  source page it came from. */
+  promoteLeadgenBulk(groups: { members: UnifiedLeadMember[] }[]):
+      Observable<{ ok: boolean; promoted: number; lead_ids: number[]; errors: { group: number; error: string }[] }> {
+    return this.http.post<{ ok: boolean; promoted: number; lead_ids: number[]; errors: { group: number; error: string }[] }>(
+      `${BASE}/company-leads/promote-bulk`, { groups });
   }
   promoteCompanyLead(id: number): Observable<{ ok: boolean; lead_id: number }> {
     return this.http.post<{ ok: boolean; lead_id: number }>(`${BASE}/company-leads/${id}/promote`, {});

@@ -81,7 +81,7 @@ const BLANK_DRAFT = (): NewModelDraft => ({
 
         <section class="card">
           <h2>Companies House crawler</h2>
-          <p class="muted small">Stage 3 (Google Business profiles) uses the official <strong>Google Places API</strong>. Paste a Google Maps Platform API key with the <em>Places API (New)</em> enabled and billing on — the $200/month Maps credit keeps typical use free, and you can set a budget cap so it never charges. Stored server-side and shown as <code>••••••••</code> once set.</p>
+          <p class="muted small">Used by Stage 3 (Google Business profiles) <strong>and</strong> the Lead Gen &rarr; Google source. Paste a Google Maps Platform API key with <em>Places API (New)</em> enabled and billing on. Both call Text Search asking for phone + website, which Google bills as its <strong>Enterprise</strong> tier: <strong>1,000 free calls a month</strong>, then about $35 per 1,000. One call returns up to 20 businesses, so the free tier covers roughly 20,000 records a month. Set a budget cap in Google Cloud so it can never surprise you. (Google retired the old $200/month Maps credit in March 2025 — allowances are now per product.) Stored server-side and shown as <code>••••••••</code> once set.</p>
           <label>Google Maps API key</label>
           <input
             type="password"

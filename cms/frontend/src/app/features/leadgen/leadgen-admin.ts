@@ -860,11 +860,15 @@ export class LeadgenAdmin {
             ? { ...cur, running: true }
             : { checked: 0, enriched: 0, found: { directors: 0, industry: 0, address: 0, website: 0, phone: 0, email: 0, linkedin: 0, staff: 0 }, running: true });
           this.startChDirectorPolling();
+        } else if (this.chFetching()) {
+          // Fetch is in-flight but server hasn't written a running job yet
+          // (early window OR the job's already flipped to 'done' from a
+          // previous run that we haven't cleared). Keep the polling loop
+          // going + hold the "starting…" state we set on click; the next
+          // few polls will pick up the new running job.
         } else {
-          // Worker finished (or never ran). Clear progress + stop the
-          // polling timer. Don't clobber `running` if a Qualify pass
-          // is legitimately running — only unset it if we were the ones
-          // asserting it via the director job path.
+          // No fetch in-flight AND no running job. Clear the bar +
+          // stop polling.
           if (this.chProgress()?.done === false && (!dj || dj.status !== 'running')) {
             this.chProgress.set(null);
             const cur = this.chLastRun();
@@ -1252,7 +1256,25 @@ export class LeadgenAdmin {
     this.chFetchMsg.set(null);
     this.chFetching.set(true);
     this.chActive.set(1);        // light up Stage 1 on the dashboard
-    this.chProgress.set(null);   // single call — no chunk progress
+
+    // Show the "starting…" state on the progress bar IMMEDIATELY —
+    // before any server response. The server takes a few hundred ms to
+    // insert companies + write `director_job='running'`, and we don't
+    // want the bar to sit idle in that window. Progress numbers stay
+    // 0/0 until the first pipeline poll fills them in; the running flag
+    // + null-progress combo renders as an indeterminate animated bar.
+    this.chProgress.set(null);
+    const cur = this.chLastRun();
+    this.chLastRun.set(cur
+      ? { ...cur, running: true }
+      : { checked: 0, enriched: 0, found: { directors: 0, industry: 0, address: 0, website: 0, phone: 0, email: 0, linkedin: 0, staff: 0 }, running: true });
+
+    // Start polling the pipeline endpoint. Delay the FIRST call by 1s
+    // so the server has committed the job state before we read it;
+    // subsequent polls run every 3s via the interval.
+    setTimeout(() => this.loadChPipeline(), 1000);
+    this.startChDirectorPolling();
+
     this.api.chFetchCompanies({
       days:   this.chDays,
       limit:  this.chLimit,
@@ -1266,12 +1288,13 @@ export class LeadgenAdmin {
           `Added ${r.inserted} new compan${r.inserted === 1 ? 'y' : 'ies'} ` +
           `(${r.skipped} already stored, ${r.fetched} fetched).`
         );
-        this.loadChPipeline();
+        this.loadChPipeline();   // final refresh; polling continues until job is 'done'
       },
       error: e => {
         this.chFetching.set(false);
         this.chActive.set(null);
         this.chError.set(e?.error?.error || 'Fetch failed.');
+        this.stopChDirectorPolling();
       },
     });
   }

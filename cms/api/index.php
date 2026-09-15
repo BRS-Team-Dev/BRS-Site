@@ -35,7 +35,7 @@ $contractorAllow = [
     'public-hr-onboarding', 'public-recruitment-onboarding',
     'public-recruitment-apply', 'public-recruitment-client',
     'public-recruitment-contact', 'public-survey', 'public-tenant-signup',
-    'public-site-preview', 'public-lead-booking',
+    'public-site-preview', 'public-lead-booking', 'public-page-view',
 ];
 if ($first !== '' && !in_array($first, $contractorAllow, true)) {
     $hdr = $_SERVER['HTTP_AUTHORIZATION'] ?? '';
@@ -70,6 +70,9 @@ try {
         case 'settings':
             (require __DIR__ . '/routes/settings.php')($method, $segs);
             break;
+        case 'graph-users':
+            (require __DIR__ . '/routes/graph_users.php')($method, $segs);
+            break;
         case 'themes':
             (require __DIR__ . '/routes/themes.php')($method, $segs);
             break;
@@ -93,6 +96,9 @@ try {
             break;
         case 'newsletter':
             (require __DIR__ . '/routes/newsletter.php')($method, $segs);
+            break;
+        case 'mailer':
+            (require __DIR__ . '/routes/mailer.php')($method, $segs);
             break;
         case 'tenders':
             (require __DIR__ . '/routes/tenders.php')($method, $segs);
@@ -184,6 +190,12 @@ try {
             break;
         case 'public-lead-booking':
             (require __DIR__ . '/routes/public_lead_booking.php')($method, $segs);
+            break;
+        case 'public-page-view':
+            (require __DIR__ . '/routes/public_page_view.php')($method, $segs);
+            break;
+        case 'page-views':
+            (require __DIR__ . '/routes/page_views.php')($method, $segs);
             break;
         case 'site-previews':
             (require __DIR__ . '/routes/site_previews.php')($method, $segs);

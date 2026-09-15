@@ -85,19 +85,36 @@ import { environment } from '@env/environment';
             to keep the value already stored.
           </p>
 
-          <label>Organiser (email OR Object ID GUID)</label>
-          <input [(ngModel)]="teamsOrganizer" name="tor"
-                 placeholder="sean.dzwairo@builtrightstudio.com  —  or  —  748d2cbb-3b55-40ed-8c34-2eae5932b22a" />
-          <p class="muted small">
-            The M365 user whose calendar the auto-created meetings land on.
-            Must have a Teams-enabled licence.<br>
-            <strong>Recommended:</strong> paste the user's <em>Object ID</em>
-            (a GUID) rather than the email — Graph's onlineMeetings
-            endpoint needs a GUID, and pasting one skips an internal
-            lookup that would need an extra <code>User.Read.All</code>
-            Graph permission. Get the GUID from Entra ID → Users →
-            click the user → <em>Object ID</em>.
-          </p>
+          <label>Organiser</label>
+          @if (graphUsersLoading()) {
+            <p class="muted small">Loading team members from Microsoft 365…</p>
+          } @else if (graphUsers().length > 0) {
+            <select [(ngModel)]="teamsOrganizer" name="tor">
+              <option value="">— pick a team member —</option>
+              @for (u of graphUsers(); track u.id) {
+                <option [value]="u.id">{{ u.displayName }} · {{ u.mail }}</option>
+              }
+            </select>
+            <p class="muted small">
+              Pulled live from your Microsoft 365 tenant. The ObjectId is
+              stored under the hood (Graph's onlineMeetings endpoint needs
+              a GUID, not an email) — pick the person by name here and the
+              rest is automatic.
+            </p>
+          } @else {
+            <input [(ngModel)]="teamsOrganizer" name="tor"
+                   placeholder="sean.dzwairo@builtrightstudio.com  —  or  —  748d2cbb-3b55-40ed-8c34-2eae5932b22a" />
+            @if (graphUsersError()) {
+              <p class="error-msg small">{{ graphUsersError() }}</p>
+            } @else {
+              <p class="muted small">
+                Paste an email or ObjectId GUID. To get a dropdown of your
+                team here, grant the <code>User.Read.All</code> Application
+                permission to the Azure app (Entra ID → App registrations
+                → your app → API permissions).
+              </p>
+            }
+          }
 
           <div class="actions">
             <button class="primary" (click)="saveTeams()" [disabled]="savingT()">
@@ -162,9 +179,37 @@ export class SettingsBookings {
   savedT  = signal(false);
   errorT  = signal<string | null>(null);
 
+  // Live org-member list from Microsoft Graph — powers the Organiser
+  // dropdown. Empty + no error = permission not granted yet (falls back
+  // to the free-text input); non-empty = dropdown shown.
+  graphUsers        = signal<Array<{ id: string; displayName: string; mail: string; userPrincipalName: string; jobTitle: string | null }>>([]);
+  graphUsersLoading = signal(false);
+  graphUsersError   = signal<string | null>(null);
+
   private secretIsSet = false;
 
+  private loadGraphUsers() {
+    // Pull the tenant's user list. Silently degrades to the free-text
+    // input path when Graph isn't configured OR the User.Read.All
+    // permission isn't granted (both cases return an empty list / a
+    // clear 502 message from the backend).
+    this.graphUsersLoading.set(true);
+    this.graphUsersError.set(null);
+    this.http.get<{ users: any[]; count: number; note?: string }>(`${this.BASE}/graph-users`).subscribe({
+      next: r => {
+        this.graphUsers.set(r.users || []);
+        this.graphUsersLoading.set(false);
+      },
+      error: e => {
+        this.graphUsersError.set(e?.error?.error || 'Could not load team members.');
+        this.graphUsers.set([]);
+        this.graphUsersLoading.set(false);
+      },
+    });
+  }
+
   ngOnInit() {
+    this.loadGraphUsers();
     this.http.get<{ settings: Record<string, string> }>(`${this.BASE}/settings`).subscribe({
       next: r => {
         const s = r.settings || {};

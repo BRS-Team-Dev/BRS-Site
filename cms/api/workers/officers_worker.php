@@ -119,14 +119,16 @@ for ($k = 0; $k < count($nums); $k += $CHUNK) {
 // if this write fails, worst case the frontend keeps polling and eventually
 // notices the director count stopped moving.
 try {
-    $existing = $pdo->query("SELECT v FROM settings WHERE k = 'ch_director_job'")->fetchColumn();
-    $state = is_string($existing) ? (json_decode($existing, true) ?: []) : [];
+    $existing = $pdo->prepare("SELECT v FROM settings WHERE tenant_id = ? AND k = 'ch_director_job'");
+    $existing->execute([$tid]);
+    $raw = $existing->fetchColumn();
+    $state = is_string($raw) ? (json_decode($raw, true) ?: []) : [];
     $state['status']   = $errors > 0 && $inserted === 0 ? 'error' : 'done';
     $state['done_at']  = date('c');
     $state['inserted'] = $inserted;
     $state['errors']   = $errors;
-    $pdo->prepare("INSERT INTO settings (k, v) VALUES ('ch_director_job', ?)
-        ON DUPLICATE KEY UPDATE v = VALUES(v)")->execute([json_encode($state)]);
+    $pdo->prepare("INSERT INTO settings (tenant_id, k, v) VALUES (?, 'ch_director_job', ?)
+        ON DUPLICATE KEY UPDATE v = VALUES(v)")->execute([$tid, json_encode($state)]);
 } catch (\Throwable $e) {
     error_log('[officers_worker] job state update failed: ' . $e->getMessage());
 }

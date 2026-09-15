@@ -125,6 +125,10 @@ import { environment } from '@env/environment';
                   <span class="icon">in</span> LinkedIn
                 </a>
 
+                <a routerLink="/admin/leadgen/google" routerLinkActive="active">
+                  <span class="icon">◎</span> Google
+                </a>
+
                 <!-- Any user-defined main sections pinned under Lead Gen. -->
                 @for (c of childrenOfBuiltin('leadgen'); track c.id) {
                   <a [routerLink]="childLinkPath(c)" [class.active]="isChildLinkActive(c)">
@@ -251,6 +255,28 @@ import { environment } from '@env/environment';
                 </div>
               }
             </div>
+          </div>
+        </div>
+
+        <!-- Mailer — targeted messages to a filtered slice of leads/clients.
+             Sits beside Newsletter, which is the broadcast tool. -->
+        <div class="nav-group" [class.open]="isGroupOpen('mailer', isMailerGroupActive())">
+          <a routerLink="/admin/mailer" [class.active]="isMailerActive()">
+            <span class="icon">◫</span> Mailer
+            <span class="caret" (click)="toggleCaret('mailer', $event)">›</span>
+          </a>
+          <div class="children">
+            <a routerLink="/admin/mailer/compose" routerLinkActive="active">
+              <span class="icon">✎</span> Compose
+            </a>
+            <!-- Sent emails - every message the Mailer produced, one row per
+                 recipient, searchable by address / subject. -->
+            <a routerLink="/admin/mailer/sent" routerLinkActive="active">
+              <span class="icon">✉</span> Sent emails
+            </a>
+            <a routerLink="/admin/mailer/templates" routerLinkActive="active">
+              <span class="icon">❏</span> Templates
+            </a>
           </div>
         </div>
 
@@ -548,6 +574,14 @@ export class SideNav {
     const url = this.currentUrl();
     return url.startsWith('/admin/leadgen') || url.startsWith('/admin/leads/import');
   };
+  /** Mailer parent is the overview page and highlights only there; the
+   *  Compose and Sent emails children light their own rows. The group stays
+   *  open on any of the three. */
+  isMailerActive = (): boolean => {
+    const url = this.currentUrl();
+    return url === '/admin/mailer' || url.startsWith('/admin/mailer?');
+  };
+  isMailerGroupActive = (): boolean => this.currentUrl().startsWith('/admin/mailer');
   isNewsletterActive = (): boolean => {
     const url = this.currentUrl();
     return url === '/admin/newsletter' || url.startsWith('/admin/newsletter/') || url.startsWith('/admin/newsletter?');

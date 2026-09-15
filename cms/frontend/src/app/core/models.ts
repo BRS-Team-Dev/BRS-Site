@@ -265,6 +265,9 @@ export interface Client {
   url?: string | null;
   notes?: string | null;
   is_recruitment_client?: 0 | 1 | boolean;
+  /** Total tracked-link views across all pages (page_views, migration 164).
+   *  Present on list responses only; 0 when never viewed. */
+  views?: number;
   created_at?: string;
   updated_at?: string;
 }
@@ -279,6 +282,9 @@ export type LeadStatus = 'new' | 'prospect' | 'dead' | 'converted';
 
 export interface Lead {
   id?: number;
+  /** Total tracked-link views across all pages (page_views, migration 164).
+   *  Present on list responses only; 0 when never viewed. */
+  views?: number;
   name: string;
   email?: string | null;
   phone?: string | null;
@@ -475,6 +481,22 @@ export interface UnifiedLead {
   p_li?: number;
   p_email?: number;
   p_phone?: number;
+  /** Every record that consolidated into this row — one company can have been
+   *  found by several methods, and promoting must clear all of them. */
+  members?: UnifiedLeadMember[];
+  member_count?: number;
+  /** Every acquisition method that found this company. `source_label` is the
+   *  first of these, kept for the single-source display case. */
+  source_labels?: string[];
+  /** Set when this row's name matches other companies that carry different
+   *  company numbers, so it was deliberately NOT merged into any of them. */
+  ambiguous_name?: number;
+}
+
+export interface UnifiedLeadMember {
+  origin: 'company_lead' | 'lead';
+  id: number;
+  source_label: string;
 }
 /** Source-method summary for the Lead Gen filter (grouped by friendly label). */
 export interface UnifiedLeadSource { label: string; count: number; }
@@ -3046,4 +3068,150 @@ export interface SuperAuditEntry {
   ip: string | null;
   created_at: string;
   detail: string | null;
+}
+
+/* ───── Mailer (163) ─────────────────────────────────────────────
+ * Targeted messages to a filtered slice of leads + clients, with
+ * per-recipient placeholder substitution and reusable templates. */
+
+export interface MailerRecipient {
+  /** 'manual' = a one-off address typed into the composer; id is 0 and
+   *  the row's identity is its email. */
+  kind: 'lead' | 'client' | 'manual';
+  id: number;
+  name: string | null;
+  email: string;
+  company: string | null;
+  industry: string | null;
+  /** The person the greeting tokens resolve to — a director or named contact
+   *  off lead_contacts / client_contacts. Empty when the record has none, in
+   *  which case the person tokens render blank rather than falling back to
+   *  the company name. */
+  contact_name?: string;
+  job_title?: string;
+  /** Which contact row this recipient is; null when targeting the record's
+   *  own inbox. Part of the row identity — one record can appear several
+   *  times, once per person. */
+  contact_id?: number | null;
+  has_person?: number;
+  /** Named person, but no address of their own, so the message lands in the
+   *  record's shared inbox rather than their mailbox. */
+  via_company_inbox?: number;
+  /** On the global unsubscribe list — shown, but never selectable. */
+  suppressed?: number;
+  /** Follow-up mode only: the earlier log row this message answers. The
+   *  server addresses the follow-up to that row's logged email, whatever
+   *  the record holds now. */
+  reply_to_recipient_id?: number;
+  orig_subject?: string;
+  orig_send_id?: number;
+  orig_status?: string;
+  orig_outcome?: string | null;
+}
+
+export interface MailerPlaceholder {
+  /** Literal token to insert, e.g. '{{first_name}}'. */
+  token: string;
+  key: string;
+  label: string;
+  /** Whether the token resolves for that audience; blank when it does not. */
+  leads: boolean;
+  clients: boolean;
+  /** Needs a named contact on the record to resolve to anything. */
+  person?: boolean;
+}
+
+export interface MailerTemplate {
+  id: number;
+  name: string;
+  subject: string;
+  body_html: string | null;
+  created_at?: string;
+  updated_at?: string;
+  /** Sends started from this template (mailer_sends.template_id). */
+  uses?: number;
+  last_used_at?: string | null;
+}
+
+/** GET /api/mailer/overview - the Mailer landing page numbers. */
+export interface MailerOverviewData {
+  totals: {
+    emails: number; sent: number; failed: number; skipped: number;
+    follow_ups: number; awaiting_outcome: number; unique_addresses: number;
+    sends: number; templates: number; last_sent_at: string | null;
+    last_7_days: number; previous_7_days: number;
+  };
+  link_views: { views: number; records: number };
+  /** Last 30 days, oldest first, every day present. */
+  days: { day: string; sent: number; failed: number }[];
+  outcomes: { key: string; label: string; count: number }[];
+  recent: {
+    id: number; subject: string; audience: string; industry: string | null;
+    parent_send_id: number | null; created_at: string; total: number;
+    sent_count: number; failed_count: number; skipped_count: number; sent_by: string | null;
+  }[];
+}
+
+/** After-delivery outcome vocabulary, from GET /api/mailer/outcomes. */
+export interface MailerOutcome {
+  key: string;
+  label: string;
+}
+
+/** One individual email the Mailer produced - a `mailer_send_recipients`
+ *  row. `status` is the delivery result and never changes; `outcome` is
+ *  what happened afterwards (replied, interested, ...) and is set by hand
+ *  or to 'followed_up' automatically when a follow-up goes out. */
+export interface MailerSentEmail {
+  id: number;
+  send_id: number;
+  entity_type: 'lead' | 'client' | 'manual';
+  /** Null once the lead/client has been deleted - the log outlives the record. */
+  entity_id: number | null;
+  email: string;
+  name: string | null;
+  status: 'sent' | 'failed' | 'skipped';
+  error: string | null;
+  outcome: string | null;
+  outcome_at: string | null;
+  /** Set when this email was itself a follow-up to an earlier one. */
+  follow_up_of_recipient_id: number | null;
+  /** How many later emails follow this one up. */
+  follow_ups: number;
+  created_at: string;
+  /** Rendered per-recipient subject where stored, else the batch subject. */
+  subject: string;
+}
+
+/** One send batch (a `mailer_sends` row) with the emails under it that
+ *  match the current filter. */
+export interface MailerSentGroup {
+  id: number;
+  subject: string;
+  audience: string;
+  industry: string | null;
+  parent_send_id: number | null;
+  parent_subject: string | null;
+  created_at: string;
+  total: number;
+  sent_count: number;
+  failed_count: number;
+  skipped_count: number;
+  sent_by: string | null;
+  emails: MailerSentEmail[];
+}
+
+export interface MailerSentEmailDetail extends MailerSentEmail {
+  /** The rendered copy this recipient got where stored (is_rendered = 1),
+   *  else the template as authored with placeholders un-substituted. */
+  body_html: string | null;
+  is_rendered: number;
+  audience: string;
+  industry: string | null;
+  parent_send_id: number | null;
+  total: number;
+  sent_count: number;
+  failed_count: number;
+  skipped_count: number;
+  sent_by: string | null;
 }

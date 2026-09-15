@@ -1,6 +1,7 @@
 import { Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Api } from '../../core/api';
+import { DialogService } from '../../core/dialog';
 import { CompanyLeadDetail, UnifiedLead, UnifiedLeadSource } from '../../core/models';
 
 /**
@@ -31,7 +32,19 @@ import { CompanyLeadDetail, UnifiedLead, UnifiedLeadSource } from '../../core/mo
       <button class="ghost" (click)="reload()" [disabled]="loading()">{{ loading() ? 'Loading…' : '↻ Refresh' }}</button>
     </div>
 
-    <p class="muted small lg-sub">Every lead we hold, across all acquisition methods. The Source column shows how each one was captured. Row opens the full record.</p>
+    <p class="muted small lg-sub">Every company our acquisition methods have found, consolidated so each one appears once however many methods found it. Promoting moves a company into Leads and clears it from here and from its source lists. Bookings are not lead gen and are not listed.</p>
+
+    @if (selectedCount() > 0) {
+      <div class="lg-bulkbar">
+        <strong>{{ selectedCount() }}</strong> selected
+        <span class="muted small">({{ selectedRecordCount() }} underlying record{{ selectedRecordCount() === 1 ? '' : 's' }})</span>
+        <span class="spacer"></span>
+        <button class="ghost" (click)="clearSelection()" [disabled]="promoting()">Clear</button>
+        <button class="primary" (click)="promoteSelected()" [disabled]="promoting()">
+          {{ promoting() ? 'Promoting…' : 'Promote to Leads' }}
+        </button>
+      </div>
+    }
 
     @if (loading()) { <p class="muted">Loading…</p> }
     @else if (!rows().length) { <p class="muted">No leads yet — capture some from Companies House, LinkedIn, the AI prompt, or an import.</p> }
@@ -40,13 +53,27 @@ import { CompanyLeadDetail, UnifiedLead, UnifiedLeadSource } from '../../core/mo
       <div class="table-wrap">
         <table class="data">
           <thead><tr>
-            <th>Recorded</th><th>Source</th><th>State</th><th>Company</th><th>Number</th><th>Industry</th>
+            <th class="lg-check">
+              <input type="checkbox" [checked]="allSelected()" [indeterminate]="someSelected()"
+                     (change)="toggleAll($event)" title="Select all shown" />
+            </th>
+            <th>Recorded</th><th>Source</th><th>State</th><th>Company</th><th>Number</th><th>Industry</th><th></th>
           </tr></thead>
           <tbody>
             @for (r of filtered(); track r.key) {
-              <tr class="lg-row" (click)="view(r)">
+              <tr class="lg-row" [class.is-selected]="isSelected(r)" (click)="view(r)">
+                <td class="lg-check" (click)="$event.stopPropagation()">
+                  <input type="checkbox" [checked]="isSelected(r)" (change)="toggle(r)" />
+                </td>
                 <td class="lg-date">{{ recordedDate(r) }}</td>
-                <td><span class="src-chip" [style.--c]="sourceColor(r.source_label)">{{ r.source_label }}</span></td>
+                <td class="lg-sources">
+                  @for (s of labelsOf(r); track s) {
+                    <span class="src-chip" [style.--c]="sourceColor(s)">{{ s }}</span>
+                  }
+                  @if (r.ambiguous_name) {
+                    <span class="lg-warn" title="Another company shares this name but has a different company number, so this record was left unmerged.">!</span>
+                  }
+                </td>
                 <td class="cl-info-icons">
                   <div class="cl-ic-row" title="Company: address · website · LinkedIn · email · phone">
                     <svg class="cl-ic-lead" viewBox="0 0 24 24"><title>Company</title><path [attr.d]="leadCompanyPath" /></svg>
@@ -63,9 +90,17 @@ import { CompanyLeadDetail, UnifiedLead, UnifiedLeadSource } from '../../core/mo
                     }
                   </div>
                 </td>
-                <td><strong>{{ r.company || r.name }}</strong></td>
+                <td>
+                  <strong>{{ r.company || r.name }}</strong>
+                  @if ((r.member_count || 1) > 1) {
+                    <span class="lg-merged" [title]="mergedTitle(r)">{{ r.member_count }} records</span>
+                  }
+                </td>
                 <td>{{ r.company_number || '—' }}</td>
                 <td class="lg-industry" [title]="r.industry || ''">{{ r.industry || '—' }}</td>
+                <td class="lg-actions" (click)="$event.stopPropagation()">
+                  <button class="ghost small" (click)="promoteOne(r)" [disabled]="promoting()">Promote</button>
+                </td>
               </tr>
             }
           </tbody>
@@ -143,6 +178,40 @@ import { CompanyLeadDetail, UnifiedLead, UnifiedLeadSource } from '../../core/mo
   styles: [`
     :host { display: block; padding: 20px; }
     .lg-sub { margin: -4px 0 14px; }
+
+    /* Bulk action bar — only rendered while something is selected. */
+    .lg-bulkbar {
+      display: flex; align-items: center; gap: 10px; flex-wrap: nowrap;
+      padding: 10px 14px; margin: 0 0 12px;
+      background: var(--bg-2); border: 1px solid var(--primary);
+      border-radius: var(--radius-sm);
+    }
+    .lg-bulkbar .spacer { flex: 1; }
+    .lg-bulkbar button { white-space: nowrap; }
+
+    .lg-check { width: 34px; text-align: center; }
+    .lg-check input { cursor: pointer; }
+    .lg-row.is-selected { outline: 1px solid var(--primary); outline-offset: -1px; }
+
+    /* A consolidated row carries one chip per method that found it. */
+    .lg-sources { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+
+    .lg-merged {
+      display: inline-block; margin-left: 8px; padding: 1px 6px;
+      font-size: 10px; font-weight: 700; letter-spacing: 0.4px;
+      text-transform: uppercase; white-space: nowrap;
+      color: var(--muted); border: 1px solid var(--line); border-radius: 4px;
+    }
+
+    .lg-warn {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 16px; height: 16px; border-radius: 50%;
+      font-size: 10px; font-weight: 700; cursor: help;
+      color: var(--warning); border: 1px solid var(--warning);
+    }
+
+    .lg-actions { text-align: right; white-space: nowrap; }
+    .lg-actions button { white-space: nowrap; }
     .lg-search { flex: 0 1 240px; min-width: 140px; width: auto; }
     .lg-source { width: auto; min-width: 170px; }
 
@@ -188,6 +257,7 @@ import { CompanyLeadDetail, UnifiedLead, UnifiedLeadSource } from '../../core/mo
 })
 export class LeadgenAll {
   private api = inject(Api);
+  private dialog = inject(DialogService);
 
   readonly rows = signal<UnifiedLead[]>([]);
   readonly sources = signal<UnifiedLeadSource[]>([]);
@@ -202,7 +272,102 @@ export class LeadgenAll {
   readonly loadingDetail = signal(false);
   private readonly detailData = signal<CompanyLeadDetail | null>(null);
 
+  // Selection is by row key. Held as a new Set on every change because this
+  // app runs zoneless — mutating a Set in place would not retrigger the
+  // computeds that read it.
+  readonly selected = signal<Set<string>>(new Set());
+  readonly promoting = signal(false);
+
+  readonly selectedCount = computed(() => this.selected().size);
+  /** How many underlying records the selection covers — a consolidated row
+   *  can stand for several, and all of them get cleared on promote. */
+  readonly selectedRecordCount = computed(() =>
+    this.rows().filter(r => this.selected().has(r.key))
+      .reduce((n, r) => n + (r.member_count || 1), 0));
+
+  readonly allSelected = computed(() => {
+    const f = this.filtered();
+    return f.length > 0 && f.every(r => this.selected().has(r.key));
+  });
+  readonly someSelected = computed(() => {
+    const f = this.filtered();
+    const n = f.filter(r => this.selected().has(r.key)).length;
+    return n > 0 && n < f.length;
+  });
+
   constructor() { this.reload(); }
+
+  isSelected(r: UnifiedLead) { return this.selected().has(r.key); }
+
+  toggle(r: UnifiedLead) {
+    const next = new Set(this.selected());
+    next.has(r.key) ? next.delete(r.key) : next.add(r.key);
+    this.selected.set(next);
+  }
+
+  /** Select-all applies to what is currently FILTERED, not the whole table —
+   *  ticking the header box after filtering to "LinkedIn" should not quietly
+   *  arm 200 Companies House rows for promotion. */
+  toggleAll(ev: Event) {
+    const on = (ev.target as HTMLInputElement).checked;
+    const next = new Set(this.selected());
+    for (const r of this.filtered()) { on ? next.add(r.key) : next.delete(r.key); }
+    this.selected.set(next);
+  }
+
+  clearSelection() { this.selected.set(new Set()); }
+
+  labelsOf(r: UnifiedLead): string[] {
+    return r.source_labels?.length ? r.source_labels : [r.source_label];
+  }
+
+  mergedTitle(r: UnifiedLead): string {
+    return 'Consolidated from ' + (r.members || [])
+      .map(m => m.source_label + ' #' + m.id).join(', ');
+  }
+
+  promoteOne(r: UnifiedLead) { this.promote([r]); }
+  promoteSelected() { this.promote(this.rows().filter(r => this.selected().has(r.key))); }
+
+  private promote(targets: UnifiedLead[]) {
+    if (!targets.length || this.promoting()) return;
+
+    const records = targets.reduce((n, r) => n + (r.member_count || 1), 0);
+    const what = targets.length === 1
+      ? `"${targets[0].company || targets[0].name}"`
+      : `${targets.length} companies`;
+    const extra = records > targets.length
+      ? `\n\nThis clears ${records} records in total, including the copies held on their source lists.`
+      : '';
+
+    this.dialog.confirm(
+      `Promote ${what} to Leads?${extra}\n\nThey will be removed from Lead Gen and from the source lists they came from.`,
+      { title: 'Promote to Leads', confirmLabel: 'Promote' },
+    ).then(ok => {
+      if (!ok) return;
+      this.promoting.set(true);
+      this.error.set(null);
+      const groups = targets.map(r => ({
+        members: r.members?.length
+          ? r.members
+          : [{ origin: r.origin, id: r.id, source_label: r.source_label }],
+      }));
+      this.api.promoteLeadgenBulk(groups).subscribe({
+        next: res => {
+          this.promoting.set(false);
+          this.clearSelection();
+          if (res.errors?.length) {
+            this.error.set(`Promoted ${res.promoted} of ${groups.length}. ${res.errors[0].error}`);
+          }
+          this.reload();
+        },
+        error: e => {
+          this.promoting.set(false);
+          this.error.set(e?.error?.error || 'Promote failed.');
+        },
+      });
+    });
+  }
 
   reload() {
     this.loading.set(true);
@@ -219,7 +384,9 @@ export class LeadgenAll {
     const term = this.q().trim().toLowerCase();
     const src = this.sourceFilter();
     return this.rows().filter(r => {
-      if (src && r.source_label !== src) return false;
+      // Match ANY of the row's methods: a company found by both Companies
+      // House and LinkedIn must still appear under the LinkedIn filter.
+      if (src && !(r.source_labels?.length ? r.source_labels : [r.source_label]).includes(src)) return false;
       if (!term) return true;
       return (r.company || '').toLowerCase().includes(term)
         || (r.name || '').toLowerCase().includes(term)

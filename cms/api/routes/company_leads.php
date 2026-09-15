@@ -1321,8 +1321,11 @@ return function (string $method, array $segs): void {
             // companies have none), so `total` is an upper bound not the
             // final target. Frontend uses it as the denominator for the
             // progress bar and clears when status transitions to 'done'.
-            $pdo->prepare('INSERT INTO settings (k, v) VALUES (?, ?)
+            // settings has a composite (tenant_id, k) key with FK to tenants
+            // so the write MUST include tenant_id.
+            $pdo->prepare('INSERT INTO settings (tenant_id, k, v) VALUES (?, ?, ?)
                 ON DUPLICATE KEY UPDATE v = VALUES(v)')->execute([
+                $tid,
                 'ch_director_job',
                 json_encode([
                     'status'     => 'running',
@@ -1331,21 +1334,76 @@ return function (string $method, array $segs): void {
                 ]),
             ]);
 
-            // proc_open — `exec()` is disabled on Hostinger; proc_open
-            // isn't. The trailing `&` backgrounds the child under a shell,
-            // so proc_close returns immediately (waits only on the shell,
-            // not the detached PHP worker).
-            $cmd = escapeshellcmd(PHP_BINARY) . ' '
-                 . escapeshellarg($workerPath) . ' '
-                 . (int)$tid . ' '
-                 . escapeshellarg($tmp)
-                 . ' > /dev/null 2>&1 &';
-            $proc = @proc_open($cmd, [
-                0 => ['file', '/dev/null', 'r'],
-                1 => ['file', '/dev/null', 'w'],
-                2 => ['file', '/dev/null', 'w'],
-            ], $pipes);
-            if (is_resource($proc)) proc_close($proc);
+            $isWin = stripos(PHP_OS_FAMILY, 'Win') === 0;
+            if ($isWin) {
+                // Local XAMPP path: skip the detached worker entirely and
+                // process officers inline in the same request. Windows
+                // proc_open with `start /B` is unreliable on this setup
+                // (the child silently fails and the job sticks at
+                // 'running'), and local Apache has no nginx-style 60s
+                // wall so blocking here is fine. Response takes a few
+                // seconds instead of milliseconds — acceptable tradeoff.
+                set_time_limit(0);
+                try {
+                    $keys = array_keys($insertedMap);
+                    $insC = $pdo->prepare('INSERT INTO company_lead_contacts
+                        (tenant_id, company_lead_id, first_name, last_name, position, email, verified, is_primary, sort_order)
+                        VALUES (?,?,?,?,?,?,?,?,?)');
+                    $adv  = $pdo->prepare('UPDATE company_leads SET stage=2, stage_updated_at=NOW()
+                        WHERE id = ? AND tenant_id = ?');
+                    $insertedContacts = 0;
+                    for ($ci = 0; $ci < count($keys); $ci += 40) {
+                        $slice = array_slice($keys, $ci, 40);
+                        try {
+                            $off = $chApiFetch('mode=officers&numbers=' . urlencode(implode(',', $slice)));
+                        } catch (\Throwable $e) {
+                            error_log('[company_leads.fetch inline] officers chunk fail: ' . $e->getMessage());
+                            continue;
+                        }
+                        foreach ($slice as $num) {
+                            $lid = (int)$insertedMap[$num];
+                            $people = $off[$num] ?? [];
+                            foreach ($people as $ii => $p) {
+                                $first = ($p['first'] ?? '') !== '' ? $p['first'] : (($p['last'] ?? '') !== '' ? $p['last'] : 'Director');
+                                $insC->execute([
+                                    $tid, $lid, $first,
+                                    ($p['last'] ?? '') !== '' ? $p['last'] : null,
+                                    ($p['role'] ?? '') !== '' ? $p['role'] : 'director',
+                                    null, 0, $ii === 0 ? 1 : 0, $ii,
+                                ]);
+                                $insertedContacts++;
+                            }
+                            if ($people) $adv->execute([$lid, $tid]);
+                        }
+                    }
+                    // Mark job done — mirror the worker's behaviour.
+                    $st = $pdo->prepare('SELECT v FROM settings WHERE tenant_id = ? AND k = ?');
+                    $st->execute([$tid, 'ch_director_job']);
+                    $state = json_decode((string)$st->fetchColumn(), true) ?: [];
+                    $state['status']   = 'done';
+                    $state['done_at']  = date('c');
+                    $state['inserted'] = $insertedContacts;
+                    $state['errors']   = 0;
+                    $pdo->prepare("INSERT INTO settings (tenant_id, k, v) VALUES (?, 'ch_director_job', ?)
+                        ON DUPLICATE KEY UPDATE v = VALUES(v)")->execute([$tid, json_encode($state)]);
+                } catch (\Throwable $e) {
+                    error_log('[company_leads.fetch inline] director run failed: ' . $e->getMessage());
+                }
+            } else {
+                // Unix (prod): trailing `&` under sh backgrounds it,
+                // proc_close only waits on the shell, fds go to /dev/null.
+                $cmd = escapeshellcmd(PHP_BINARY) . ' '
+                     . escapeshellarg($workerPath) . ' '
+                     . (int)$tid . ' '
+                     . escapeshellarg($tmp)
+                     . ' > /dev/null 2>&1 &';
+                $proc = @proc_open($cmd, [
+                    0 => ['file', '/dev/null', 'r'],
+                    1 => ['file', '/dev/null', 'w'],
+                    2 => ['file', '/dev/null', 'w'],
+                ], $pipes);
+                if (is_resource($proc)) proc_close($proc);
+            }
             $directorsPending = count($insertedMap);
         }
 
