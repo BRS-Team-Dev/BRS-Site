@@ -1,5 +1,6 @@
 import { Component, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { ActivatedRoute } from '@angular/router';
 import { Api } from '../../core/api';
 import { Auth } from '../../core/auth';
 import { DialogService } from '../../core/dialog';
@@ -547,6 +548,7 @@ export class Settings {
   private svc = inject(SettingsService);
   private auth = inject(Auth);
   private dialog = inject(DialogService);
+  private route = inject(ActivatedRoute);
   theme = inject(ThemeService);
 
   // Exposed to the template so the @for can iterate.
@@ -838,6 +840,13 @@ export class Settings {
 
   ngOnInit() {
     window.addEventListener('settings:go-tab', this.onGoTab);
+    // Deep link: /admin/settings?tab=bookings (used by the Email tab's
+    // "Configure" link to the Microsoft 365 card, and by the side nav).
+    // Unknown values fall through to the General tab.
+    this.route.queryParamMap.subscribe(q => {
+      const tab = q.get('tab') as TabKey | null;
+      if (tab && this.tabs.some(t => t.key === tab)) this.active.set(tab);
+    });
     this.svc.load().subscribe(r => {
       this.s = { ...r.settings };
       this.loaded.set(true);
