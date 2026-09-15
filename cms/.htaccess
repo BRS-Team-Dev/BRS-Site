@@ -4,6 +4,10 @@ RewriteBase /builtrightstudio/cms/
 # /api/* → PHP front controller
 RewriteRule ^api(/.*)?$ api/index.php [L,QSA]
 
+# Server-side only: storage/ (PHP error log), dotfiles (.env), db/, scripts/.
+RewriteRule ^(storage|db|scripts)(/|$) - [F,L]
+RewriteRule (^|/)\.(?!well-known/) - [F,L]
+
 # Already-existing files/dirs (e.g. .htaccess itself) -> serve directly
 RewriteCond %{REQUEST_FILENAME} -f [OR]
 RewriteCond %{REQUEST_FILENAME} -d

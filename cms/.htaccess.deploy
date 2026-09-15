@@ -4,6 +4,11 @@ RewriteBase /cc/
 # /api/* → PHP front controller
 RewriteRule ^api(/.*)?$ api/index.php [L,QSA]
 
+# Server-side only: storage/ (PHP error log), dotfiles (.env, .deployed_sha),
+# db/ and scripts/. The -f passthrough below would otherwise serve them.
+RewriteRule ^(storage|db|scripts)(/|$) - [F,L]
+RewriteRule (^|/)\.(?!well-known/) - [F,L]
+
 # Already-existing files/dirs at the cc root — serve directly
 RewriteCond %{REQUEST_FILENAME} -f [OR]
 RewriteCond %{REQUEST_FILENAME} -d
