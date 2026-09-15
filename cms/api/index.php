@@ -45,7 +45,15 @@ if ($first !== '' && !in_array($first, $contractorAllow, true)) {
     }
     if (preg_match('/^Bearer\s+(.+)$/i', $hdr, $m)) {
         $claims = \BRS\Auth::verifyToken(trim($m[1]));
-        if ($claims) \BRS\Auth::requireNonContractor($claims);
+        // requireNonContractor hits the DB; this gate runs before the main
+        // try below, so without its own catch a connection failure here is
+        // an uncaught fatal -> empty 500 that the client can't interpret.
+        try {
+            if ($claims) \BRS\Auth::requireNonContractor($claims);
+        } catch (\Throwable $e) {
+            error_log('[API] ' . $e->getMessage() . "\n" . $e->getTraceAsString());
+            \BRS\Json::fail('Server error: ' . $e->getMessage(), 500);
+        }
     }
 }
 
