@@ -38,8 +38,11 @@ final class Db
                 return self::$pdo;
             } catch (\PDOException $e) {
                 $transient = strpos($e->getMessage(), '[2002]') !== false;
-                if (!$transient || ++$attempt >= 3) throw $e;
-                usleep($attempt === 1 ? 100_000 : 250_000);
+                if (!$transient || ++$attempt >= 4) throw $e;
+                // 150 ms, 500 ms, 1.2 s: a slow answer beats a 500 to the client.
+                $wait = [1 => 150_000, 2 => 500_000, 3 => 1_200_000][$attempt];
+                error_log(sprintf('[Db] transient connect failure (attempt %d, retry in %d ms): %s', $attempt, intdiv($wait, 1000), $e->getMessage()));
+                usleep($wait);
             }
         }
     }
